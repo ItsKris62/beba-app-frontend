@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 9c89d630699fe0f4431a96c720d72b2bf39dd38f Christopher Rateng <crateng13@gmail.com> 1776627384 +0300	commit (initial): feat(frontend): full RBAC UI, KYC review queue & staff user management
+9c89d630699fe0f4431a96c720d72b2bf39dd38f dcb493d78a1dcb696d5ba5ab025d83af9fed4ed0 Christopher Rateng <crateng13@gmail.com> 1776628812 +0300	commit: feat(frontend): full RBAC UI, KYC review queue & staff user management
+dcb493d78a1dcb696d5ba5ab025d83af9fed4ed0 fbf254b22b41e0250f14cc9d6cf6b23cb7aa3058 Christopher Rateng <crateng13@gmail.com> 1776704782 +0300	commit: feat(sprint1): admin onboarding queue, location selector, applications API client
+fbf254b22b41e0250f14cc9d6cf6b23cb7aa3058 d1d72479974493dc4489dacedbf0455ed7effc16 Christopher Rateng <crateng13@gmail.com> 1776755394 +0300	commit: feat(sprint3): role-based dashboards, member portal & ODPC consent UI

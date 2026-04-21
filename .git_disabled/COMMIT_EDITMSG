@@ -1,0 +1,126 @@
+feat(sprint3): role-based dashboards, member portal & ODPC consent UI
+
+Implements Sprint 3 frontend for the Beba SACCO platform: admin
+financial dashboard, member portal with repayment calendar, FOSA/BOSA
+statement viewer with server-side PDF download, and ODPC-compliant
+consent modal gate.
+
+NEW FILES
+
+lib/sprint3-api.ts
+  - Typed fetch-based API client (no axios dependency) matching the
+    existing import-api.ts pattern (localStorage token + tenantId)
+  - dashboardApi: getStats(), getReports()
+  - financialImportApi: preview(file, sheetType), execute(file, sheetType)
+  - statementApi: getFosa(params), getBosa(params), downloadPdf(type, params)
+    downloadPdf uses fetch+blob to stream PDF with auth headers, then
+    triggers browser download via URL.createObjectURL  no token in URL
+  - securityApi: getConsents(), checkConsents(), acceptConsent(type),
+    listSessions(), revokeSession(id)
+  - Full TypeScript interfaces: DashboardStats, DashboardReports,
+    FosaStatement, BosaStatement, StatementTransaction, ConsentRecord,
+    SessionInfo, FinancialPreviewResponse, FinancialExecuteResponse
+
+app/admin/dashboard/page.tsx  (replaces placeholder)
+  - Role: SUPER_ADMIN, TENANT_ADMIN, MANAGER, AUDITOR
+  - 8 KPI cards: Total Members, Total Disbursed, Collection Rate,
+    Default Rate, Outstanding Balance, Total Savings, Welfare Collected,
+    Welfare Deficit  color-coded (green/yellow/red thresholds)
+  - RepaymentHeatmap component: 30-cell grid (Day 130), intensity
+    color-coded by payment volume (graygreen gradient, 5 levels)
+    with tooltip showing KES amount and payment count per day
+  - Recent Disbursements table: member number, date, principal, status
+    badge (last 6 disbursements)
+  - Stage Welfare Collections table: stageName, weekNumber, collected,
+    target, deficit (red if deficit > 0, green checkmark if met)
+  - Auto-refresh every 15 minutes (matches server cache TTL)
+  - Manual Refresh button with loading state
+  - Cache timestamp display (generatedAt + cachedUntil)
+  - Skeleton loading states for all sections
+  - Error state with Retry button
+
+app/admin/reports/page.tsx  (replaces placeholder)
+  - Role: SUPER_ADMIN, TENANT_ADMIN, MANAGER, AUDITOR
+  - PDF Export Panel: FOSA/BOSA type selector, date range inputs
+    (periodFrom/periodTo), Export PDF button  triggers server-side
+    PDF generation via statementApi.downloadPdf()
+  - Loans by Status: badge list with count and total amount per status
+    (PENDING/DISBURSED/ACTIVE/PAID_OFF/DEFAULTED/WRITTEN_OFF)
+  - Savings by Week: custom horizontal bar chart component (no external
+    chart library required) with proportional bars and KES labels
+  - Top Defaulters table: memberNumber, outstanding balance, days in
+    arrears, risk badge (LOW/MEDIUM/HIGH based on arrears thresholds
+    of 30 and 60 days)
+  - ODPC compliance notice card (blue) explaining data retention policy
+  - Skeleton loading states; error boundary
+
+app/member/dashboard/page.tsx  (replaces placeholder)
+  - Loan Balance card: outstanding amount in red (or green if paid off)
+  - Total Savings card: individual savings in green
+  - Welfare Contributions card: group welfare in blue
+  - RepaymentCalendar component: 30-day grid with 3 states:
+    * PAID: bg-green-500 text-white
+    * PENDING: bg-yellow-100 border-yellow-300
+    * MISSED: bg-red-500 text-white
+    Tooltip shows day number, amount due, status, payment date
+  - SavingsTracker component: last 8 weekly savings entries with
+    running total footer
+  - Quick Actions: links to FOSA/BOSA statement pages, direct PDF
+    download buttons for both statement types
+  - Graceful error handling: if consent not accepted, shows amber
+    banner with link to /member/statements to accept consent
+  - Loads FOSA + BOSA data in parallel via Promise.allSettled
+    (partial failure handled gracefully)
+
+app/member/statements/page.tsx  (replaces placeholder)
+  - ODPC Consent Gate: on mount, calls GET /compliance/consent/check;
+    if hasRequiredConsents=false, renders ConsentModal blocking the page
+  - ConsentModal component:
+    * Full-screen overlay (z-50)
+    * ODPC header with Kenya Data Protection Act 2019 reference
+    * Bullet list of data processing purposes
+    * Checkbox (must be checked to enable Accept button)
+    * Accepts DATA_PROCESSING + STATEMENT_EXPORT consents in sequence
+    * Footer note: Your IP address and timestamp will be recorded
+    * Subsequent logins skip modal (consent persisted in DataConsent DB)
+  - Statement Type Selector: FOSA (Loans) / BOSA (Savings) toggle
+    buttons with active state styling
+  - Date Range Filter: periodFrom + periodTo date inputs
+  - View Statement button: fetches JSON statement from API
+  - Statement Card:
+    * Header: statement type, member name, member number, period
+    * Audit hash badge (first 12 chars + ellipsis)
+    * Summary section: totals (disbursed/repaid/balance for FOSA;
+      savings/welfare for BOSA)
+    * TransactionTable: Date, Description, Debit (red), Credit (green),
+      Balance columns; alternating row backgrounds
+    * ODPC footer with full audit hash in monospace font
+  - Download PDF button: triggers statementApi.downloadPdf() with
+    current filters; 3-second loading state
+  - Error display for consent-blocked or API errors
+
+DESIGN DECISIONS
+
+- No @tanstack/react-query dependency added; uses useState/useEffect
+  with async/await matching existing codebase pattern
+- No recharts dependency added; custom CSS bar chart used in reports
+  (avoids bundle size increase; recharts can be added in Phase 4)
+- PDF download uses fetch+blob pattern (not direct URL) to include
+  Authorization and X-Tenant-ID headers securely
+- All API calls use the same apiFetch helper pattern as import-api.ts
+  (localStorage accessToken + tenantId, no global state dependency)
+- Consent modal is a local component (not a shared component) to keep
+  the consent flow self-contained and auditable per page
+
+DEPENDENCIES
+
+- No new npm packages added to frontend
+- Uses existing: shadcn/ui (Card, Badge, Button, Skeleton), Next.js
+  Link, native fetch API
+
+BREAKING CHANGES: None
+ROUTES ADDED:
+  /admin/dashboard   financial KPI dashboard (replaces placeholder)
+  /admin/reports     analytics & PDF export (replaces placeholder)
+  /member/dashboard  member portal (replaces placeholder)
+  /member/statements  FOSA/BOSA viewer with consent gate (replaces placeholder)

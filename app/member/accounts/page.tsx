@@ -1,0 +1,334 @@
+"use client"
+
+import * as React from "react"
+import { Smartphone, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react"
+import { toast } from "sonner"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { memberApi, formatCurrency, formatDateTime, generateIdempotencyKey, type MemberDashboard } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
+
+type DepositStatus = "idle" | "pending" | "success" | "failed" | "timeout"
+
+const MAX_POLL_ATTEMPTS = 12
+const POLL_INTERVAL_MS = 5000
+
+export default function AccountsPage() {
+  const { user } = useAuth()
+  const [dashboard, setDashboard] = React.useState<MemberDashboard | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  // Deposit form
+  const [phone, setPhone] = React.useState("")
+  const [amount, setAmount] = React.useState("")
+  const [depositStatus, setDepositStatus] = React.useState<DepositStatus>("idle")
+  const [checkoutId, setCheckoutId] = React.useState<string | null>(null)
+  const [isDepositing, setIsDepositing] = React.useState(false)
+
+  // F7: Use ref to track interval so we can cancel on unmount
+  const pollIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollAttemptsRef = React.useRef(0)
+
+  // Cancel polling on unmount
+  React.useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const load = async () => {
+      setIsLoading(true)
+      const res = await memberApi.getDashboard()
+      if (res.success && res.data) {
+        setDashboard(res.data)
+      }
+      setIsLoading(false)
+    }
+    load()
+  }, [])
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    pollAttemptsRef.current = 0
+  }
+
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const amountNum = parseFloat(amount)
+    if (!phone || isNaN(amountNum) || amountNum < 10) {
+      toast.error("Enter a valid phone number and amount (min KES 10)")
+      return
+    }
+    // Normalize phone: 07xx → 2547xx
+    const normalizedPhone = phone.startsWith("0")
+      ? "254" + phone.slice(1)
+      : phone.startsWith("+")
+      ? phone.slice(1)
+      : phone
+
+    setIsDepositing(true)
+    setDepositStatus("pending")
+    try {
+      const key = generateIdempotencyKey()
+      const res = await memberApi.initiateDeposit(normalizedPhone, amountNum, key)
+      if (!res.success || !res.data) {
+        toast.error(res.error?.message ?? "Failed to initiate deposit")
+        setDepositStatus("failed")
+        return
+      }
+      const cid = res.data.checkoutRequestId
+      setCheckoutId(cid)
+      toast.success(res.data.customerMessage ?? "STK Push sent! Check your phone.")
+      setDepositStatus("pending")
+      // F7: Poll /members/deposit/status/:checkoutRequestId every 5s (max 12 attempts = 60s)
+      startPolling(cid)
+    } catch {
+      toast.error("Network error. Please try again.")
+      setDepositStatus("failed")
+    } finally {
+      setIsDepositing(false)
+    }
+  }
+
+  const startPolling = (cid: string) => {
+    stopPolling()
+    pollAttemptsRef.current = 0
+
+    pollIntervalRef.current = setInterval(async () => {
+      pollAttemptsRef.current += 1
+
+      const res = await memberApi.getDepositStatus(cid)
+      if (!res.success || !res.data) {
+        // Network error during poll — keep trying
+        return
+      }
+
+      const status = res.data.status
+
+      if (status === "SUCCESS") {
+        stopPolling()
+        setDepositStatus("success")
+        toast.success("Deposit confirmed! Your FOSA balance has been updated.")
+        // Refresh dashboard balances
+        const dashRes = await memberApi.getDashboard()
+        if (dashRes.success && dashRes.data) setDashboard(dashRes.data)
+        setAmount("")
+        setPhone("")
+        return
+      }
+
+      if (status === "FAILED") {
+        stopPolling()
+        setDepositStatus("failed")
+        toast.error("M-Pesa payment was not completed. Please try again.")
+        return
+      }
+
+      // Still PENDING — check if we've exhausted attempts
+      if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
+        stopPolling()
+        setDepositStatus("timeout")
+        toast.warning("Payment status unknown. Please check your M-Pesa messages.")
+      }
+    }, POLL_INTERVAL_MS)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">My Accounts</h1>
+        <p className="text-muted-foreground">Manage your FOSA and BOSA accounts</p>
+      </div>
+
+      {/* Account Balances */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>FOSA Account</CardTitle>
+            <CardDescription>Front Office Savings Account</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Available Balance</p>
+              <p className="text-3xl font-bold text-primary">{formatCurrency(dashboard?.balances.fosa ?? 0)}</p>
+            </div>
+            <Separator />
+            <div className="text-sm text-muted-foreground">
+              Account No: <span className="font-mono font-medium text-foreground">{dashboard?.balances.fosaAccountId?.slice(0, 12).toUpperCase() ?? "—"}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>BOSA Account</CardTitle>
+            <CardDescription>Back Office Savings Account (Shares)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Share Capital</p>
+              <p className="text-3xl font-bold text-green-600">{formatCurrency(dashboard?.balances.bosa ?? 0)}</p>
+            </div>
+            <Separator />
+            <div className="text-sm text-muted-foreground">
+              Account No: <span className="font-mono font-medium text-foreground">{dashboard?.balances.bosaAccountId?.slice(0, 12).toUpperCase() ?? "—"}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* M-Pesa Deposit */}
+      <Card id="deposit">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-green-600" />
+            M-Pesa Deposit
+          </CardTitle>
+          <CardDescription>
+            Deposit funds to your FOSA account via M-Pesa STK Push
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {depositStatus === "success" ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <div className="text-center">
+                <p className="text-lg font-semibold">Deposit Successful!</p>
+                <p className="text-sm text-muted-foreground">Your FOSA balance has been updated.</p>
+              </div>
+              <Button onClick={() => setDepositStatus("idle")}>Make Another Deposit</Button>
+            </div>
+          ) : depositStatus === "timeout" ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <AlertTriangle className="h-16 w-16 text-amber-500" />
+              <div className="text-center">
+                <p className="text-lg font-semibold">Payment Status Unknown</p>
+                <p className="text-sm text-muted-foreground">
+                  Please check your M-Pesa messages to confirm if the payment went through.
+                  If debited, your balance will be updated shortly.
+                </p>
+                {checkoutId && <p className="mt-2 font-mono text-xs text-muted-foreground">Ref: {checkoutId}</p>}
+              </div>
+              <Button onClick={() => setDepositStatus("idle")}>Try Again</Button>
+            </div>
+          ) : depositStatus === "pending" && checkoutId ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <Clock className="h-16 w-16 text-amber-500 animate-pulse" />
+              <div className="text-center">
+                <p className="text-lg font-semibold">Waiting for Payment…</p>
+                <p className="text-sm text-muted-foreground">
+                  Check your phone and enter your M-Pesa PIN to complete the payment.
+                </p>
+                <p className="mt-2 font-mono text-xs text-muted-foreground">Ref: {checkoutId}</p>
+              </div>
+              <Button variant="outline" onClick={() => setDepositStatus("idle")}>Cancel</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleDeposit} className="space-y-4 max-w-sm">
+              <div className="space-y-2">
+                <Label htmlFor="phone">M-Pesa Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="0712345678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Enter the phone number registered with M-Pesa</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount (KES)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="1000"
+                  min="10"
+                  max="150000"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Minimum KES 10 · Maximum KES 150,000 per transaction</p>
+              </div>
+              {depositStatus === "failed" && (
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  Deposit failed. Please try again.
+                </div>
+              )}
+              <Button type="submit" disabled={isDepositing} className="w-full">
+                {isDepositing ? "Sending STK Push…" : "Deposit via M-Pesa"}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Transactions */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Last 5 transactions across your accounts</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const res = await memberApi.getDashboard()
+            if (res.success && res.data) setDashboard(res.data)
+          }}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {dashboard?.recentTransactions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No transactions yet</p>
+          ) : (
+            <div className="space-y-3">
+              {dashboard?.recentTransactions.map((tx) => {
+                const isCredit = ["DEPOSIT", "LOAN_DISBURSEMENT", "INTEREST_EARNED", "DIVIDEND_PAYOUT"].includes(tx.type)
+                return (
+                  <div key={tx.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="font-medium text-sm">{tx.description ?? tx.type}</p>
+                      <p className="text-xs text-muted-foreground">{formatDateTime(tx.createdAt)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${isCredit ? "text-green-600" : "text-destructive"}`}>
+                        {isCredit ? "+" : "-"}{formatCurrency(tx.amount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Bal: {formatCurrency(tx.balanceAfter)}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

@@ -264,55 +264,68 @@ function InvalidTokenCard() {
   )
 }
 
-export default function ResetPasswordPage() {
+// Inner component that uses useSearchParams — must be wrapped in Suspense
+function ResetPasswordContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
 
+  return (
+    <div className="w-full max-w-md">
+      {/* Logo */}
+      <div className="mb-8 text-center">
+        <Link href="/" className="inline-flex items-center">
+          <span className="text-2xl font-bold text-primary">KC Boda</span>
+          <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
+        </Link>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Create a new secure password
+        </p>
+      </div>
+
+      {!token ? (
+        <InvalidTokenCard />
+      ) : (
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle>Reset Password</CardTitle>
+            <CardDescription>
+              Choose a strong password for your account. The link expires in 15 minutes.
+            </CardDescription>
+          </CardHeader>
+          <ResetPasswordForm token={token} />
+        </Card>
+      )}
+
+      {/* Security Notice */}
+      <div className="mt-6 rounded-lg border bg-card p-4">
+        <div className="flex items-start gap-3">
+          <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="text-sm">
+            <p className="font-medium">Security notice</p>
+            <p className="text-muted-foreground">
+              After resetting your password, all existing sessions will be signed out.
+              You will need to sign in again on all devices.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <PublicNavbar />
 
       <main className="flex flex-1 items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 p-4 py-16">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="mb-8 text-center">
-            <Link href="/" className="inline-flex items-center">
-              <span className="text-2xl font-bold text-primary">KC Boda</span>
-              <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
-            </Link>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Create a new secure password
-            </p>
+        <React.Suspense fallback={
+          <div className="w-full max-w-md text-center text-muted-foreground">
+            Loading…
           </div>
-
-          {!token ? (
-            <InvalidTokenCard />
-          ) : (
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle>Reset Password</CardTitle>
-                <CardDescription>
-                  Choose a strong password for your account. The link expires in 15 minutes.
-                </CardDescription>
-              </CardHeader>
-              <ResetPasswordForm token={token} />
-            </Card>
-          )}
-
-          {/* Security Notice */}
-          <div className="mt-6 rounded-lg border bg-card p-4">
-            <div className="flex items-start gap-3">
-              <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-              <div className="text-sm">
-                <p className="font-medium">Security notice</p>
-                <p className="text-muted-foreground">
-                  After resetting your password, all existing sessions will be signed out.
-                  You will need to sign in again on all devices.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        }>
+          <ResetPasswordContent />
+        </React.Suspense>
       </main>
 
       <PublicFooter />

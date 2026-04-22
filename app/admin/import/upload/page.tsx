@@ -1,4 +1,4 @@
-nt to create a github repo for my frontend 'use client';
+'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';

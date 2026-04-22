@@ -117,20 +117,20 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* KPI Grid */}
-      {loading ? (
+      {loading || !stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Total Members" value={stats?.totalMembers.toLocaleString() ?? '0'} subtitle={`${stats?.activeMembers ?? 0} active`} colorClass="text-blue-600" />
-          <KpiCard title="Total Disbursed" value={fmt(stats?.totalDisbursed ?? 0)} subtitle={`${stats?.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
-          <KpiCard title="Collection Rate" value={`${stats?.collectionRate ?? 0}%`} subtitle={`${fmt(stats?.totalRepaid ?? 0)} repaid`} colorClass={(stats?.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />
-          <KpiCard title="Default Rate" value={`${stats?.defaultRate ?? 0}%`} subtitle={`${stats?.defaultedLoans ?? 0} defaulted`} colorClass={(stats?.defaultRate ?? 0) > 10 ? 'text-red-600' : 'text-green-600'} />
-          <KpiCard title="Outstanding" value={fmt(stats?.outstandingBalance ?? 0)} colorClass="text-yellow-600" />
-          <KpiCard title="Total Savings" value={fmt(stats?.totalSavings ?? 0)} colorClass="text-blue-600" />
-          <KpiCard title="Welfare Collected" value={fmt(stats?.welfareCollected ?? 0)} colorClass="text-green-600" />
-          <KpiCard title="Welfare Deficit" value={fmt(stats?.welfareDeficit ?? 0)} colorClass={(stats?.welfareDeficit ?? 0) > 0 ? 'text-red-600' : 'text-green-600'} />
+          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.activeMembers ?? 0} active`} colorClass="text-blue-600" />
+          <KpiCard title="Total Disbursed" value={fmt(stats.totalDisbursed ?? 0)} subtitle={`${stats.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
+          <KpiCard title="Collection Rate" value={`${stats.collectionRate ?? 0}%`} subtitle={`${fmt(stats.totalRepaid ?? 0)} repaid`} colorClass={(stats.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />
+          <KpiCard title="Default Rate" value={`${stats.defaultRate ?? 0}%`} subtitle={`${stats.defaultedLoans ?? 0} defaulted`} colorClass={(stats.defaultRate ?? 0) > 10 ? 'text-red-600' : 'text-green-600'} />
+          <KpiCard title="Outstanding" value={fmt(stats.outstandingBalance ?? 0)} colorClass="text-yellow-600" />
+          <KpiCard title="Total Savings" value={fmt(stats.totalSavings ?? 0)} colorClass="text-blue-600" />
+          <KpiCard title="Welfare Collected" value={fmt(stats.welfareCollected ?? 0)} colorClass="text-green-600" />
+          <KpiCard title="Welfare Deficit" value={fmt(stats.welfareDeficit ?? 0)} colorClass={(stats.welfareDeficit ?? 0) > 0 ? 'text-red-600' : 'text-green-600'} />
         </div>
       )}
 

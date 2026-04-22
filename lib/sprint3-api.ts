@@ -1,20 +1,24 @@
 /**
  * Sprint 3 – API Client
  * Wraps all Sprint 3 endpoints: dashboard, financial import, statements, security/consent
+ *
+ * Uses the same tokenStore, API_BASE, and TENANT_ID as the main api-client.ts
+ * to ensure consistent auth headers across all requests.
  */
+import { tokenStore } from './api-client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Must match api-client.ts exactly so all requests go to the same backend
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token =
-    typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
-  const tenantId =
-    typeof window !== 'undefined' ? (localStorage.getItem('tenantId') ?? '') : '';
+  // Use tokenStore (keys: beba_access_token) – NOT localStorage.getItem('accessToken')
+  const token = tokenStore.getAccess() ?? '';
 
   const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
+    'X-Tenant-ID': TENANT_ID,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
   };
 
@@ -210,10 +214,7 @@ export const statementApi = {
     type: 'FOSA' | 'BOSA',
     params?: { memberId?: string; periodFrom?: string; periodTo?: string },
   ) => {
-    const token =
-      typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
-    const tenantId =
-      typeof window !== 'undefined' ? (localStorage.getItem('tenantId') ?? '') : '';
+    const token = tokenStore.getAccess() ?? '';
     const qs = new URLSearchParams({
       type,
       ...Object.fromEntries(
@@ -222,21 +223,19 @@ export const statementApi = {
     }).toString();
     const url = `${API_BASE}/statements/export/pdf?${qs}`;
 
-    // Trigger browser download
-    const a = document.createElement('a');
-    a.href = url;
-    a.setAttribute('download', '');
-    // Add auth headers via fetch + blob
+    // Trigger browser download via fetch + blob (auth headers required)
     fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'X-Tenant-ID': tenantId,
+        'X-Tenant-ID': TENANT_ID,
       },
     })
       .then((r) => r.blob())
       .then((blob) => {
         const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
         a.href = blobUrl;
+        a.setAttribute('download', '');
         a.click();
         URL.revokeObjectURL(blobUrl);
       });
@@ -263,8 +262,8 @@ export const securityApi = {
     fetch(`${API_BASE}/auth/sessions/${sessionId}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('accessToken') ?? '' : ''}`,
-        'X-Tenant-ID': `${typeof window !== 'undefined' ? localStorage.getItem('tenantId') ?? '' : ''}`,
+        Authorization: `Bearer ${tokenStore.getAccess() ?? ''}`,
+        'X-Tenant-ID': TENANT_ID,
       },
     }),
 };

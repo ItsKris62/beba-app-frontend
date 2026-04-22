@@ -8,7 +8,7 @@
  * - Retries on 5xx (max 2 attempts)
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
 
 // ─── Standard response envelope ──────────────────────────────────────────────
@@ -616,6 +616,7 @@ export const adminApi = {
     if (params?.status) q.set('status', params.status);
     if (params?.page) q.set('page', String(params.page));
     if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.search) q.set('search', params.search ?? '');
     return apiFetch<{ data: Loan[]; meta: ApiMeta }>(`/loans?${q}`);
   },
 

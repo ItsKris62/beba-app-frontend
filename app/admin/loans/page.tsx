@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Eye, ThumbsUp, ThumbsDown, Send, RefreshCw, CreditCard } from "lucide-react"
 import { toast } from "sonner"
-import { loansApi, formatCurrency, formatDate, type Loan } from "@/lib/api-client"
+import { loansApi, adminApi, formatCurrency, formatDate, type Loan } from "@/lib/api-client"
 import { useAuth, canApproveLoans } from "@/lib/auth-context"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,15 +51,20 @@ export default function AdminLoansPage() {
 
   const loadLoans = async (p = 1) => {
     setIsLoading(true)
-    const res = await loansApi.getMyLoans({ status: statusFilter || undefined, page: p, limit: 20 })
-    if (res.success && res.data) {
-      setLoans(res.data.data ?? [])
-      setTotal(res.data.meta?.total ?? 0)
-      setPage(p)
-    } else {
-      toast.error(res.error?.message ?? "Failed to load loans")
+    try {
+      const res = await adminApi.getLoans({ status: statusFilter || undefined, page: p, limit: 20 })
+      if (res.success && res.data) {
+        setLoans(res.data.data ?? [])
+        setTotal(res.data.meta?.total ?? 0)
+        setPage(p)
+      } else {
+        toast.error(res.error?.message ?? "Failed to load loans")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error – please check your connection")
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   useEffect(() => { loadLoans(1) }, [statusFilter])

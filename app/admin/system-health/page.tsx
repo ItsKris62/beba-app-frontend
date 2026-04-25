@@ -287,7 +287,7 @@ export default function SystemHealthPage() {
 
   const fetchHealth = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1"
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api"
       // NestJS Terminus health endpoint is at /health (not under /api/v1)
       const healthUrl = apiBase.replace(/\/api\/v1\/?$/, "") + "/health"
       const res = await fetch(healthUrl, {

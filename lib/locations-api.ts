@@ -7,7 +7,7 @@
  * All calls automatically attach Authorization + X-Tenant-ID headers.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

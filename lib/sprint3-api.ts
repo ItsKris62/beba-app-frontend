@@ -8,7 +8,7 @@
 import { tokenStore } from './api-client';
 
 // Must match api-client.ts exactly so all requests go to the same backend
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {

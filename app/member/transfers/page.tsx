@@ -56,7 +56,7 @@ export default function TransfersPage() {
     try {
       const idempotencyKey = generateIdempotencyKey()
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1"}/members/transfer`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api"}/members/transfer`,
         {
           method: "POST",
           headers: {

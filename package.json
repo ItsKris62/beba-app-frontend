@@ -6,7 +6,9 @@
     "dev": "next dev --port 3002",
     "build": "next build",
     "start": "next start --port 3000",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -43,7 +45,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
-    "cypress": "^15.14.1",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
     "input-otp": "1.4.2",
@@ -63,6 +64,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
+    "cypress": "^15.14.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

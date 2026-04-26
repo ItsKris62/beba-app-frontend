@@ -12,8 +12,6 @@
   package = "netlify-plugin-cypress"
 
   [plugins.inputs]
-    start   = "npm run start"
-    wait-on = "http://localhost:3000"
     spec    = "cypress/e2e/**/*.cy.ts"
     browser = "chrome"
     record  = false

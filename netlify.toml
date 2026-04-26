@@ -13,5 +13,5 @@
 
   [plugins.inputs]
     spec    = "cypress/e2e/**/*.cy.ts"
-    browser = "chrome"
+    browser = "electron"
     record  = false

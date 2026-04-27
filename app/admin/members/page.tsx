@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users, Search, RefreshCw, Download, UserPlus, Upload,
-  Eye, MoreHorizontal, CheckCircle, XCircle, Loader2, X,
+  Eye, MoreHorizontal, CheckCircle, XCircle, Loader2, X, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { adminApi, type AdminMember } from '@/lib/api-client';
 import {
-  locationsApi, applicationsApi,
-  type County, type Constituency, type Ward,
+  locationsApi, stagesApi, applicationsApi,
+  type County, type Constituency, type Ward, type Stage,
 } from '@/lib/locations-api';
 
 // ─── Create Member Form ───────────────────────────────────────────────────────
@@ -30,7 +30,8 @@ interface CreateMemberForm {
   idNumber: string;
   phoneNumber: string;
   email: string;
-  stageName: string;
+  stageId: string;       // selected stage id (from dropdown)
+  stageNameCustom: string; // fallback free-text if no stages loaded
   position: string;
   countyId: string;
   constituencyId: string;
@@ -43,7 +44,8 @@ const EMPTY_FORM: CreateMemberForm = {
   idNumber: '',
   phoneNumber: '',
   email: '',
-  stageName: '',
+  stageId: '',
+  stageNameCustom: '',
   position: 'MEMBER',
   countyId: '',
   constituencyId: '',
@@ -73,6 +75,12 @@ function CreateMemberModal({
   const [counties, setCounties] = useState<County[]>([]);
   const [constituencies, setConstituencies] = useState<Constituency[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [loadingCounties, setLoadingCounties] = useState(false);
+  const [loadingConstituencies, setLoadingConstituencies] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [loadingStages, setLoadingStages] = useState(false);
+  const [countiesError, setCountiesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ memberNumber: string; tempPassword: string } | null>(null);
@@ -80,25 +88,70 @@ function CreateMemberModal({
   // Load counties on open
   useEffect(() => {
     if (!open) return;
-    locationsApi.getCounties().then(setCounties).catch(() => {});
+    setLoadingCounties(true);
+    setCountiesError(null);
+    locationsApi.getCounties()
+      .then(data => {
+        setCounties(data);
+        if (data.length === 0) setCountiesError('No counties found. Please ensure location data is seeded.');
+      })
+      .catch((err: unknown) => {
+        const msg = (err as { message?: string })?.message ?? 'Failed to load counties';
+        setCountiesError(msg);
+      })
+      .finally(() => setLoadingCounties(false));
   }, [open]);
 
   // Load constituencies when county changes
   useEffect(() => {
-    if (!form.countyId) { setConstituencies([]); setWards([]); return; }
-    locationsApi.getConstituencies(form.countyId).then(setConstituencies).catch(() => {});
-    setForm(f => ({ ...f, constituencyId: '', wardId: '' }));
+    if (!form.countyId) {
+      setConstituencies([]);
+      setWards([]);
+      setStages([]);
+      return;
+    }
+    setLoadingConstituencies(true);
+    locationsApi.getConstituencies(form.countyId)
+      .then(setConstituencies)
+      .catch(() => setConstituencies([]))
+      .finally(() => setLoadingConstituencies(false));
+    setForm(f => ({ ...f, constituencyId: '', wardId: '', stageId: '' }));
     setWards([]);
+    setStages([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.countyId]);
 
   // Load wards when constituency changes
   useEffect(() => {
-    if (!form.constituencyId) { setWards([]); return; }
-    locationsApi.getWards(form.constituencyId).then(setWards).catch(() => {});
-    setForm(f => ({ ...f, wardId: '' }));
+    if (!form.constituencyId) {
+      setWards([]);
+      setStages([]);
+      return;
+    }
+    setLoadingWards(true);
+    locationsApi.getWards(form.constituencyId)
+      .then(setWards)
+      .catch(() => setWards([]))
+      .finally(() => setLoadingWards(false));
+    setForm(f => ({ ...f, wardId: '', stageId: '' }));
+    setStages([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.constituencyId]);
+
+  // Load stages when ward changes
+  useEffect(() => {
+    if (!form.wardId) {
+      setStages([]);
+      return;
+    }
+    setLoadingStages(true);
+    stagesApi.list({ wardId: form.wardId, limit: 100 })
+      .then(res => setStages(res.data))
+      .catch(() => setStages([]))
+      .finally(() => setLoadingStages(false));
+    setForm(f => ({ ...f, stageId: '' }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.wardId]);
 
   const set = (field: keyof CreateMemberForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -109,6 +162,11 @@ function CreateMemberModal({
     setError(null);
     if (!form.wardId) { setError('Please select a ward'); return; }
 
+    // Determine stage name: use selected stage name or custom text
+    const stageName = form.stageId
+      ? (stages.find(s => s.id === form.stageId)?.name ?? (form.stageNameCustom.trim() || 'UNASSIGNED'))
+      : (form.stageNameCustom.trim() || 'UNASSIGNED');
+
     setLoading(true);
     try {
       // Step 1: Submit application
@@ -117,7 +175,7 @@ function CreateMemberModal({
         lastName: form.lastName.trim(),
         idNumber: form.idNumber.trim(),
         phoneNumber: form.phoneNumber.trim(),
-        stageName: form.stageName.trim() || 'UNASSIGNED',
+        stageName,
         position: form.position,
         wardId: form.wardId,
       });
@@ -144,6 +202,11 @@ function CreateMemberModal({
     setForm(EMPTY_FORM);
     setError(null);
     setSuccess(null);
+    setCounties([]);
+    setConstituencies([]);
+    setWards([]);
+    setStages([]);
+    setCountiesError(null);
     onClose();
   };
 
@@ -186,7 +249,8 @@ function CreateMemberModal({
           /* ── Form ── */
           <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
             {error && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 {error}
               </div>
             )}
@@ -239,68 +303,109 @@ function CreateMemberModal({
               <p className="text-xs text-gray-400 mt-1">If blank, a system email will be generated</p>
             </div>
 
-            {/* Stage + Position */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Stage Name</label>
-                <Input
-                  value={form.stageName}
-                  onChange={set('stageName')}
-                  placeholder="e.g. KIBOS GALYNES"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
-                <select
-                  value={form.position}
-                  onChange={set('position')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="MEMBER">Member</option>
-                  <option value="CHAIRMAN">Chairman</option>
-                  <option value="SECRETARY">Secretary</option>
-                  <option value="TREASURER">Treasurer</option>
-                </select>
-              </div>
+            {/* Position */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
+              <select
+                value={form.position}
+                onChange={set('position')}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="MEMBER">Member</option>
+                <option value="CHAIRMAN">Chairman</option>
+                <option value="SECRETARY">Secretary</option>
+                <option value="TREASURER">Treasurer</option>
+              </select>
             </div>
 
             {/* Location cascade */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-gray-700">Location *</label>
-              <select
-                value={form.countyId}
-                onChange={set('countyId')}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              >
-                <option value="">Select County…</option>
-                {counties.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
 
+              {/* County */}
+              <div>
+                {countiesError && (
+                  <div className="mb-1 flex items-center gap-1 text-xs text-amber-600">
+                    <AlertCircle className="h-3 w-3" />
+                    {countiesError}
+                  </div>
+                )}
+                <select
+                  value={form.countyId}
+                  onChange={set('countyId')}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                  required
+                  disabled={loadingCounties}
+                >
+                  <option value="">
+                    {loadingCounties ? 'Loading counties…' : counties.length === 0 ? 'No counties available' : 'Select County…'}
+                  </option>
+                  {counties.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Constituency */}
               {form.countyId && (
                 <select
                   value={form.constituencyId}
                   onChange={set('constituencyId')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   required
+                  disabled={loadingConstituencies}
                 >
-                  <option value="">Select Sub-County / Constituency…</option>
+                  <option value="">
+                    {loadingConstituencies ? 'Loading sub-counties…' : 'Select Sub-County / Constituency…'}
+                  </option>
                   {constituencies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               )}
 
+              {/* Ward */}
               {form.constituencyId && (
                 <select
                   value={form.wardId}
                   onChange={set('wardId')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   required
+                  disabled={loadingWards}
                 >
-                  <option value="">Select Ward…</option>
+                  <option value="">
+                    {loadingWards ? 'Loading wards…' : 'Select Ward…'}
+                  </option>
                   {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               )}
             </div>
+
+            {/* Stage Name */}
+            {form.wardId && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Stage Name</label>
+                {loadingStages ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Loading stages…
+                  </div>
+                ) : stages.length > 0 ? (
+                  <select
+                    value={form.stageId}
+                    onChange={set('stageId')}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select Stage (optional)…</option>
+                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <div className="space-y-1">
+                    <Input
+                      value={form.stageNameCustom}
+                      onChange={set('stageNameCustom')}
+                      placeholder="e.g. KIBOS GALYNES (no stages in this ward yet)"
+                    />
+                    <p className="text-xs text-gray-400">No stages registered for this ward. You can type a stage name or leave blank.</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-2 border-t">

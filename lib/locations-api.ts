@@ -32,6 +32,23 @@ export interface Ward {
   constituencyId: string;
 }
 
+export interface Stage {
+  id: string;
+  name: string;
+  tenantId: string;
+  createdAt: string;
+  ward: {
+    id: string;
+    name: string;
+    constituency: {
+      id: string;
+      name: string;
+      county: { id: string; name: string };
+    };
+  };
+  _count: { assignments: number };
+}
+
 export interface MemberApplication {
   id: string;
   firstName: string;
@@ -161,19 +178,38 @@ export const stagesApi = {
   list: (params?: {
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResponse<{ id: string; name: string; tenantId: string; createdAt: string }>> => {
+    countyId?: string;
+    constituencyId?: string;
+    wardId?: string;
+    search?: string;
+  }): Promise<PaginatedResponse<Stage>> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.set('page', String(params.page));
     if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.countyId) qs.set('countyId', params.countyId);
+    if (params?.constituencyId) qs.set('constituencyId', params.constituencyId);
+    if (params?.wardId) qs.set('wardId', params.wardId);
+    if (params?.search) qs.set('search', params.search);
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    return apiFetch(`/admin/stages${query}`);
+    return apiFetch<PaginatedResponse<Stage>>(`/admin/stages${query}`);
   },
 
-  create: (data: { name: string; wardId: string }) =>
-    apiFetch('/admin/stages', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: { name: string; wardId: string }): Promise<Stage> =>
+    apiFetch<Stage>('/admin/stages', { method: 'POST', body: JSON.stringify(data) }),
 
-  getOne: (id: string) =>
-    apiFetch(`/admin/stages/${id}`),
+  getOne: (id: string): Promise<Stage> =>
+    apiFetch<Stage>(`/admin/stages/${id}`),
+
+  update: (id: string, data: { name?: string; wardId?: string }): Promise<Stage> =>
+    apiFetch<Stage>(`/admin/stages/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string): Promise<{ success: boolean; message: string }> =>
+    apiFetch<{ success: boolean; message: string }>(`/admin/stages/${id}`, {
+      method: 'DELETE',
+    }),
 
   assign: (stageId: string, data: { userId: string; position?: string }) =>
     apiFetch(`/admin/stages/${stageId}/assign`, {

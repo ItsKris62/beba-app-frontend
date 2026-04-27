@@ -24,6 +24,7 @@ import {
   X,
   Building2,
   Upload,
+  MapPin,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -68,6 +69,7 @@ const ALL_ADMIN_NAV = [
   { href: "/admin/dashboard",         label: "Dashboard",      icon: LayoutDashboard, roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/members",           label: "Members",        icon: Users,           roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/members/pending",   label: "KYC Queue",      icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
+  { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/users",             label: "Staff Users",    icon: User,            roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/loans",             label: "Loan Management",icon: CreditCard,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },

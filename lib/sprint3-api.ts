@@ -163,8 +163,52 @@ export interface FinancialExecuteResponse {
 
 // ─── Dashboard API ────────────────────────────────────────────────────────────
 
+// Shape returned by the backend /admin/dashboard/stats endpoint
+interface BackendDashboardStats {
+  members: { total: number; active: number; inactive: number; pendingKyc: number };
+  loans: {
+    active: number;
+    totalOutstandingAmount: number;
+    pendingApprovals: number;
+    defaulted: number;
+    defaultRatePercent: number;
+  };
+  mpesa: {
+    deposits7d: { count: number; totalAmount: number };
+    deposits30d: { count: number; totalAmount: number };
+  };
+}
+
 export const dashboardApi = {
-  getStats: () => apiFetch<DashboardStats>('/admin/dashboard/stats'),
+  getStats: async (): Promise<DashboardStats> => {
+    const raw = await apiFetch<BackendDashboardStats>('/admin/dashboard/stats');
+    const now = new Date().toISOString();
+    const cachedUntil = new Date(Date.now() + 60_000).toISOString();
+
+    // Map backend shape → frontend DashboardStats shape
+    return {
+      totalMembers: raw.members?.total ?? 0,
+      activeMembers: raw.members?.active ?? 0,
+      totalLoansCount: (raw.loans?.active ?? 0) + (raw.loans?.defaulted ?? 0),
+      activeLoansCount: raw.loans?.active ?? 0,
+      totalDisbursed: raw.loans?.totalOutstandingAmount ?? 0,
+      totalRepaid: 0, // not provided by this endpoint
+      outstandingBalance: raw.loans?.totalOutstandingAmount ?? 0,
+      defaultedLoans: raw.loans?.defaulted ?? 0,
+      defaultRate: raw.loans?.defaultRatePercent ?? 0,
+      collectionRate: raw.loans?.defaultRatePercent != null
+        ? Math.max(0, 100 - raw.loans.defaultRatePercent)
+        : 0,
+      totalSavings: 0, // not provided by this endpoint
+      welfareCollected: 0,
+      welfareDeficit: 0,
+      recentDisbursements: [],
+      repaymentHeatmap: [],
+      stageWelfareTable: [],
+      generatedAt: now,
+      cachedUntil,
+    };
+  },
   getReports: () => apiFetch<DashboardReports>('/admin/dashboard/reports'),
 };
 

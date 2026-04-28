@@ -424,6 +424,12 @@ async function apiFetch<T>(
     error: { code: 'PARSE_ERROR', message: 'Invalid response from server' },
   }));
 
+  // Normalize: if the backend returns a raw object (no success/error fields),
+  // wrap it so callers can use res.success and res.data consistently.
+  if (json && typeof json === 'object' && !('success' in json) && !('error' in json)) {
+    return { success: true, data: json as T, error: null };
+  }
+
   return json as ApiResponse<T>;
 }
 

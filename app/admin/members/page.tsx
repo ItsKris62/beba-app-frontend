@@ -138,18 +138,45 @@ function CreateMemberModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.constituencyId]);
 
-  // Load stages when ward changes
+  // Load stages when ward changes — try ward-filtered first, fall back to all tenant stages
   useEffect(() => {
     if (!form.wardId) {
       setStages([]);
       return;
     }
     setLoadingStages(true);
-    stagesApi.list({ wardId: form.wardId, limit: 100 })
-      .then(res => setStages(res.data))
-      .catch(() => setStages([]))
-      .finally(() => setLoadingStages(false));
     setForm(f => ({ ...f, stageId: '' }));
+
+    stagesApi.list({ wardId: form.wardId, limit: 100 })
+      .then(res => {
+        // Handle both { data: Stage[] } and Stage[] response shapes
+        const list: Stage[] = Array.isArray(res)
+          ? (res as unknown as Stage[])
+          : (res.data ?? []);
+        if (list.length > 0) {
+          setStages(list);
+        } else {
+          // No stages for this ward — load all tenant stages as fallback
+          return stagesApi.list({ limit: 100 }).then(allRes => {
+            const allList: Stage[] = Array.isArray(allRes)
+              ? (allRes as unknown as Stage[])
+              : (allRes.data ?? []);
+            setStages(allList);
+          });
+        }
+      })
+      .catch(() => {
+        // On error, try loading all stages without ward filter
+        stagesApi.list({ limit: 100 })
+          .then(allRes => {
+            const allList: Stage[] = Array.isArray(allRes)
+              ? (allRes as unknown as Stage[])
+              : (allRes.data ?? []);
+            setStages(allList);
+          })
+          .catch(() => setStages([]));
+      })
+      .finally(() => setLoadingStages(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.wardId]);
 
@@ -169,19 +196,50 @@ function CreateMemberModal({
 
     setLoading(true);
     try {
-      // Step 1: Submit application
-      const app = await applicationsApi.submit({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        idNumber: form.idNumber.trim(),
-        phoneNumber: form.phoneNumber.trim(),
-        stageName,
-        position: form.position,
-        wardId: form.wardId,
-      });
+      let appId: string;
+
+      // Step 1: Submit application — if a SUBMITTED application already exists
+      // (e.g. from a previous attempt that failed mid-way), reuse it instead of
+      // creating a duplicate.
+      try {
+        const app = await applicationsApi.submit({
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          idNumber: form.idNumber.trim(),
+          phoneNumber: form.phoneNumber.trim(),
+          stageName,
+          position: form.position,
+          wardId: form.wardId,
+        });
+        appId = app.id;
+      } catch (submitErr: unknown) {
+        const submitMsg = (submitErr as { message?: string })?.message ?? '';
+        // 409 Conflict: application already exists in SUBMITTED state — find it
+        if (submitMsg.toLowerCase().includes('already exists') && submitMsg.toLowerCase().includes('submitted')) {
+          // Fetch the pending applications and find the one matching this ID number
+          const pending = await applicationsApi.getPending({ limit: 100 });
+          const existing = pending.data.find(
+            a => a.idNumber === form.idNumber.trim() && a.status === 'SUBMITTED',
+          );
+          if (existing) {
+            appId = existing.id;
+          } else {
+            // Could be PENDING_REVIEW — try that too
+            const pendingReview = await applicationsApi.getPending({ limit: 100, status: 'PENDING_REVIEW' });
+            const existingPR = pendingReview.data.find(a => a.idNumber === form.idNumber.trim());
+            if (existingPR) {
+              appId = existingPR.id;
+            } else {
+              throw submitErr;
+            }
+          }
+        } else {
+          throw submitErr;
+        }
+      }
 
       // Step 2: Immediately approve (admin-created members skip review queue)
-      const result = await applicationsApi.approve(app.id, {
+      const result = await applicationsApi.approve(appId, {
         email: form.email.trim() || undefined,
       });
 
@@ -441,9 +499,11 @@ export default function MembersPage() {
     setLoading(true);
     try {
       const res = await adminApi.getMembers({ page: p, limit: 20, search: q || undefined });
+      // apiFetch now normalizes raw backend responses: if backend returns { data, meta }
+      // without a success field, it wraps it as { success: true, data: { data, meta }, error: null }.
+      // So res.data is { data: AdminMember[], meta: {...} }.
       if (res.success && res.data) {
-        // adminApi.getMembers returns ApiResponse<{ data: AdminMember[]; meta: ApiMeta }>
-        const payload = res.data as { data: AdminMember[]; meta: { total: number; totalPages: number } };
+        const payload = res.data;
         setMembers(payload.data ?? []);
         setTotal(payload.meta?.total ?? 0);
         setTotalPages(payload.meta?.totalPages ?? 1);

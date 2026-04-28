@@ -108,6 +108,20 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json() as Promise<T>;
 }
 
+/** Like apiFetch but retries once on 5xx errors to handle transient server failures. */
+async function apiFetchWithRetry<T>(path: string, options: RequestInit = {}, retries = 1): Promise<T> {
+  try {
+    return await apiFetch<T>(path, options);
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (retries > 0 && status && status >= 500) {
+      await new Promise(r => setTimeout(r, 1000));
+      return apiFetchWithRetry<T>(path, options, retries - 1);
+    }
+    throw err;
+  }
+}
+
 // ─── Locations API ────────────────────────────────────────────────────────────
 
 export const locationsApi = {
@@ -140,7 +154,14 @@ export const applicationsApi = {
     if (params?.limit) qs.set('limit', String(params.limit));
     if (params?.status) qs.set('status', params.status);
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    return apiFetch<PaginatedResponse<MemberApplication>>(`/admin/applications/pending${query}`);
+    // The backend returns { data, meta } directly — normalize to PaginatedResponse shape
+    return apiFetch<PaginatedResponse<MemberApplication>>(`/admin/applications/pending${query}`)
+      .then(res => {
+        // If the response is already { data, meta } return as-is
+        if (res && typeof res === 'object' && 'data' in res) return res;
+        // Otherwise wrap it
+        return { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } };
+      });
   },
 
   getOne: (id: string): Promise<MemberApplication> =>
@@ -157,7 +178,7 @@ export const applicationsApi = {
     temporaryPassword: string;
     message: string;
   }> =>
-    apiFetch(`/admin/applications/${id}/approve`, {
+    apiFetchWithRetry(`/admin/applications/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify(data ?? {}),
     }),

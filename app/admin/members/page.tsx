@@ -30,8 +30,7 @@ interface CreateMemberForm {
   idNumber: string;
   phoneNumber: string;
   email: string;
-  stageId: string;       // selected stage id (from dropdown)
-  stageNameCustom: string; // fallback free-text if no stages loaded
+  stageId: string;
   position: string;
   countyId: string;
   constituencyId: string;
@@ -45,7 +44,6 @@ const EMPTY_FORM: CreateMemberForm = {
   phoneNumber: '',
   email: '',
   stageId: '',
-  stageNameCustom: '',
   position: 'MEMBER',
   countyId: '',
   constituencyId: '',
@@ -138,7 +136,7 @@ function CreateMemberModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.constituencyId]);
 
-  // Load stages when ward changes — try ward-filtered first, fall back to all tenant stages
+  // Load only stages registered under the selected ward.
   useEffect(() => {
     if (!form.wardId) {
       setStages([]);
@@ -153,29 +151,9 @@ function CreateMemberModal({
         const list: Stage[] = Array.isArray(res)
           ? (res as unknown as Stage[])
           : (res.data ?? []);
-        if (list.length > 0) {
-          setStages(list);
-        } else {
-          // No stages for this ward — load all tenant stages as fallback
-          return stagesApi.list({ limit: 100 }).then(allRes => {
-            const allList: Stage[] = Array.isArray(allRes)
-              ? (allRes as unknown as Stage[])
-              : (allRes.data ?? []);
-            setStages(allList);
-          });
-        }
+        setStages(list);
       })
-      .catch(() => {
-        // On error, try loading all stages without ward filter
-        stagesApi.list({ limit: 100 })
-          .then(allRes => {
-            const allList: Stage[] = Array.isArray(allRes)
-              ? (allRes as unknown as Stage[])
-              : (allRes.data ?? []);
-            setStages(allList);
-          })
-          .catch(() => setStages([]));
-      })
+      .catch(() => setStages([]))
       .finally(() => setLoadingStages(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.wardId]);
@@ -188,11 +166,10 @@ function CreateMemberModal({
     e.preventDefault();
     setError(null);
     if (!form.wardId) { setError('Please select a ward'); return; }
+    if (!form.stageId) { setError('Please select a stage for this ward'); return; }
 
-    // Determine stage name: use selected stage name or custom text
-    const stageName = form.stageId
-      ? (stages.find(s => s.id === form.stageId)?.name ?? (form.stageNameCustom.trim() || 'UNASSIGNED'))
-      : (form.stageNameCustom.trim() || 'UNASSIGNED');
+    const selectedStage = stages.find(s => s.id === form.stageId);
+    if (!selectedStage) { setError('Selected stage is no longer available for this ward'); return; }
 
     setLoading(true);
     try {
@@ -207,7 +184,7 @@ function CreateMemberModal({
           lastName: form.lastName.trim(),
           idNumber: form.idNumber.trim(),
           phoneNumber: form.phoneNumber.trim(),
-          stageName,
+          stageName: selectedStage.name,
           position: form.position,
           wardId: form.wardId,
         });
@@ -438,29 +415,29 @@ function CreateMemberModal({
             {/* Stage Name */}
             {form.wardId && (
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Stage Name</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Stage Name *</label>
                 {loadingStages ? (
                   <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
                     <Loader2 className="h-3 w-3 animate-spin" /> Loading stages…
                   </div>
-                ) : stages.length > 0 ? (
-                  <select
-                    value={form.stageId}
-                    onChange={set('stageId')}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select Stage (optional)…</option>
-                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
                 ) : (
-                  <div className="space-y-1">
-                    <Input
-                      value={form.stageNameCustom}
-                      onChange={set('stageNameCustom')}
-                      placeholder="e.g. KIBOS GALYNES (no stages in this ward yet)"
-                    />
-                    <p className="text-xs text-gray-400">No stages registered for this ward. You can type a stage name or leave blank.</p>
-                  </div>
+                  <>
+                    <select
+                      value={form.stageId}
+                      onChange={set('stageId')}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                      required
+                      disabled={stages.length === 0}
+                    >
+                      <option value="">
+                        {stages.length === 0 ? 'No stages registered for this ward' : 'Select Stage...'}
+                      </option>
+                      {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    {stages.length === 0 && (
+                      <p className="text-xs text-gray-400 mt-1">Add stages for this ward before creating members.</p>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -470,7 +447,7 @@ function CreateMemberModal({
               <Button type="button" variant="outline" onClick={handleClose} className="flex-1" disabled={loading}>
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" disabled={loading || !form.wardId}>
+              <Button type="submit" className="flex-1" disabled={loading || !form.wardId || !form.stageId || loadingStages}>
                 {loading
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</>
                   : 'Create Member'}

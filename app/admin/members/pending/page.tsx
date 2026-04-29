@@ -115,15 +115,18 @@ export default function PendingKycPage() {
       </div>
 
       {/* Stats */}
-      <Card className="w-fit">
-        <CardHeader className="flex flex-row items-center gap-3 pb-2">
-          <Clock className="h-5 w-5 text-amber-500" />
-          <CardTitle className="text-sm font-medium">Awaiting Review</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{total}</div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Awaiting Review</CardTitle>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{total}</div>
+            <p className="text-xs text-muted-foreground mt-1">Pending KYC applications</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Table */}
       <Card>

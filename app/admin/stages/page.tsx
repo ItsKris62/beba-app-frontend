@@ -3,8 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   MapPin, Search, RefreshCw, Plus, Pencil, Trash2,
-  Loader2, X, AlertCircle, ChevronDown,
+  Loader2, X, AlertCircle, ChevronDown, Check, ChevronsUpDown
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks/use-debounce';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,10 +36,78 @@ function canDeleteStages(role?: string) {
 
 // ─── Stage Form Modal ─────────────────────────────────────────────────────────
 
+function LocationCombobox({
+  value,
+  onChange,
+  items,
+  loading,
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
+  disabled
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  items: { id: string; name: string }[];
+  loading?: boolean;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyMessage: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedItem = items?.find(item => item.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between font-normal bg-background px-3 py-2 text-sm text-left h-auto min-h-[40px]", !value && "text-muted-foreground")}
+          disabled={disabled || loading}
+        >
+          {loading ? `Loading ${placeholder.toLowerCase()}...` : selectedItem ? selectedItem.name : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full min-w-[300px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyMessage}</CommandEmpty>
+            <CommandGroup>
+              {items?.map(item => (
+                <CommandItem
+                  key={item.id}
+                  value={item.name}
+                  onSelect={() => {
+                    onChange(item.id === value ? '' : item.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === item.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {item.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface StageFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (optimisticStage?: Partial<Stage>) => void;
   editStage?: Stage | null;
 }
 
@@ -45,13 +119,42 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
   const [constituencyId, setConstituencyId] = useState('');
   const [wardId, setWardId] = useState('');
 
-  const [counties, setCounties] = useState<County[]>([]);
-  const [constituencies, setConstituencies] = useState<Constituency[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
+  const [countiesList, setCountiesList] = useState<County[]>([]);
+  const [constituenciesList, setConstituenciesList] = useState<Constituency[]>([]);
+  const [wardsList, setWardsList] = useState<Ward[]>([]);
 
-  const [loadingCounties, setLoadingCounties] = useState(false);
-  const [loadingConstituencies, setLoadingConstituencies] = useState(false);
-  const [loadingWards, setLoadingWards] = useState(false);
+  const { data: counties = [], isLoading: loadingCounties } = useQuery({
+    queryKey: ['counties'],
+    queryFn: locationsApi.getCounties,
+    enabled: open,
+    staleTime: Infinity,
+  });
+
+  const { data: constituencies = [], isLoading: loadingConstituencies } = useQuery({
+    queryKey: ['constituencies', countyId],
+    queryFn: () => locationsApi.getConstituencies(countyId),
+    enabled: !!countyId && open,
+    staleTime: Infinity,
+  });
+
+  const { data: wards = [], isLoading: loadingWards } = useQuery({
+    queryKey: ['wards', constituencyId],
+    queryFn: () => locationsApi.getWards(constituencyId),
+    enabled: !!constituencyId && open,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (counties) setCountiesList(counties);
+  }, [counties]);
+
+  useEffect(() => {
+    if (constituencies) setConstituenciesList(constituencies);
+  }, [constituencies]);
+
+  useEffect(() => {
+    if (wards) setWardsList(wards);
+  }, [wards]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,40 +180,18 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
     }
   }, [open, editStage]);
 
-  // Load counties on open
+  // Load counties (React Query handles caching and deduplication)
   useEffect(() => {
     if (!open) return;
-    setLoadingCounties(true);
-    locationsApi.getCounties()
-      .then(setCounties)
-      .catch(() => setCounties([]))
-      .finally(() => setLoadingCounties(false));
-  }, [open]);
-
-  // Load constituencies when county changes
-  useEffect(() => {
-    if (!countyId) { setConstituencies([]); setWards([]); return; }
-    setLoadingConstituencies(true);
-    locationsApi.getConstituencies(countyId)
-      .then(setConstituencies)
-      .catch(() => setConstituencies([]))
-      .finally(() => setLoadingConstituencies(false));
     if (!editStage || editStage.ward.constituency.county.id !== countyId) {
       setConstituencyId('');
       setWardId('');
-      setWards([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countyId]);
 
-  // Load wards when constituency changes
   useEffect(() => {
-    if (!constituencyId) { setWards([]); return; }
-    setLoadingWards(true);
-    locationsApi.getWards(constituencyId)
-      .then(setWards)
-      .catch(() => setWards([]))
-      .finally(() => setLoadingWards(false));
+    if (!open) return;
     if (!editStage || editStage.ward.constituency.id !== constituencyId) {
       setWardId('');
     }
@@ -126,18 +207,44 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
     setSaving(true);
     try {
       if (isEdit && editStage) {
+        // Optimistic UI Data
+        const selectedWard = wardsList.find(w => w.id === wardId);
+        const optimisticStage = selectedWard ? {
+          ...editStage,
+          name: name.trim(),
+          wardId,
+          ward: selectedWard,
+        } : undefined;
+        
+        onSuccess(optimisticStage); // Close modal and update UI instantly
         await stagesApi.update(editStage.id, {
           name: name.trim(),
           wardId,
         });
+        toast.success("Stage updated successfully");
       } else {
+        const selectedWard = wardsList.find(w => w.id === wardId);
+        const optimisticStage = selectedWard ? {
+          id: `temp-${Date.now()}`,
+          name: name.trim(),
+          wardId,
+          ward: selectedWard,
+          _count: { assignments: 0 },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as Stage : undefined;
+
+        onSuccess(optimisticStage); // Close modal and update UI instantly
         await stagesApi.create({ name: name.trim(), wardId });
+        toast.success("Stage created successfully");
       }
-      onSuccess();
       handleClose();
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Failed to save stage';
       setError(msg);
+      toast.error(msg);
+      // Revert optimistic update by triggering a reload
+      onSuccess(undefined); 
     } finally {
       setSaving(false);
     }
@@ -193,49 +300,42 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
             <label className="block text-xs font-medium text-gray-700">Location (County → Sub-County → Ward) *</label>
 
             {/* County */}
-            <select
+            <LocationCombobox
               value={countyId}
-              onChange={e => setCountyId(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-              required
-              disabled={loadingCounties}
-            >
-              <option value="">
-                {loadingCounties ? 'Loading counties…' : 'Select County…'}
-              </option>
-              {counties.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+              onChange={setCountyId}
+              items={countiesList}
+              loading={loadingCounties}
+              placeholder="Select County…"
+              searchPlaceholder="Search counties..."
+              emptyMessage="No county found."
+            />
 
             {/* Constituency */}
             {countyId && (
-              <select
+              <LocationCombobox
                 value={constituencyId}
-                onChange={e => setConstituencyId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                required
-                disabled={loadingConstituencies}
-              >
-                <option value="">
-                  {loadingConstituencies ? 'Loading sub-counties…' : 'Select Sub-County / Constituency…'}
-                </option>
-                {constituencies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                onChange={setConstituencyId}
+                items={constituenciesList}
+                loading={loadingConstituencies}
+                placeholder="Select Sub-County…"
+                searchPlaceholder="Search sub-counties..."
+                emptyMessage="No sub-county found."
+                disabled={!countyId}
+              />
             )}
 
             {/* Ward */}
             {constituencyId && (
-              <select
+              <LocationCombobox
                 value={wardId}
-                onChange={e => setWardId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                required
-                disabled={loadingWards}
-              >
-                <option value="">
-                  {loadingWards ? 'Loading wards…' : 'Select Ward…'}
-                </option>
-                {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
+                onChange={setWardId}
+                items={wardsList}
+                loading={loadingWards}
+                placeholder="Select Ward…"
+                searchPlaceholder="Search wards..."
+                emptyMessage="No ward found."
+                disabled={!constituencyId}
+              />
             )}
           </div>
 
@@ -343,15 +443,29 @@ export default function StagesPage() {
   const [total, setTotal] = useState(0);
 
   // Location filters
-  const [counties, setCounties] = useState<County[]>([]);
-  const [constituencies, setConstituencies] = useState<Constituency[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
+  const { data: counties = [], isLoading: loadingFilterCounties } = useQuery({
+    queryKey: ['counties'],
+    queryFn: locationsApi.getCounties,
+    staleTime: Infinity,
+  });
+
+  const { data: constituencies = [], isLoading: loadingFilterConst } = useQuery({
+    queryKey: ['constituencies', filterCounty],
+    queryFn: () => locationsApi.getConstituencies(filterCounty),
+    enabled: !!filterCounty,
+    staleTime: Infinity,
+  });
+
+  const { data: wards = [], isLoading: loadingFilterWards } = useQuery({
+    queryKey: ['wards', filterConstituency],
+    queryFn: () => locationsApi.getWards(filterConstituency),
+    enabled: !!filterConstituency,
+    staleTime: Infinity,
+  });
+
   const [filterCounty, setFilterCounty] = useState('');
   const [filterConstituency, setFilterConstituency] = useState('');
   const [filterWard, setFilterWard] = useState('');
-  const [loadingFilterCounties, setLoadingFilterCounties] = useState(false);
-  const [loadingFilterConst, setLoadingFilterConst] = useState(false);
-  const [loadingFilterWards, setLoadingFilterWards] = useState(false);
 
   // Modals
   const [showCreate, setShowCreate] = useState(false);
@@ -361,40 +475,22 @@ export default function StagesPage() {
   const canManage = canManageStages(user?.role);
   const canDelete = canDeleteStages(user?.role);
 
-  // Load filter counties on mount
+  // Clear sub-filters when parent filter changes
   useEffect(() => {
-    setLoadingFilterCounties(true);
-    locationsApi.getCounties()
-      .then(setCounties)
-      .catch(() => setCounties([]))
-      .finally(() => setLoadingFilterCounties(false));
-  }, []);
-
-  // Load filter constituencies when county filter changes
-  useEffect(() => {
-    if (!filterCounty) { setConstituencies([]); setWards([]); setFilterConstituency(''); setFilterWard(''); return; }
-    setLoadingFilterConst(true);
-    locationsApi.getConstituencies(filterCounty)
-      .then(setConstituencies)
-      .catch(() => setConstituencies([]))
-      .finally(() => setLoadingFilterConst(false));
     setFilterConstituency('');
     setFilterWard('');
-    setWards([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCounty]);
 
-  // Load filter wards when constituency filter changes
   useEffect(() => {
-    if (!filterConstituency) { setWards([]); setFilterWard(''); return; }
-    setLoadingFilterWards(true);
-    locationsApi.getWards(filterConstituency)
-      .then(setWards)
-      .catch(() => setWards([]))
-      .finally(() => setLoadingFilterWards(false));
     setFilterWard('');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterConstituency]);
+
+  // Debounce search
+  const debouncedSearch = useDebounce(searchInput, 400);
+
+  useEffect(() => {
+    setSearch(debouncedSearch);
+  }, [debouncedSearch]);
 
   const loadStages = useCallback(async (p = 1) => {
     setLoading(true);
@@ -498,41 +594,39 @@ export default function StagesPage() {
             <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Filter by Location</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {/* County filter */}
-              <select
+              <LocationCombobox
                 value={filterCounty}
-                onChange={e => setFilterCounty(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                disabled={loadingFilterCounties}
-              >
-                <option value="">{loadingFilterCounties ? 'Loading…' : 'All Counties'}</option>
-                {counties.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                onChange={setFilterCounty}
+                items={counties}
+                loading={loadingFilterCounties}
+                placeholder="All Counties"
+                searchPlaceholder="Search counties..."
+                emptyMessage="No county found."
+              />
 
               {/* Constituency filter */}
-              <select
+              <LocationCombobox
                 value={filterConstituency}
-                onChange={e => setFilterConstituency(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                disabled={!filterCounty || loadingFilterConst}
-              >
-                <option value="">
-                  {!filterCounty ? 'Select county first' : loadingFilterConst ? 'Loading…' : 'All Sub-Counties'}
-                </option>
-                {constituencies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                onChange={setFilterConstituency}
+                items={constituencies}
+                loading={loadingFilterConst}
+                placeholder={!filterCounty ? 'Select county first' : 'All Sub-Counties'}
+                searchPlaceholder="Search sub-counties..."
+                emptyMessage="No sub-county found."
+                disabled={!filterCounty}
+              />
 
               {/* Ward filter */}
-              <select
+              <LocationCombobox
                 value={filterWard}
-                onChange={e => setFilterWard(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                disabled={!filterConstituency || loadingFilterWards}
-              >
-                <option value="">
-                  {!filterConstituency ? 'Select sub-county first' : loadingFilterWards ? 'Loading…' : 'All Wards'}
-                </option>
-                {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
+                onChange={setFilterWard}
+                items={wards}
+                loading={loadingFilterWards}
+                placeholder={!filterConstituency ? 'Select sub-county first' : 'All Wards'}
+                searchPlaceholder="Search wards..."
+                emptyMessage="No ward found."
+                disabled={!filterConstituency}
+              />
             </div>
 
             {/* Search */}
@@ -546,7 +640,6 @@ export default function StagesPage() {
                   onChange={e => setSearchInput(e.target.value)}
                 />
               </div>
-              <Button type="submit" variant="outline" size="sm">Search</Button>
               {hasFilters && (
                 <Button type="button" variant="ghost" size="sm" onClick={handleClearFilters}>
                   Clear
@@ -682,13 +775,27 @@ export default function StagesPage() {
       <StageFormModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onSuccess={() => { loadStages(1); setPage(1); }}
+        onSuccess={(optimisticStage) => {
+          if (optimisticStage) {
+            setStages(prev => [optimisticStage as Stage, ...prev]);
+            setTotal(prev => prev + 1);
+          } else {
+            loadStages(1);
+            setPage(1);
+          }
+        }}
       />
 
       <StageFormModal
         open={!!editStage}
         onClose={() => setEditStage(null)}
-        onSuccess={() => { loadStages(page); }}
+        onSuccess={(optimisticStage) => {
+          if (optimisticStage) {
+            setStages(prev => prev.map(s => s.id === optimisticStage.id ? { ...s, ...optimisticStage } as Stage : s));
+          } else {
+            loadStages(page);
+          }
+        }}
         editStage={editStage}
       />
 

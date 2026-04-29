@@ -126,13 +126,13 @@ async function apiFetchWithRetry<T>(path: string, options: RequestInit = {}, ret
 
 export const locationsApi = {
   getCounties: (): Promise<County[]> =>
-    apiFetch<County[]>('/locations/counties'),
+    apiFetch<any>('/locations/counties').then(res => res?.data || res),
 
   getConstituencies: (countyId: string): Promise<Constituency[]> =>
-    apiFetch<Constituency[]>(`/locations/constituencies?countyId=${countyId}`),
+    apiFetch<any>(`/locations/constituencies?countyId=${countyId}`).then(res => res?.data || res),
 
   getWards: (constituencyId: string): Promise<Ward[]> =>
-    apiFetch<Ward[]>(`/locations/wards?constituencyId=${constituencyId}`),
+    apiFetch<any>(`/locations/wards?constituencyId=${constituencyId}`).then(res => res?.data || res),
 };
 
 // ─── Applications API ─────────────────────────────────────────────────────────

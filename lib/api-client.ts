@@ -193,6 +193,41 @@ export interface AdminMember {
   _count: { loans: number; accounts: number };
 }
 
+export interface AdminMemberDetail {
+  id: string;
+  memberNumber: string;
+  nationalId: string | null;
+  kraPin: string | null;
+  employer: string | null;
+  occupation: string | null;
+  dateOfBirth: string | null;
+  kycStatus: string;
+  isActive: boolean;
+  joinedAt: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    role: string;
+    lastLoginAt?: string | null;
+  };
+  accounts: {
+    id: string;
+    accountNumber: string;
+    accountType: string;
+    balance: string | number;
+    isActive: boolean;
+  }[];
+  loans: {
+    id: string;
+    loanNumber: string;
+    status: string;
+    principalAmount: string | number;
+    outstandingBalance: string | number;
+  }[];
+}
+
 export interface AuditLog {
   id: string;
   tenantId: string;
@@ -603,6 +638,9 @@ export const adminApi = {
     if (params?.status) q.set('status', params.status);
     return apiFetch<{ data: AdminMember[]; meta: ApiMeta }>(`/admin/members?${q}`);
   },
+
+  getMember: (memberId: string) =>
+    apiFetch<AdminMemberDetail>(`/members/${memberId}`),
 
   updateKyc: (memberId: string, data: {
     nationalId?: string;

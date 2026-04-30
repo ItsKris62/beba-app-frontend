@@ -108,10 +108,11 @@ interface StageFormModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: (optimisticStage?: Partial<Stage>) => void;
+  onComplete?: () => void;
   editStage?: Stage | null;
 }
 
-function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalProps) {
+function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: StageFormModalProps) {
   const isEdit = !!editStage;
 
   const [name, setName] = useState('');
@@ -206,14 +207,35 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
 
     setSaving(true);
     try {
+      // Reconstruct fully populated ward relation for optimistic UI
+      const selectedWard = wardsList.find(w => w.id === wardId);
+      const selectedConstituency = constituenciesList.find(c => c.id === constituencyId);
+      const selectedCounty = countiesList.find(c => c.id === countyId);
+
+      let optimisticWard;
+      if (selectedWard && selectedConstituency && selectedCounty) {
+        optimisticWard = {
+          id: selectedWard.id,
+          name: selectedWard.name,
+          constituency: {
+            id: selectedConstituency.id,
+            name: selectedConstituency.name,
+            county: {
+              id: selectedCounty.id,
+              name: selectedCounty.name,
+            }
+          }
+        };
+      } else if (isEdit && editStage) {
+        optimisticWard = editStage.ward;
+      }
+
       if (isEdit && editStage) {
-        // Optimistic UI Data
-        const selectedWard = wardsList.find(w => w.id === wardId);
-        const optimisticStage = selectedWard ? {
+        const optimisticStage = optimisticWard ? {
           ...editStage,
           name: name.trim(),
           wardId,
-          ward: selectedWard,
+          ward: optimisticWard,
         } : undefined;
         
         onSuccess(optimisticStage); // Close modal and update UI instantly
@@ -222,13 +244,13 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
           wardId,
         });
         toast.success("Stage updated successfully");
+        onComplete?.();
       } else {
-        const selectedWard = wardsList.find(w => w.id === wardId);
-        const optimisticStage = selectedWard ? {
+        const optimisticStage = optimisticWard ? {
           id: `temp-${Date.now()}`,
           name: name.trim(),
           wardId,
-          ward: selectedWard,
+          ward: optimisticWard as any,
           _count: { assignments: 0 },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -237,6 +259,7 @@ function StageFormModal({ open, onClose, onSuccess, editStage }: StageFormModalP
         onSuccess(optimisticStage); // Close modal and update UI instantly
         await stagesApi.create({ name: name.trim(), wardId });
         toast.success("Stage created successfully");
+        onComplete?.();
       }
       handleClose();
     } catch (err: unknown) {
@@ -376,6 +399,7 @@ function DeleteConfirmModal({
     setError(null);
     try {
       await stagesApi.delete(stage.id);
+      toast.success("Stage deleted successfully");
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -784,6 +808,7 @@ export default function StagesPage() {
             setPage(1);
           }
         }}
+        onComplete={() => loadStages(1)}
       />
 
       <StageFormModal
@@ -796,6 +821,7 @@ export default function StagesPage() {
             loadStages(page);
           }
         }}
+        onComplete={() => loadStages(page)}
         editStage={editStage}
       />
 

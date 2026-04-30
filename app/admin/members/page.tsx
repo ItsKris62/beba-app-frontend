@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users, Search, RefreshCw, Download, UserPlus, Upload,
-  Eye, MoreHorizontal, CheckCircle, XCircle, Loader2, X, AlertCircle,
+  Eye, MoreHorizontal, CheckCircle, XCircle, Loader2, X,
+  AlertCircle, Check, ChevronsUpDown, MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,13 +17,121 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { adminApi, type AdminMember } from '@/lib/api-client';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
-  locationsApi, stagesApi, applicationsApi,
-  type County, type Constituency, type Ward, type Stage,
-} from '@/lib/locations-api';
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import { adminApi, type AdminMember } from '@/lib/api-client';
+import { stagesApi, applicationsApi, type Stage } from '@/lib/locations-api';
 
-// ─── Create Member Form ───────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return isActive
+    ? <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
+    : <Badge variant="secondary"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>;
+}
+
+// ─── Stage Combobox ───────────────────────────────────────────────────────────
+
+function StageCombobox({
+  value,
+  onChange,
+  stages,
+  loading,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  stages: Stage[];
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = stages.find(s => s.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={loading}
+          className={cn(
+            'w-full justify-between font-normal bg-background px-3 py-2 text-sm text-left h-auto min-h-[40px]',
+            !value && 'text-muted-foreground',
+          )}
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading stages…
+            </span>
+          ) : selected ? (
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">{selected.name}</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {selected.ward.name} · {selected.ward.constituency.name} · {selected.ward.constituency.county.name}
+              </span>
+            </span>
+          ) : (
+            'Select Stage…'
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 self-start mt-1" />
+        </Button>
+      </PopoverTrigger>
+
+      <PopoverContent className="w-[480px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search by stage name, ward, or county…" />
+          <CommandList className="max-h-64">
+            {stages.length === 0 ? (
+              <CommandEmpty>
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <MapPin className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm font-medium">No stages registered yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Go to Stages Management to add stages first.
+                  </p>
+                </div>
+              </CommandEmpty>
+            ) : (
+              <CommandEmpty>No matching stage found.</CommandEmpty>
+            )}
+            <CommandGroup>
+              {stages.map(s => (
+                <CommandItem
+                  key={s.id}
+                  // Include all location fields so the search works on county/ward too.
+                  value={`${s.name} ${s.ward.name} ${s.ward.constituency.name} ${s.ward.constituency.county.name}`}
+                  onSelect={() => {
+                    onChange(s.id === value ? '' : s.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4 shrink-0 self-start mt-0.5',
+                      value === s.id ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-medium truncate">{s.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {s.ward.name} · {s.ward.constituency.name} · {s.ward.constituency.county.name}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── Create Member Modal ──────────────────────────────────────────────────────
 
 interface CreateMemberForm {
   firstName: string;
@@ -32,9 +141,6 @@ interface CreateMemberForm {
   email: string;
   stageId: string;
   position: string;
-  countyId: string;
-  constituencyId: string;
-  wardId: string;
 }
 
 const EMPTY_FORM: CreateMemberForm = {
@@ -45,20 +151,7 @@ const EMPTY_FORM: CreateMemberForm = {
   email: '',
   stageId: '',
   position: 'MEMBER',
-  countyId: '',
-  constituencyId: '',
-  wardId: '',
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function StatusBadge({ isActive }: { isActive: boolean }) {
-  return isActive
-    ? <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
-    : <Badge variant="secondary"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>;
-}
-
-// ─── Create Member Modal ──────────────────────────────────────────────────────
 
 function CreateMemberModal({
   open,
@@ -70,130 +163,69 @@ function CreateMemberModal({
   onSuccess: () => void;
 }) {
   const [form, setForm] = useState<CreateMemberForm>(EMPTY_FORM);
-  const [counties, setCounties] = useState<County[]>([]);
-  const [constituencies, setConstituencies] = useState<Constituency[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
-  const [loadingCounties, setLoadingCounties] = useState(false);
-  const [loadingConstituencies, setLoadingConstituencies] = useState(false);
-  const [loadingWards, setLoadingWards] = useState(false);
   const [loadingStages, setLoadingStages] = useState(false);
-  const [countiesError, setCountiesError] = useState<string | null>(null);
+  const [stagesError, setStagesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ memberNumber: string; tempPassword: string } | null>(null);
+  const submittedRef = useRef(false);
 
-  // Load counties on open
+  // Load all tenant stages once when the modal opens.
   useEffect(() => {
     if (!open) return;
-    setLoadingCounties(true);
-    setCountiesError(null);
-    locationsApi.getCounties()
-      .then(data => {
-        setCounties(data);
-        if (data.length === 0) setCountiesError('No counties found. Please ensure location data is seeded.');
+    setStagesError(null);
+    setLoadingStages(true);
+
+    stagesApi.list({ limit: 100 })
+      .then(res => {
+        setStages(res.data ?? []);
+        if ((res.data ?? []).length === 0) {
+          setStagesError('No stages registered yet. Add stages in Stages Management first.');
+        }
       })
       .catch((err: unknown) => {
-        const msg = (err as { message?: string })?.message ?? 'Failed to load counties';
-        setCountiesError(msg);
+        setStagesError((err as { message?: string })?.message ?? 'Failed to load stages');
+        setStages([]);
       })
-      .finally(() => setLoadingCounties(false));
-  }, [open]);
-
-  // Load constituencies when county changes
-  useEffect(() => {
-    if (!form.countyId) {
-      setConstituencies([]);
-      setWards([]);
-      setStages([]);
-      return;
-    }
-    setLoadingConstituencies(true);
-    locationsApi.getConstituencies(form.countyId)
-      .then(setConstituencies)
-      .catch(() => setConstituencies([]))
-      .finally(() => setLoadingConstituencies(false));
-    setForm(f => ({ ...f, constituencyId: '', wardId: '', stageId: '' }));
-    setWards([]);
-    setStages([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.countyId]);
-
-  // Load wards when constituency changes
-  useEffect(() => {
-    if (!form.constituencyId) {
-      setWards([]);
-      setStages([]);
-      return;
-    }
-    setLoadingWards(true);
-    locationsApi.getWards(form.constituencyId)
-      .then(setWards)
-      .catch(() => setWards([]))
-      .finally(() => setLoadingWards(false));
-    setForm(f => ({ ...f, wardId: '', stageId: '' }));
-    setStages([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.constituencyId]);
-
-  // Load only stages registered under the selected ward.
-  useEffect(() => {
-    if (!form.wardId) {
-      setStages([]);
-      return;
-    }
-    setLoadingStages(true);
-    setForm(f => ({ ...f, stageId: '' }));
-
-    stagesApi.list({ wardId: form.wardId, limit: 100 })
-      .then(res => {
-        // Handle both { data: Stage[] } and Stage[] response shapes
-        const list: Stage[] = Array.isArray(res)
-          ? (res as unknown as Stage[])
-          : (res.data ?? []);
-        setStages(list);
-      })
-      .catch(() => setStages([]))
       .finally(() => setLoadingStages(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.wardId]);
+  }, [open]);
 
   const set = (field: keyof CreateMemberForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm(f => ({ ...f, [field]: e.target.value }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submittedRef.current) return;
     setError(null);
-    if (!form.wardId) { setError('Please select a ward'); return; }
-    if (!form.stageId) { setError('Please select a stage for this ward'); return; }
 
-    const selectedStage = stages.find(s => s.id === form.stageId);
-    if (!selectedStage) { setError('Selected stage is no longer available for this ward'); return; }
+    if (!form.stageId) { setError('Please select a stage'); return; }
 
+    submittedRef.current = true;
     setLoading(true);
+
     try {
       let appId: string;
 
-      // Step 1: Submit application — if a SUBMITTED application already exists
-      // (e.g. from a previous attempt that failed mid-way), reuse it instead of
-      // creating a duplicate.
+      // Step 1: Submit application.
+      // On 409 Conflict (duplicate in SUBMITTED/PENDING_REVIEW), reuse the existing application.
       try {
         const app = await applicationsApi.submit({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           idNumber: form.idNumber.trim(),
           phoneNumber: form.phoneNumber.trim(),
-          stageName: selectedStage.name,
+          stageId: form.stageId,
           position: form.position,
-          wardId: form.wardId,
         });
         appId = app.id;
       } catch (submitErr: unknown) {
         const submitMsg = (submitErr as { message?: string })?.message ?? '';
-        // 409 Conflict: application already exists in SUBMITTED state — find it
-        if (submitMsg.toLowerCase().includes('already exists') && submitMsg.toLowerCase().includes('submitted')) {
-          // Fetch the pending applications and find the one matching this ID number
+        if (
+          submitMsg.toLowerCase().includes('already exists') &&
+          submitMsg.toLowerCase().includes('submitted')
+        ) {
           const pending = await applicationsApi.getPending({ limit: 100 });
           const existing = pending.data.find(
             a => a.idNumber === form.idNumber.trim() && a.status === 'SUBMITTED',
@@ -201,7 +233,6 @@ function CreateMemberModal({
           if (existing) {
             appId = existing.id;
           } else {
-            // Could be PENDING_REVIEW — try that too
             const pendingReview = await applicationsApi.getPending({ limit: 100, status: 'PENDING_REVIEW' });
             const existingPR = pendingReview.data.find(a => a.idNumber === form.idNumber.trim());
             if (existingPR) {
@@ -215,7 +246,7 @@ function CreateMemberModal({
         }
       }
 
-      // Step 2: Immediately approve (admin-created members skip review queue)
+      // Step 2: Approve immediately (admin-created members skip the review queue).
       const result = await applicationsApi.approve(appId, {
         email: form.email.trim() || undefined,
       });
@@ -228,6 +259,7 @@ function CreateMemberModal({
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Failed to create member';
       setError(msg);
+      submittedRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -237,11 +269,9 @@ function CreateMemberModal({
     setForm(EMPTY_FORM);
     setError(null);
     setSuccess(null);
-    setCounties([]);
-    setConstituencies([]);
-    setWards([]);
     setStages([]);
-    setCountiesError(null);
+    setStagesError(null);
+    submittedRef.current = false;
     onClose();
   };
 
@@ -353,101 +383,36 @@ function CreateMemberModal({
               </select>
             </div>
 
-            {/* Location cascade */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-gray-700">Location *</label>
-
-              {/* County */}
-              <div>
-                {countiesError && (
-                  <div className="mb-1 flex items-center gap-1 text-xs text-amber-600">
-                    <AlertCircle className="h-3 w-3" />
-                    {countiesError}
-                  </div>
-                )}
-                <select
-                  value={form.countyId}
-                  onChange={set('countyId')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                  required
-                  disabled={loadingCounties}
-                >
-                  <option value="">
-                    {loadingCounties ? 'Loading counties…' : counties.length === 0 ? 'No counties available' : 'Select County…'}
-                  </option>
-                  {counties.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              {/* Constituency */}
-              {form.countyId && (
-                <select
-                  value={form.constituencyId}
-                  onChange={set('constituencyId')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                  required
-                  disabled={loadingConstituencies}
-                >
-                  <option value="">
-                    {loadingConstituencies ? 'Loading sub-counties…' : 'Select Sub-County / Constituency…'}
-                  </option>
-                  {constituencies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+            {/* Stage — single searchable dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Stage *</label>
+              {stagesError && !loadingStages && (
+                <div className="mb-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {stagesError}
+                </div>
               )}
-
-              {/* Ward */}
-              {form.constituencyId && (
-                <select
-                  value={form.wardId}
-                  onChange={set('wardId')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                  required
-                  disabled={loadingWards}
-                >
-                  <option value="">
-                    {loadingWards ? 'Loading wards…' : 'Select Ward…'}
-                  </option>
-                  {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                </select>
-              )}
+              <StageCombobox
+                value={form.stageId}
+                onChange={stageId => setForm(f => ({ ...f, stageId }))}
+                stages={stages}
+                loading={loadingStages}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Type to search by stage name, ward, or county
+              </p>
             </div>
-
-            {/* Stage Name */}
-            {form.wardId && (
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Stage Name *</label>
-                {loadingStages ? (
-                  <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Loading stages…
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      value={form.stageId}
-                      onChange={set('stageId')}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                      required
-                      disabled={stages.length === 0}
-                    >
-                      <option value="">
-                        {stages.length === 0 ? 'No stages registered for this ward' : 'Select Stage...'}
-                      </option>
-                      {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    {stages.length === 0 && (
-                      <p className="text-xs text-gray-400 mt-1">Add stages for this ward before creating members.</p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-2 border-t">
               <Button type="button" variant="outline" onClick={handleClose} className="flex-1" disabled={loading}>
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" disabled={loading || !form.wardId || !form.stageId || loadingStages}>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={loading || !form.stageId || loadingStages}
+              >
                 {loading
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</>
                   : 'Create Member'}
@@ -476,9 +441,6 @@ export default function MembersPage() {
     setLoading(true);
     try {
       const res = await adminApi.getMembers({ page: p, limit: 20, search: q || undefined });
-      // apiFetch now normalizes raw backend responses: if backend returns { data, meta }
-      // without a success field, it wraps it as { success: true, data: { data, meta }, error: null }.
-      // So res.data is { data: AdminMember[], meta: {...} }.
       if (res.success && res.data) {
         const payload = res.data;
         setMembers(payload.data ?? []);
@@ -494,7 +456,7 @@ export default function MembersPage() {
 
   useEffect(() => { loadMembers(1); }, [loadMembers]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPage(1);
     loadMembers(1, search);

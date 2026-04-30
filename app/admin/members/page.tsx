@@ -368,7 +368,7 @@ function CreateMemberModal({
               <p className="text-xs text-gray-400 mt-1">If blank, a system email will be generated</p>
             </div>
 
-            {/* Position */}
+            {/* Position — only MEMBER and CHAIRMAN are assigned to a stage */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
               <select
@@ -378,8 +378,6 @@ function CreateMemberModal({
               >
                 <option value="MEMBER">Member</option>
                 <option value="CHAIRMAN">Chairman</option>
-                <option value="SECRETARY">Secretary</option>
-                <option value="TREASURER">Treasurer</option>
               </select>
             </div>
 

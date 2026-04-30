@@ -16,26 +16,26 @@ import { toast } from "sonner"
 import { usersApi, formatDate, type StaffUser } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 
-// Roles that can be created, filtered by actor's role
+// Roles that can be created via this page (staff accounts only).
+// MEMBER is intentionally excluded — members must be onboarded through
+// Members Management (POST /admin/applications → approve) so that the full
+// Member profile, FOSA/BOSA accounts, and stage assignment are created atomically.
 const ASSIGNABLE_ROLES: Record<string, { value: string; label: string }[]> = {
   SUPER_ADMIN: [
     { value: "TENANT_ADMIN", label: "Tenant Admin" },
     { value: "MANAGER", label: "Manager" },
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
-    { value: "MEMBER", label: "Member" },
   ],
   TENANT_ADMIN: [
     { value: "TENANT_ADMIN", label: "Tenant Admin" },
     { value: "MANAGER", label: "Manager" },
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
-    { value: "MEMBER", label: "Member" },
   ],
   MANAGER: [
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
-    { value: "MEMBER", label: "Member" },
   ],
 }
 
@@ -345,7 +345,8 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle>Create Staff Account</DialogTitle>
             <DialogDescription>
-              A temporary password is set. The user must change it on first login.
+              Creates a staff account (Admin, Manager, Teller, or Auditor). A temporary password is set — the user must change it on first login.
+              To add a SACCO member, use <strong>Members Management → Create Member</strong> instead.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

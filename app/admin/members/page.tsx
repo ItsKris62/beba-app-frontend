@@ -22,8 +22,8 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
-import { adminApi, type AdminMember } from '@/lib/api-client';
-import { stagesApi, applicationsApi, type Stage } from '@/lib/locations-api';
+import { adminApi, stagesAdminApi, usersApi, type AdminMember, type AdminStage } from '@/lib/api-client';
+import { applicationsApi } from '@/lib/locations-api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ function StageCombobox({
 }: {
   value: string;
   onChange: (id: string) => void;
-  stages: Stage[];
+  stages: AdminStage[];
   loading: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -133,12 +133,16 @@ function StageCombobox({
 
 // ─── Create Member Modal ──────────────────────────────────────────────────────
 
+const STAGE_POSITIONS = new Set(['MEMBER', 'CHAIRMAN']);
+function isStagePos(pos: string) { return STAGE_POSITIONS.has(pos); }
+
 interface CreateMemberForm {
   firstName: string;
   lastName: string;
   idNumber: string;
   phoneNumber: string;
   email: string;
+  password: string;
   stageId: string;
   position: string;
 }
@@ -149,9 +153,14 @@ const EMPTY_FORM: CreateMemberForm = {
   idNumber: '',
   phoneNumber: '',
   email: '',
+  password: '',
   stageId: '',
   position: 'MEMBER',
 };
+
+type SuccessState =
+  | { type: 'member'; memberNumber: string; tempPassword: string }
+  | { type: 'staff'; firstName: string; lastName: string; role: string };
 
 function CreateMemberModal({
   open,
@@ -163,12 +172,12 @@ function CreateMemberModal({
   onSuccess: () => void;
 }) {
   const [form, setForm] = useState<CreateMemberForm>(EMPTY_FORM);
-  const [stages, setStages] = useState<Stage[]>([]);
+  const [stages, setStages] = useState<AdminStage[]>([]);
   const [loadingStages, setLoadingStages] = useState(false);
   const [stagesError, setStagesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ memberNumber: string; tempPassword: string } | null>(null);
+  const [success, setSuccess] = useState<SuccessState | null>(null);
   const submittedRef = useRef(false);
 
   // Load all tenant stages once when the modal opens.
@@ -177,10 +186,17 @@ function CreateMemberModal({
     setStagesError(null);
     setLoadingStages(true);
 
-    stagesApi.list({ limit: 100 })
+    stagesAdminApi.list({ limit: 100 })
       .then(res => {
-        setStages(res.data ?? []);
-        if ((res.data ?? []).length === 0) {
+        if (!res.success) {
+          setStagesError(res.error?.message ?? 'Failed to load stages');
+          return;
+        }
+        // Backend returns { data: Stage[], meta } — apiFetch wraps it in ApiResponse,
+        // so res.data is { data: Stage[], meta }.
+        const arr: AdminStage[] = (res.data as { data?: AdminStage[] })?.data ?? [];
+        setStages(arr);
+        if (arr.length === 0) {
           setStagesError('No stages registered yet. Add stages in Stages Management first.');
         }
       })
@@ -192,72 +208,104 @@ function CreateMemberModal({
   }, [open]);
 
   const set = (field: keyof CreateMemberForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm(f => ({ ...f, [field]: e.target.value }));
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const value = e.target.value;
+      setForm(f => {
+        const next = { ...f, [field]: value };
+        // When switching position type, clear the fields that don't apply
+        if (field === 'position') {
+          if (isStagePos(value) && !isStagePos(f.position)) {
+            next.password = '';
+          } else if (!isStagePos(value) && isStagePos(f.position)) {
+            next.stageId = '';
+          }
+        }
+        return next;
+      });
+    };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submittedRef.current) return;
     setError(null);
 
-    if (!form.stageId) { setError('Please select a stage'); return; }
+    if (isStagePos(form.position) && !form.stageId) {
+      setError('Please select a stage');
+      return;
+    }
 
     submittedRef.current = true;
     setLoading(true);
 
     try {
-      let appId: string;
+      if (isStagePos(form.position)) {
+        // ── Member / Chairman: application → approve flow ──────────────────────
+        let appId: string;
 
-      // Step 1: Submit application.
-      // On 409 Conflict (duplicate in SUBMITTED/PENDING_REVIEW), reuse the existing application.
-      try {
-        const app = await applicationsApi.submit({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          idNumber: form.idNumber.trim(),
-          phoneNumber: form.phoneNumber.trim(),
-          stageId: form.stageId,
-          position: form.position,
-        });
-        appId = app.id;
-      } catch (submitErr: unknown) {
-        const submitMsg = (submitErr as { message?: string })?.message ?? '';
-        if (
-          submitMsg.toLowerCase().includes('already exists') &&
-          submitMsg.toLowerCase().includes('submitted')
-        ) {
-          const pending = await applicationsApi.getPending({ limit: 100 });
-          const existing = pending.data.find(
-            a => a.idNumber === form.idNumber.trim() && a.status === 'SUBMITTED',
-          );
-          if (existing) {
-            appId = existing.id;
-          } else {
-            const pendingReview = await applicationsApi.getPending({ limit: 100, status: 'PENDING_REVIEW' });
-            const existingPR = pendingReview.data.find(a => a.idNumber === form.idNumber.trim());
-            if (existingPR) {
-              appId = existingPR.id;
+        try {
+          const app = await applicationsApi.submit({
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            idNumber: form.idNumber.trim(),
+            phoneNumber: form.phoneNumber.trim(),
+            stageId: form.stageId,
+            position: form.position,
+          });
+          appId = app.id;
+        } catch (submitErr: unknown) {
+          const submitMsg = (submitErr as { message?: string })?.message ?? '';
+          if (
+            submitMsg.toLowerCase().includes('already exists') &&
+            (submitMsg.toLowerCase().includes('submitted') || submitMsg.toLowerCase().includes('pending'))
+          ) {
+            const pending = await applicationsApi.getPending({ limit: 100 });
+            const existing = pending.data.find(
+              a => a.idNumber === form.idNumber.trim() &&
+                (a.status === 'SUBMITTED' || a.status === 'PENDING_REVIEW'),
+            );
+            if (existing) {
+              appId = existing.id;
             } else {
               throw submitErr;
             }
+          } else {
+            throw submitErr;
           }
-        } else {
-          throw submitErr;
         }
+
+        const result = await applicationsApi.approve(appId, {
+          email: form.email.trim() || undefined,
+        });
+
+        setSuccess({
+          type: 'member',
+          memberNumber: result.member.memberNumber,
+          tempPassword: result.temporaryPassword,
+        });
+      } else {
+        // ── Staff roles: direct user creation ─────────────────────────────────
+        if (!form.email.trim()) { setError('Email is required for staff accounts'); submittedRef.current = false; setLoading(false); return; }
+        if (form.password.length < 8) { setError('Password must be at least 8 characters'); submittedRef.current = false; setLoading(false); return; }
+
+        await usersApi.create({
+          email: form.email.trim(),
+          password: form.password,
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          role: form.position,
+        });
+
+        setSuccess({
+          type: 'staff',
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          role: form.position,
+        });
       }
 
-      // Step 2: Approve immediately (admin-created members skip the review queue).
-      const result = await applicationsApi.approve(appId, {
-        email: form.email.trim() || undefined,
-      });
-
-      setSuccess({
-        memberNumber: result.member.memberNumber,
-        tempPassword: result.temporaryPassword,
-      });
       onSuccess();
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? 'Failed to create member';
+      const msg = (err as { message?: string })?.message ?? 'Failed to create user';
       setError(msg);
       submittedRef.current = false;
     } finally {
@@ -277,12 +325,21 @@ function CreateMemberModal({
 
   if (!open) return null;
 
+  const stageMember = isStagePos(form.position);
+
+  const ROLE_LABELS: Record<string, string> = {
+    TENANT_ADMIN: 'Tenant Admin',
+    MANAGER: 'Manager',
+    TELLER: 'Teller',
+    AUDITOR: 'Auditor',
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold">Create New Member</h2>
+          <h2 className="text-lg font-semibold">Create New User</h2>
           <button onClick={handleClose} className="rounded-md p-1 hover:bg-gray-100">
             <X className="h-5 w-5" />
           </button>
@@ -294,20 +351,41 @@ function CreateMemberModal({
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-green-800">Member Created!</h3>
-            <div className="rounded-lg bg-gray-50 p-4 text-left space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Member Number</span>
-                <span className="font-mono font-semibold">{success.memberNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Temp Password</span>
-                <span className="font-mono font-semibold text-orange-600">{success.tempPassword}</span>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Share the temporary password with the member. They will be prompted to change it on first login.
-            </p>
+            {success.type === 'member' ? (
+              <>
+                <h3 className="text-lg font-semibold text-green-800">Member Created!</h3>
+                <div className="rounded-lg bg-gray-50 p-4 text-left space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Member Number</span>
+                    <span className="font-mono font-semibold">{success.memberNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Temp Password</span>
+                    <span className="font-mono font-semibold text-orange-600">{success.tempPassword}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Share the temporary password with the member. They will be prompted to change it on first login.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-green-800">Account Created!</h3>
+                <div className="rounded-lg bg-gray-50 p-4 text-left space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Name</span>
+                    <span className="font-semibold">{success.firstName} {success.lastName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Role</span>
+                    <span className="font-semibold">{ROLE_LABELS[success.role] ?? success.role}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  The user will be prompted to change their password on first login.
+                </p>
+              </>
+            )}
             <Button onClick={handleClose} className="w-full">Done</Button>
           </div>
         ) : (
@@ -319,6 +397,27 @@ function CreateMemberModal({
                 {error}
               </div>
             )}
+
+            {/* Position — drives which fields are shown */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Role / Position *</label>
+              <select
+                value={form.position}
+                onChange={set('position')}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <optgroup label="Stage Members">
+                  <option value="MEMBER">Member</option>
+                  <option value="CHAIRMAN">Chairman</option>
+                </optgroup>
+                <optgroup label="Staff">
+                  <option value="TENANT_ADMIN">Tenant Admin</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="TELLER">Teller</option>
+                  <option value="AUDITOR">Auditor</option>
+                </optgroup>
+              </select>
+            </div>
 
             {/* Name */}
             <div className="grid grid-cols-2 gap-3">
@@ -332,74 +431,95 @@ function CreateMemberModal({
               </div>
             </div>
 
-            {/* ID + Phone */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">ID Number *</label>
-                <Input
-                  value={form.idNumber}
-                  onChange={set('idNumber')}
-                  placeholder="e.g. 31081907"
-                  required
-                  pattern="\d{7,8}"
-                  title="7 or 8 digit national ID"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
-                <Input
-                  value={form.phoneNumber}
-                  onChange={set('phoneNumber')}
-                  placeholder="e.g. 0712345678"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Email (optional)</label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={set('email')}
-                placeholder="member@example.com"
-              />
-              <p className="text-xs text-gray-400 mt-1">If blank, a system email will be generated</p>
-            </div>
-
-            {/* Position — only MEMBER and CHAIRMAN are assigned to a stage */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
-              <select
-                value={form.position}
-                onChange={set('position')}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="MEMBER">Member</option>
-                <option value="CHAIRMAN">Chairman</option>
-              </select>
-            </div>
-
-            {/* Stage — single searchable dropdown */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Stage *</label>
-              {stagesError && !loadingStages && (
-                <div className="mb-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  {stagesError}
+            {stageMember ? (
+              /* ── Member / Chairman fields ── */
+              <>
+                {/* ID + Phone */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">ID Number *</label>
+                    <Input
+                      value={form.idNumber}
+                      onChange={set('idNumber')}
+                      placeholder="e.g. 31081907"
+                      required
+                      pattern="\d{7,8}"
+                      title="7 or 8 digit national ID"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
+                    <Input
+                      value={form.phoneNumber}
+                      onChange={set('phoneNumber')}
+                      placeholder="e.g. 0712345678"
+                      required
+                    />
+                  </div>
                 </div>
-              )}
-              <StageCombobox
-                value={form.stageId}
-                onChange={stageId => setForm(f => ({ ...f, stageId }))}
-                stages={stages}
-                loading={loadingStages}
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Type to search by stage name, ward, or county
-              </p>
-            </div>
+
+                {/* Email optional */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Email (optional)</label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={set('email')}
+                    placeholder="member@example.com"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">If blank, a system email will be generated</p>
+                </div>
+
+                {/* Stage — searchable dropdown */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Stage *</label>
+                  {stagesError && !loadingStages && (
+                    <div className="mb-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      {stagesError}
+                    </div>
+                  )}
+                  <StageCombobox
+                    value={form.stageId}
+                    onChange={stageId => setForm(f => ({ ...f, stageId }))}
+                    stages={stages}
+                    loading={loadingStages}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Type to search by stage name, ward, or county
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* ── Staff fields ── */
+              <>
+                {/* Email required */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={set('email')}
+                    placeholder="staff@example.com"
+                    required
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Temporary Password *</label>
+                  <Input
+                    type="password"
+                    value={form.password}
+                    onChange={set('password')}
+                    placeholder="Min 8 characters"
+                    required
+                    minLength={8}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">User will be prompted to change on first login</p>
+                </div>
+              </>
+            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-2 border-t">
@@ -409,11 +529,11 @@ function CreateMemberModal({
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={loading || !form.stageId || loadingStages}
+                disabled={loading || (stageMember && (!form.stageId || loadingStages))}
               >
                 {loading
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</>
-                  : 'Create Member'}
+                  : 'Create'}
               </Button>
             </div>
           </form>
@@ -486,7 +606,7 @@ export default function MembersPage() {
             <Upload className="mr-2 h-4 w-4" /> Import CSV
           </Button>
           <Button size="sm" onClick={() => setShowCreate(true)}>
-            <UserPlus className="mr-2 h-4 w-4" /> Create Member
+            <UserPlus className="mr-2 h-4 w-4" /> Create User
           </Button>
         </div>
       </div>

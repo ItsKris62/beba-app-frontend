@@ -689,6 +689,35 @@ export const adminApi = {
     }),
 };
 
+// ─── Admin stages endpoints ───────────────────────────────────────────────────
+
+export interface AdminStage {
+  id: string;
+  name: string;
+  tenantId: string;
+  createdAt: string;
+  ward: {
+    id: string;
+    name: string;
+    constituency: {
+      id: string;
+      name: string;
+      county: { id: string; name: string };
+    };
+  };
+  _count: { assignments: number };
+}
+
+export const stagesAdminApi = {
+  list: (params?: { page?: number; limit?: number; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.search) q.set('search', params.search);
+    return apiFetch<{ data: AdminStage[]; meta: ApiMeta }>(`/admin/stages?${q}`);
+  },
+};
+
 // ─── Staff user management endpoints ─────────────────────────────────────────
 
 export const usersApi = {

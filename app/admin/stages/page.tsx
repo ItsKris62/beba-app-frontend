@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   MapPin, Search, RefreshCw, Plus, Pencil, Trash2,
   Loader2, X, AlertCircle, ChevronDown, Check, ChevronsUpDown
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -21,10 +21,10 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import {
   locationsApi, stagesApi,
-  type County, type Constituency, type Ward, type Stage,
+  type Stage,
 } from '@/lib/locations-api';
 
-// ─── Permission helper ────────────────────────────────────────────────────────
+// ─── Permission helpers ───────────────────────────────────────────────────────
 
 function canManageStages(role?: string) {
   return ['SUPER_ADMIN', 'TENANT_ADMIN', 'MANAGER'].includes(role ?? '');
@@ -34,7 +34,12 @@ function canDeleteStages(role?: string) {
   return ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(role ?? '');
 }
 
-// ─── Stage Form Modal ─────────────────────────────────────────────────────────
+/** Stages created optimistically (before the DB round-trip completes) have temp IDs. */
+function isOptimisticStage(stage: Stage) {
+  return stage.id.startsWith('temp-');
+}
+
+// ─── LocationCombobox ─────────────────────────────────────────────────────────
 
 function LocationCombobox({
   value,
@@ -44,7 +49,7 @@ function LocationCombobox({
   placeholder,
   searchPlaceholder,
   emptyMessage,
-  disabled
+  disabled,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -56,7 +61,7 @@ function LocationCombobox({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedItem = items?.find(item => item.id === value);
+  const selectedItem = items.find(item => item.id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -65,10 +70,17 @@ function LocationCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between font-normal bg-background px-3 py-2 text-sm text-left h-auto min-h-[40px]", !value && "text-muted-foreground")}
+          className={cn(
+            'w-full justify-between font-normal bg-background px-3 py-2 text-sm text-left h-auto min-h-[40px]',
+            !value && 'text-muted-foreground',
+          )}
           disabled={disabled || loading}
         >
-          {loading ? `Loading ${placeholder.toLowerCase()}...` : selectedItem ? selectedItem.name : placeholder}
+          {loading
+            ? `Loading ${placeholder.toLowerCase()}...`
+            : selectedItem
+              ? selectedItem.name
+              : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -78,7 +90,7 @@ function LocationCombobox({
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {items?.map(item => (
+              {items.map(item => (
                 <CommandItem
                   key={item.id}
                   value={item.name}
@@ -89,8 +101,8 @@ function LocationCombobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
-                      value === item.id ? "opacity-100" : "opacity-0"
+                      'mr-2 h-4 w-4',
+                      value === item.id ? 'opacity-100' : 'opacity-0',
                     )}
                   />
                   {item.name}
@@ -104,26 +116,35 @@ function LocationCombobox({
   );
 }
 
+// ─── StageFormModal ───────────────────────────────────────────────────────────
+
 interface StageFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (optimisticStage?: Partial<Stage>) => void;
-  onComplete?: () => void;
+  /** Called synchronously before the API request so the UI can update optimistically. */
+  onSuccess: (stage: Stage) => void;
+  /** Called after the background API request finishes (success or failure). */
+  onComplete: () => void;
   editStage?: Stage | null;
 }
 
-function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: StageFormModalProps) {
+function StageFormModal({
+  open,
+  onClose,
+  onSuccess,
+  onComplete,
+  editStage,
+}: StageFormModalProps) {
   const isEdit = !!editStage;
+  const submittedRef = useRef(false);
 
   const [name, setName] = useState('');
   const [countyId, setCountyId] = useState('');
   const [constituencyId, setConstituencyId] = useState('');
   const [wardId, setWardId] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const [countiesList, setCountiesList] = useState<County[]>([]);
-  const [constituenciesList, setConstituenciesList] = useState<Constituency[]>([]);
-  const [wardsList, setWardsList] = useState<Ward[]>([]);
-
+  // Use React Query directly — no local state copies that can be one render stale.
   const { data: counties = [], isLoading: loadingCounties } = useQuery({
     queryKey: ['counties'],
     queryFn: locationsApi.getCounties,
@@ -145,34 +166,17 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
     staleTime: Infinity,
   });
 
-  useEffect(() => {
-    if (counties) setCountiesList(counties);
-  }, [counties]);
-
-  useEffect(() => {
-    if (constituencies) setConstituenciesList(constituencies);
-  }, [constituencies]);
-
-  useEffect(() => {
-    if (wards) setWardsList(wards);
-  }, [wards]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Pre-fill when editing
+  // Reset form / pre-fill for edit whenever the modal opens.
   useEffect(() => {
     if (!open) return;
     setError(null);
+    submittedRef.current = false;
 
     if (editStage) {
       setName(editStage.name);
-      // Pre-fill location from stage data
-      const county = editStage.ward.constituency.county;
-      const constituency = editStage.ward.constituency;
-      const ward = editStage.ward;
-      setCountyId(county.id);
-      setConstituencyId(constituency.id);
-      setWardId(ward.id);
+      setCountyId(editStage.ward.constituency.county.id);
+      setConstituencyId(editStage.ward.constituency.id);
+      setWardId(editStage.ward.id);
     } else {
       setName('');
       setCountyId('');
@@ -181,97 +185,22 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
     }
   }, [open, editStage]);
 
-  // Load counties (React Query handles caching and deduplication)
+  // Cascade-reset sub-county when county changes (skip during initial edit population).
   useEffect(() => {
     if (!open) return;
-    if (!editStage || editStage.ward.constituency.county.id !== countyId) {
-      setConstituencyId('');
-      setWardId('');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (editStage && editStage.ward.constituency.county.id === countyId) return;
+    setConstituencyId('');
+    setWardId('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countyId]);
 
+  // Cascade-reset ward when sub-county changes.
   useEffect(() => {
     if (!open) return;
-    if (!editStage || editStage.ward.constituency.id !== constituencyId) {
-      setWardId('');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (editStage && editStage.ward.constituency.id === constituencyId) return;
+    setWardId('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [constituencyId]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!name.trim()) { setError('Stage name is required'); return; }
-    if (!wardId) { setError('Please select a ward'); return; }
-
-    setSaving(true);
-    try {
-      // Reconstruct fully populated ward relation for optimistic UI
-      const selectedWard = wardsList.find(w => w.id === wardId);
-      const selectedConstituency = constituenciesList.find(c => c.id === constituencyId);
-      const selectedCounty = countiesList.find(c => c.id === countyId);
-
-      let optimisticWard;
-      if (selectedWard && selectedConstituency && selectedCounty) {
-        optimisticWard = {
-          id: selectedWard.id,
-          name: selectedWard.name,
-          constituency: {
-            id: selectedConstituency.id,
-            name: selectedConstituency.name,
-            county: {
-              id: selectedCounty.id,
-              name: selectedCounty.name,
-            }
-          }
-        };
-      } else if (isEdit && editStage) {
-        optimisticWard = editStage.ward;
-      }
-
-      if (isEdit && editStage) {
-        const optimisticStage = optimisticWard ? {
-          ...editStage,
-          name: name.trim(),
-          wardId,
-          ward: optimisticWard,
-        } : undefined;
-        
-        onSuccess(optimisticStage); // Close modal and update UI instantly
-        await stagesApi.update(editStage.id, {
-          name: name.trim(),
-          wardId,
-        });
-        toast.success("Stage updated successfully");
-        onComplete?.();
-      } else {
-        const optimisticStage = optimisticWard ? {
-          id: `temp-${Date.now()}`,
-          name: name.trim(),
-          wardId,
-          ward: optimisticWard as any,
-          _count: { assignments: 0 },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as Stage : undefined;
-
-        onSuccess(optimisticStage); // Close modal and update UI instantly
-        await stagesApi.create({ name: name.trim(), wardId });
-        toast.success("Stage created successfully");
-        onComplete?.();
-      }
-      handleClose();
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? 'Failed to save stage';
-      setError(msg);
-      toast.error(msg);
-      // Revert optimistic update by triggering a reload
-      onSuccess(undefined); 
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleClose = () => {
     setName('');
@@ -280,6 +209,88 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
     setWardId('');
     setError(null);
     onClose();
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submittedRef.current) return; // prevent double-fire
+
+    setError(null);
+    const trimmedName = name.trim();
+    if (!trimmedName) { setError('Stage name is required'); return; }
+    if (!wardId) { setError('Please select a ward'); return; }
+
+    // Build ward relation from the already-loaded React Query data.
+    const selectedWard = wards.find(w => w.id === wardId);
+    const selectedConstituency = constituencies.find(c => c.id === constituencyId);
+    const selectedCounty = counties.find(c => c.id === countyId);
+
+    const optimisticWard =
+      selectedWard && selectedConstituency && selectedCounty
+        ? {
+            id: selectedWard.id,
+            name: selectedWard.name,
+            constituency: {
+              id: selectedConstituency.id,
+              name: selectedConstituency.name,
+              county: { id: selectedCounty.id, name: selectedCounty.name },
+            },
+          }
+        : null;
+
+    submittedRef.current = true;
+
+    if (isEdit && editStage) {
+      const optimisticStage: Stage = {
+        ...editStage,
+        name: trimmedName,
+        ward: optimisticWard ?? editStage.ward,
+      };
+
+      // 1. Update UI instantly.
+      onSuccess(optimisticStage);
+      // 2. Close modal immediately — don't wait for the network.
+      handleClose();
+
+      // 3. Fire the real request in the background.
+      stagesApi
+        .update(editStage.id, { name: trimmedName, wardId })
+        .then(() => toast.success('Stage updated successfully'))
+        .catch((err: unknown) =>
+          toast.error((err as { message?: string })?.message ?? 'Failed to update stage'),
+        )
+        .finally(onComplete); // always reload to confirm or revert
+    } else {
+      if (!optimisticWard) {
+        // Location data hasn't finished loading — guard defensively.
+        setError('Location data is still loading. Please wait a moment and try again.');
+        submittedRef.current = false;
+        return;
+      }
+
+      const optimisticStage: Stage = {
+        id: `temp-${Date.now()}`,
+        name: trimmedName,
+        tenantId: '',
+        createdAt: new Date().toISOString(),
+        ward: optimisticWard,
+        _count: { assignments: 0 },
+      };
+
+      // 1. Insert optimistic row.
+      onSuccess(optimisticStage);
+      // 2. Close modal immediately.
+      handleClose();
+
+      // 3. Background create — onComplete replaces temp row with the real DB record.
+      stagesApi
+        .create({ name: trimmedName, wardId })
+        .then(() => toast.success('Stage created successfully'))
+        .catch((err: unknown) =>
+          toast.error((err as { message?: string })?.message ?? 'Failed to create stage'),
+        )
+        .finally(onComplete);
+    }
   };
 
   if (!open) return null;
@@ -320,25 +331,25 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
 
           {/* Location cascade */}
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-700">Location (County → Sub-County → Ward) *</label>
+            <label className="block text-xs font-medium text-gray-700">
+              Location (County → Sub-County → Ward) *
+            </label>
 
-            {/* County */}
             <LocationCombobox
               value={countyId}
               onChange={setCountyId}
-              items={countiesList}
+              items={counties}
               loading={loadingCounties}
               placeholder="Select County…"
               searchPlaceholder="Search counties..."
               emptyMessage="No county found."
             />
 
-            {/* Constituency */}
             {countyId && (
               <LocationCombobox
                 value={constituencyId}
                 onChange={setConstituencyId}
-                items={constituenciesList}
+                items={constituencies}
                 loading={loadingConstituencies}
                 placeholder="Select Sub-County…"
                 searchPlaceholder="Search sub-counties..."
@@ -347,12 +358,11 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
               />
             )}
 
-            {/* Ward */}
             {constituencyId && (
               <LocationCombobox
                 value={wardId}
                 onChange={setWardId}
-                items={wardsList}
+                items={wards}
                 loading={loadingWards}
                 placeholder="Select Ward…"
                 searchPlaceholder="Search wards..."
@@ -364,13 +374,15 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
 
           {/* Actions */}
           <div className="flex gap-3 pt-2 border-t">
-            <Button type="button" variant="outline" onClick={handleClose} className="flex-1" disabled={saving}>
+            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={saving || !wardId || !name.trim()}>
-              {saving
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isEdit ? 'Saving…' : 'Creating…'}</>
-                : isEdit ? 'Save Changes' : 'Create Stage'}
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={!wardId || !name.trim()}
+            >
+              {isEdit ? 'Save Changes' : 'Create Stage'}
             </Button>
           </div>
         </form>
@@ -379,7 +391,7 @@ function StageFormModal({ open, onClose, onSuccess, onComplete, editStage }: Sta
   );
 }
 
-// ─── Delete Confirm Modal ─────────────────────────────────────────────────────
+// ─── DeleteConfirmModal ───────────────────────────────────────────────────────
 
 function DeleteConfirmModal({
   stage,
@@ -399,7 +411,7 @@ function DeleteConfirmModal({
     setError(null);
     try {
       await stagesApi.delete(stage.id);
-      toast.success("Stage deleted successfully");
+      toast.success('Stage deleted successfully');
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -445,7 +457,9 @@ function DeleteConfirmModal({
               disabled={deleting}
               onClick={handleDelete}
             >
-              {deleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting…</> : 'Delete Stage'}
+              {deleting
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting…</>
+                : 'Delete Stage'}
             </Button>
           </div>
         </div>
@@ -516,8 +530,12 @@ export default function StagesPage() {
     setSearch(debouncedSearch);
   }, [debouncedSearch]);
 
-  const loadStages = useCallback(async (p = 1) => {
-    setLoading(true);
+  /**
+   * @param silent - When true, skip the full-page loading spinner. Used for
+   * background swaps after optimistic updates so the table stays visible.
+   */
+  const loadStages = useCallback(async (p = 1, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await stagesApi.list({
         page: p,
@@ -531,9 +549,9 @@ export default function StagesPage() {
       setTotal(res.meta.total);
       setTotalPages(res.meta.totalPages);
     } catch {
-      setStages([]);
+      if (!silent) setStages([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filterCounty, filterConstituency, filterWard, search]);
 
@@ -542,7 +560,7 @@ export default function StagesPage() {
     loadStages(1);
   }, [loadStages]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSearch(searchInput);
   };
@@ -617,7 +635,6 @@ export default function StagesPage() {
           <div className="space-y-3">
             <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Filter by Location</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {/* County filter */}
               <LocationCombobox
                 value={filterCounty}
                 onChange={setFilterCounty}
@@ -627,8 +644,6 @@ export default function StagesPage() {
                 searchPlaceholder="Search counties..."
                 emptyMessage="No county found."
               />
-
-              {/* Constituency filter */}
               <LocationCombobox
                 value={filterConstituency}
                 onChange={setFilterConstituency}
@@ -639,8 +654,6 @@ export default function StagesPage() {
                 emptyMessage="No sub-county found."
                 disabled={!filterCounty}
               />
-
-              {/* Ward filter */}
               <LocationCombobox
                 value={filterWard}
                 onChange={setFilterWard}
@@ -709,11 +722,20 @@ export default function StagesPage() {
               </TableHeader>
               <TableBody>
                 {stages.map(stage => (
-                  <TableRow key={stage.id} className="hover:bg-muted/50">
+                  <TableRow
+                    key={stage.id}
+                    className={cn(
+                      'hover:bg-muted/50',
+                      isOptimisticStage(stage) && 'opacity-60',
+                    )}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                         {stage.name}
+                        {isOptimisticStage(stage) && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -735,28 +757,35 @@ export default function StagesPage() {
                     </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Edit stage"
-                            onClick={() => setEditStage(stage)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          {canDelete && (
+                        {isOptimisticStage(stage) ? (
+                          // Disable actions until the DB round-trip confirms the real ID.
+                          <div className="flex items-center justify-end pr-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              title="Delete stage"
-                              onClick={() => setDeleteStage(stage)}
+                              className="h-8 w-8"
+                              title="Edit stage"
+                              onClick={() => setEditStage(stage)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                title="Delete stage"
+                                onClick={() => setDeleteStage(stage)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
@@ -792,36 +821,35 @@ export default function StagesPage() {
         </div>
       )}
 
-      {/* ── Success toast area ── */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2" id="toast-area" />
-
       {/* ── Modals ── */}
       <StageFormModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onSuccess={(optimisticStage) => {
-          if (optimisticStage) {
-            setStages(prev => [optimisticStage as Stage, ...prev]);
-            setTotal(prev => prev + 1);
-          } else {
-            loadStages(1);
-            setPage(1);
-          }
+        onSuccess={(stage) => {
+          // Prepend the optimistic row immediately.
+          setStages(prev => [stage, ...prev]);
+          setTotal(prev => prev + 1);
         }}
-        onComplete={() => loadStages(1)}
+        onComplete={() => {
+          // Silent background fetch: swaps the temp ID with the real DB UUID,
+          // reverts if the API call failed, and resets to page 1.
+          setPage(1);
+          loadStages(1, true);
+        }}
       />
 
       <StageFormModal
         open={!!editStage}
         onClose={() => setEditStage(null)}
-        onSuccess={(optimisticStage) => {
-          if (optimisticStage) {
-            setStages(prev => prev.map(s => s.id === optimisticStage.id ? { ...s, ...optimisticStage } as Stage : s));
-          } else {
-            loadStages(page);
-          }
+        onSuccess={(stage) => {
+          // Swap the optimistic update in-place by matching on the stage ID.
+          setStages(prev => prev.map(s => s.id === stage.id ? stage : s));
+          setEditStage(null);
         }}
-        onComplete={() => loadStages(page)}
+        onComplete={() => {
+          // Silent background fetch to confirm or revert the optimistic edit.
+          loadStages(page, true);
+        }}
         editStage={editStage}
       />
 

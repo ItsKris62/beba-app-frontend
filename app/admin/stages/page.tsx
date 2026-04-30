@@ -442,6 +442,10 @@ export default function StagesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
+  const [filterCounty, setFilterCounty] = useState('');
+  const [filterConstituency, setFilterConstituency] = useState('');
+  const [filterWard, setFilterWard] = useState('');
+
   // Location filters
   const { data: counties = [], isLoading: loadingFilterCounties } = useQuery({
     queryKey: ['counties'],
@@ -462,10 +466,6 @@ export default function StagesPage() {
     enabled: !!filterConstituency,
     staleTime: Infinity,
   });
-
-  const [filterCounty, setFilterCounty] = useState('');
-  const [filterConstituency, setFilterConstituency] = useState('');
-  const [filterWard, setFilterWard] = useState('');
 
   // Modals
   const [showCreate, setShowCreate] = useState(false);

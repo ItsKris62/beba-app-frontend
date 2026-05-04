@@ -316,6 +316,20 @@ const REFRESH_KEY = 'beba_refresh_token';
 const USER_KEY = 'beba_user';
 const TENANT_KEY = 'beba_tenant_id';
 
+// Cookie helpers — Next.js Edge middleware can read cookies but not localStorage.
+// We mirror the access token into a same-site cookie so the middleware can do
+// role-based routing without an extra API call.
+function setCookie(name: string, value: string, days = 7): void {
+  if (typeof document === 'undefined') return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict`;
+}
+
+function clearCookie(name: string): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict`;
+}
+
 export const tokenStore = {
   getAccess: (): string | null => {
     if (typeof window === 'undefined') return null;
@@ -336,12 +350,15 @@ export const tokenStore = {
     localStorage.setItem(REFRESH_KEY, refresh);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem(TENANT_KEY, user.tenantId);
+    // Mirror access token into cookie for Edge middleware role routing
+    setCookie(TOKEN_KEY, access, 7);
   },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TENANT_KEY);
+    clearCookie(TOKEN_KEY);
   },
 };
 

@@ -9,7 +9,14 @@
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+
+/** Tenant ID resolved at runtime from localStorage (set on login) → env fallback */
+function getTenantId(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('beba_tenant_id') ?? process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+  }
+  return process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+}
 
 // ─── Standard response envelope ──────────────────────────────────────────────
 
@@ -302,9 +309,12 @@ export interface DepositStatusResponse {
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
 
+import { useState, useEffect, useRef } from 'react';
+
 const TOKEN_KEY = 'beba_access_token';
 const REFRESH_KEY = 'beba_refresh_token';
 const USER_KEY = 'beba_user';
+const TENANT_KEY = 'beba_tenant_id';
 
 export const tokenStore = {
   getAccess: (): string | null => {
@@ -325,11 +335,13 @@ export const tokenStore = {
     localStorage.setItem(TOKEN_KEY, access);
     localStorage.setItem(REFRESH_KEY, refresh);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(TENANT_KEY, user.tenantId);
   },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TENANT_KEY);
   },
 };
 
@@ -347,8 +359,10 @@ async function doRefresh(): Promise<string | null> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-ID': TENANT_ID,
+        'X-Tenant-ID': getTenantId(),
       },
+      // Phase 2: send cookies if backend sets httpOnly refresh cookie
+      credentials: 'include',
       body: JSON.stringify({ refreshToken }),
     });
     if (!res.ok) {
@@ -380,7 +394,7 @@ async function apiFetch<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Tenant-ID': TENANT_ID,
+    'X-Tenant-ID': getTenantId(),
     ...(options.headers as Record<string, string>),
   };
 
@@ -392,13 +406,28 @@ async function apiFetch<T>(
 
   let response: Response;
   try {
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(url, { ...options, headers, credentials: 'include' });
   } catch {
     if (retries > 0) {
       await new Promise((r) => setTimeout(r, 500));
       return apiFetch<T>(path, options, retries - 1);
     }
     throw new Error('Network error – please check your connection');
+  }
+
+  // Handle 429 – rate limited; parse Retry-After header and back off
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
+    if (retries > 0) {
+      await new Promise((r) => setTimeout(r, Math.min(delayMs, 8000)));
+      return apiFetch<T>(path, options, retries - 1);
+    }
+    return {
+      success: false,
+      data: null as T,
+      error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
+    };
   }
 
   // Handle 403 – user lacks permission for this action
@@ -796,4 +825,62 @@ export function formatDateTime(iso: string): string {
 
 export function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// ─── Deposit polling helper ───────────────────────────────────────────────────
+
+export interface DepositPollResult {
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  receipt?: string;
+  error?: string;
+}
+
+export function useDepositPolling(
+  checkoutRequestId: string,
+  timeoutMs = 120000,
+): { status: DepositPollResult['status'] | null; error: string | null; receipt: string | null; stop: () => void } {
+  const [status, setStatus] = useState<DepositPollResult['status'] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const abortRef = useRef(false);
+
+  useEffect(() => {
+    abortRef.current = false;
+    const startTime = Date.now();
+
+    const poll = async () => {
+      while (!abortRef.current) {
+        if (Date.now() - startTime > timeoutMs) {
+          setError('Deposit timed out. Please check your M-Pesa messages.');
+          setStatus('FAILED');
+          return;
+        }
+
+        try {
+          const res = await memberApi.getDepositStatus(checkoutRequestId);
+          if (res.success && res.data) {
+            setStatus(res.data.status);
+            if (res.data.status === 'SUCCESS') {
+              setReceipt(res.data.completedAt ?? null);
+              return;
+            }
+            if (res.data.status === 'FAILED') {
+              setError('M-Pesa payment failed. Please try again.');
+              return;
+            }
+          }
+        } catch {
+          // Network errors during polling are non-fatal — keep polling
+        }
+
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    };
+
+    poll();
+
+    return () => { abortRef.current = true; };
+  }, [checkoutRequestId, timeoutMs]);
+
+  return { status, error, receipt, stop: () => { abortRef.current = true; } };
 }

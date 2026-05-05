@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { applicationsApi } from '@/lib/locations-api';
 import { LocationSelector } from '@/components/location-selector';
+import { CheckCircle2, Copy, Check, Eye, EyeOff } from 'lucide-react';
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 
@@ -27,6 +28,115 @@ const applicationSchema = z.object({
 });
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
+
+// ─── Member Credentials Modal ─────────────────────────────────────────────────
+
+interface MemberCredentials {
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  temporaryPassword: string;
+}
+
+function MemberCredentialsModal({
+  credentials,
+  onClose,
+}: {
+  credentials: MemberCredentials | null;
+  onClose: () => void;
+}) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  if (!credentials) return null;
+
+  const copy = (value: string, field: string) => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
+
+  const CopyBtn = ({ value, field }: { value: string; field: string }) => (
+    <button
+      onClick={() => copy(value, field)}
+      className="ml-2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+      title="Copy"
+    >
+      {copiedField === field
+        ? <Check className="h-3.5 w-3.5 text-green-600" />
+        : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <div className="flex items-center gap-2 mb-1">
+          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+          <h2 className="text-lg font-semibold text-gray-900">Member Account Created</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-5">
+          Share the credentials below with{' '}
+          <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change
+          their password on first login.
+        </p>
+
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 mb-4">
+          {/* Member Number */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Member Number</p>
+              <p className="font-mono text-sm font-semibold text-gray-900">{credentials.memberNumber}</p>
+            </div>
+            <CopyBtn value={credentials.memberNumber} field="memberNumber" />
+          </div>
+
+          {/* Email */}
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">Login Email</p>
+              <p className="truncate font-mono text-sm font-medium text-gray-900">{credentials.email}</p>
+            </div>
+            <CopyBtn value={credentials.email} field="email" />
+          </div>
+
+          {/* Temporary Password */}
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">Temporary Password</p>
+              <p className="font-mono text-sm font-semibold text-gray-900">
+                {showPassword ? credentials.temporaryPassword : '••••••••••••'}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <button
+                onClick={() => setShowPassword((s) => !s)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                title={showPassword ? 'Hide' : 'Show'}
+              >
+                {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+              <CopyBtn value={credentials.temporaryPassword} field="password" />
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-400 mb-4">
+          This is the only time the temporary password will be shown. Copy it before closing.
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
@@ -179,6 +289,7 @@ export default function ApplicationsPage() {
   const [selectedApp, setSelectedApp] = useState<Record<string, unknown> | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [memberCredentials, setMemberCredentials] = useState<MemberCredentials | null>(null);
 
   const {
     register,
@@ -215,9 +326,15 @@ export default function ApplicationsPage() {
     mutationFn: ({ id, email, notes }: { id: string; email?: string; notes?: string }) =>
       applicationsApi.approve(id, { email, reviewNotes: notes }),
     onSuccess: (data) => {
-      toast.success(`Member ${(data as { member?: { memberNumber?: string } })?.member?.memberNumber ?? ''} created! Temp password issued.`);
       setSelectedApp(null);
       queryClient.invalidateQueries({ queryKey: ['applications'] });
+      setMemberCredentials({
+        memberNumber: data.member?.memberNumber ?? '',
+        firstName: data.user?.firstName ?? '',
+        lastName: data.user?.lastName ?? '',
+        email: data.user?.email ?? '',
+        temporaryPassword: data.temporaryPassword ?? '',
+      });
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Approval failed';
@@ -481,6 +598,12 @@ export default function ApplicationsPage() {
         onApprove={(id, email, notes) => approveMutation.mutate({ id, email, notes })}
         onReject={(id, notes) => rejectMutation.mutate({ id, notes })}
         isLoading={approveMutation.isPending || rejectMutation.isPending}
+      />
+
+      {/* Member Credentials Modal — shown after successful approval */}
+      <MemberCredentialsModal
+        credentials={memberCredentials}
+        onClose={() => setMemberCredentials(null)}
       />
     </div>
   );

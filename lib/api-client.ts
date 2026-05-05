@@ -266,6 +266,7 @@ export interface StaffUser {
   lastName: string;
   phone: string | null;
   role: string;
+  status: string;
   isActive: boolean;
   mustChangePassword: boolean;
   lastLoginAt: string | null;
@@ -787,6 +788,12 @@ export const usersApi = {
     apiFetch<StaffUser>('/users', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  approveUser: (id: string) =>
+    apiFetch<{ success: boolean; user: StaffUser }>(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'APPROVED' }),
     }),
 
   deactivate: (id: string) =>

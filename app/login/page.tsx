@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
@@ -24,10 +23,12 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
 
-  // Redirect if already authenticated
+  // Single redirect gate — fires once when auth state is confirmed
   React.useEffect(() => {
     if (isAuthenticated && user) {
-      if (isAdmin(user.role)) {
+      if (user.mustChangePassword) {
+        router.replace("/change-password")
+      } else if (isAdmin(user.role)) {
         router.replace("/admin/dashboard")
       } else {
         router.replace("/member/dashboard")
@@ -35,7 +36,7 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, user, router])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!email || !password) {
       toast.error("Please enter your email and password")
@@ -49,13 +50,9 @@ export default function LoginPage() {
         return
       }
       toast.success("Welcome back!")
-      // Redirect based on role (auth context will update user)
-      const stored = JSON.parse(localStorage.getItem("beba_user") ?? "{}")
-      if (isAdmin(stored?.role)) {
-        router.push("/admin/dashboard")
-      } else {
-        router.push("/member/dashboard")
-      }
+      // Redirect is handled exclusively by the useEffect below, which fires
+      // once the auth context updates `user`. Doing router.push here would race
+      // with that effect and could cancel both navigations, leaving the page stuck.
     } catch {
       toast.error("Something went wrong. Please try again.")
     } finally {

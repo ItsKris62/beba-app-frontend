@@ -44,15 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user);
     setUser(res.data.user);
-
-    // F4: Enforce mustChangePassword redirect before dashboard
-    if (res.data.user.mustChangePassword) {
-      router.push("/change-password");
-      return { success: true };
-    }
-
+    // Navigation is handled entirely by the caller — do NOT push here.
+    // Multiple competing router.push calls cause Next.js to cancel all of them,
+    // leaving the user stuck on the login page.
     return { success: true };
-  }, [router]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -101,7 +97,7 @@ export function useAuth() {
 
 /** Role-based helpers */
 export function isAdmin(role?: string) {
-  return ["SUPER_ADMIN", "TENANT_ADMIN", "MANAGER", "TELLER", "AUDITOR"].includes(role ?? "")
+  return ["SUPER_ADMIN", "TENANT_ADMIN", "MANAGER", "TELLER", "AUDITOR", "CHAIRMAN"].includes(role ?? "")
 }
 
 export function isMember(role?: string) {

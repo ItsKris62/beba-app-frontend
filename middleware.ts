@@ -18,7 +18,7 @@ const ADMIN_ROUTES = ['/admin']
 const MEMBER_ROUTES = ['/member']
 const PUBLIC_ROUTES = ['/', '/login', '/forgot-password', '/reset-password', '/change-password', '/membership', '/about', '/contact', '/products']
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'MANAGER', 'TELLER', 'AUDITOR', 'LOAN_OFFICER']
+const ADMIN_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'MANAGER', 'TELLER', 'AUDITOR', 'CHAIRMAN', 'LOAN_OFFICER']
 const MEMBER_ROLES = ['MEMBER']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

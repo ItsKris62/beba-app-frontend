@@ -1,165 +1,245 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth, isAdmin } from "@/lib/auth-context";
-import { authApi } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Lock } from "lucide-react";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import { Eye, EyeOff, Lock, ShieldCheck, CheckCircle2, XCircle } from "lucide-react"
+import { toast } from "sonner"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAuth, isAdmin } from "@/lib/auth-context"
+import { authApi } from "@/lib/api-client"
+
+// ─── Password strength rules ──────────────────────────────────────────────────
+// Must match the backend regex:
+// /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+
+const RULES = [
+  { id: "len",   label: "At least 8 characters",            test: (v: string) => v.length >= 8 },
+  { id: "upper", label: "One uppercase letter (A–Z)",        test: (v: string) => /[A-Z]/.test(v) },
+  { id: "lower", label: "One lowercase letter (a–z)",        test: (v: string) => /[a-z]/.test(v) },
+  { id: "digit", label: "One number (0–9)",                  test: (v: string) => /\d/.test(v) },
+  { id: "spec",  label: "One special character (@$!%*?&)",   test: (v: string) => /[@$!%*?&]/.test(v) },
+]
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function RuleItem({ label, passed }: { label: string; passed: boolean }) {
+  return (
+    <li className="flex items-center gap-2 text-xs">
+      {passed
+        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
+        : <XCircle     className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+      <span className={passed ? "text-green-700" : "text-muted-foreground"}>{label}</span>
+    </li>
+  )
+}
+
+function PasswordField({
+  id, label, value, onChange, error, placeholder, autoComplete,
+}: {
+  id: string; label: string; value: string
+  onChange: (v: string) => void; error?: string
+  placeholder?: string; autoComplete?: string
+}) {
+  const [show, setShow] = React.useState(false)
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id={id}
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`pl-9 pr-10 ${error ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+          placeholder={placeholder}
+          autoComplete={autoComplete ?? "new-password"}
+        />
+        <button
+          type="button"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          onClick={() => setShow((s) => !s)}
+          tabIndex={-1}
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChangePasswordPage() {
-  const router = useRouter();
-  const { user, updateUser } = useAuth();
+  const router  = useRouter()
+  const { user, isAuthenticated, isLoading, updateUser } = useAuth()
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [currentPw,  setCurrentPw]  = React.useState("")
+  const [newPw,      setNewPw]      = React.useState("")
+  const [confirmPw,  setConfirmPw]  = React.useState("")
+  const [fieldErrors, setFieldErrors] = React.useState<{
+    current?: string; new?: string; confirm?: string
+  }>({})
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [done, setDone] = React.useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
-      return;
+  // Guard: send unauthenticated visitors to login
+  React.useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login")
     }
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
-      return;
-    }
+  }, [isLoading, isAuthenticated, router])
 
-    setIsLoading(true);
+  // Guard: users who don't need a password change go straight to their dashboard
+  React.useEffect(() => {
+    if (!isLoading && isAuthenticated && user && !user.mustChangePassword) {
+      router.replace(isAdmin(user.role) ? "/admin/dashboard" : "/member/dashboard")
+    }
+  }, [isLoading, isAuthenticated, user, router])
+
+  const passedRules   = RULES.map((r) => r.test(newPw))
+  const allRulesPassed = passedRules.every(Boolean)
+
+  function validate(): boolean {
+    const e: typeof fieldErrors = {}
+    if (!currentPw) {
+      e.current = "Enter your temporary password"
+    }
+    if (!newPw) {
+      e.new = "Enter a new password"
+    } else if (!allRulesPassed) {
+      e.new = "Password does not meet all the requirements below"
+    }
+    if (!confirmPw) {
+      e.confirm = "Confirm your new password"
+    } else if (newPw !== confirmPw) {
+      e.confirm = "Passwords do not match"
+    }
+    setFieldErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!validate()) return
+    setIsSubmitting(true)
+
     try {
-      const res = await authApi.changePassword(currentPassword, newPassword);
+      const res = await authApi.changePassword(currentPw, newPw)
       if (!res.success) {
-        setError(res.error?.message ?? "Failed to change password.");
-        return;
+        const msg = res.error?.message ?? "Failed to change password"
+        // Map the backend's "current password is incorrect" message to the right field
+        if (/current|incorrect|wrong|invalid/i.test(msg)) {
+          setFieldErrors({ current: "Incorrect — this is not your current password" })
+        } else {
+          toast.error(msg)
+        }
+        return
       }
 
-      // Clear mustChangePassword flag in stored user
-      updateUser({ mustChangePassword: false });
-      setSuccess(true);
+      // Unlock the app immediately by clearing the flag in-memory + localStorage
+      updateUser({ mustChangePassword: false })
+      setDone(true)
+      toast.success("Password changed — welcome!")
 
-      // Redirect to appropriate dashboard after 1.5s
       setTimeout(() => {
-        router.replace(isAdmin(user?.role) ? "/admin/dashboard" : "/member/dashboard");
-      }, 1500);
+        router.replace(isAdmin(user?.role) ? "/admin/dashboard" : "/member/dashboard")
+      }, 1200)
+    } catch {
+      toast.error("Something went wrong. Please try again.")
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false)
     }
-  };
+  }
+
+  // Blank render while auth hydrates (avoids flash)
+  if (isLoading || !user) return null
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <Lock className="h-6 w-6 text-blue-600" />
-          </div>
-          <CardTitle className="text-2xl">Change Password</CardTitle>
-          <CardDescription>
-            {user?.mustChangePassword
-              ? "You must change your password before continuing."
-              : "Update your account password."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {success ? (
-            <Alert className="border-green-200 bg-green-50">
-              <AlertDescription className="text-green-800">
-                Password changed successfully! Redirecting…
-              </AlertDescription>
-            </Alert>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 p-4">
+      <div className="w-full max-w-md">
+        {/* Brand */}
+        <div className="mb-8 text-center">
+          <span className="text-2xl font-bold text-primary">KC Boda</span>
+          <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Welcome, {user.firstName}
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-amber-500" />
+              <CardTitle>Set Your Password</CardTitle>
+            </div>
+            <CardDescription>
+              Your account was created with a temporary password. Set a permanent one to
+              access the system — you only need to do this once.
+            </CardDescription>
+          </CardHeader>
+
+          {done ? (
+            <CardContent className="py-10 text-center space-y-3">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
+              <p className="text-base font-semibold text-green-700">Password updated!</p>
+              <p className="text-sm text-muted-foreground">Taking you to your dashboard…</p>
+            </CardContent>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                <PasswordField
+                  id="currentPw"
+                  label="Temporary Password"
+                  value={currentPw}
+                  onChange={setCurrentPw}
+                  error={fieldErrors.current}
+                  placeholder="The password you were given"
+                  autoComplete="current-password"
+                />
 
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <div className="relative">
-                  <Input
-                    id="currentPassword"
-                    type={showCurrent ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowCurrent((v) => !v)}
-                  >
-                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                <PasswordField
+                  id="newPw"
+                  label="New Password"
+                  value={newPw}
+                  onChange={setNewPw}
+                  error={fieldErrors.new}
+                  placeholder="Choose a strong password"
+                />
 
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="newPassword"
-                    type={showNew ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowNew((v) => !v)}
-                  >
-                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                {/* Live rules checklist — only shown while typing */}
+                {newPw.length > 0 && (
+                  <ul className="space-y-1.5 rounded-md border bg-muted/40 px-3 py-2.5">
+                    {RULES.map((r, i) => (
+                      <RuleItem key={r.id} label={r.label} passed={passedRules[i]} />
+                    ))}
+                  </ul>
+                )}
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirm ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowConfirm((v) => !v)}
-                  >
-                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                <PasswordField
+                  id="confirmPw"
+                  label="Confirm New Password"
+                  value={confirmPw}
+                  onChange={setConfirmPw}
+                  error={fieldErrors.confirm}
+                  placeholder="Re-enter your new password"
+                />
+              </CardContent>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Changing Password…" : "Change Password"}
-              </Button>
+              <CardFooter>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? "Updating password…" : "Set New Password"}
+                </Button>
+              </CardFooter>
             </form>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
-  );
+  )
 }

@@ -17,15 +17,15 @@ import { useAuth, isAdmin } from "@/lib/auth-context"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, isAuthenticated, user } = useAuth()
+  const { login, isAuthenticated, isLoading, user } = useAuth()
   const [showPassword, setShowPassword] = React.useState(false)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
 
-  // Single redirect gate — fires once when auth state is confirmed
+  // Redirect already-authenticated users who land on this page
   React.useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!isLoading && isAuthenticated && user) {
       if (user.mustChangePassword) {
         router.replace("/change-password")
       } else if (isAdmin(user.role)) {
@@ -34,7 +34,7 @@ export default function LoginPage() {
         router.replace("/member/dashboard")
       }
     }
-  }, [isAuthenticated, user, router])
+  }, [isLoading, isAuthenticated, user, router])
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -42,21 +42,25 @@ export default function LoginPage() {
       toast.error("Please enter your email and password")
       return
     }
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
       const result = await login(email, password)
-      if (!result.success) {
+      if (!result.success || !result.user) {
         toast.error(result.error ?? "Invalid credentials. Please try again.")
         return
       }
       toast.success("Welcome back!")
-      // Redirect is handled exclusively by the useEffect below, which fires
-      // once the auth context updates `user`. Doing router.push here would race
-      // with that effect and could cancel both navigations, leaving the page stuck.
+      if (result.user.mustChangePassword) {
+        router.replace("/change-password")
+      } else if (isAdmin(result.user.role)) {
+        router.replace("/admin/dashboard")
+      } else {
+        router.replace("/member/dashboard")
+      }
     } catch {
       toast.error("Something went wrong. Please try again.")
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -142,8 +146,8 @@ export default function LoginPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-4">
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Signing in…" : "Sign In"}
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? "Signing in…" : "Sign In"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Not a member yet?{" "}

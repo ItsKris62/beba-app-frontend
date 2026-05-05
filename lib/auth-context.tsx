@@ -8,7 +8,7 @@ interface AuthContextValue {
   user: LoginResponse["user"] | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
   logout: () => Promise<void>;
   /** Update the stored user object (e.g. after mustChangePassword is cleared) */
   updateUser: (patch: Partial<LoginResponse["user"]>) => void;
@@ -44,10 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user);
     setUser(res.data.user);
-    // Navigation is handled entirely by the caller — do NOT push here.
-    // Multiple competing router.push calls cause Next.js to cancel all of them,
-    // leaving the user stuck on the login page.
-    return { success: true };
+    return { success: true, user: res.data.user };
   }, []);
 
   const logout = useCallback(async () => {

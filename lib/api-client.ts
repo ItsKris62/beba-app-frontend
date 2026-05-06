@@ -10,12 +10,15 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
-/** Tenant ID resolved at runtime from localStorage (set on login) → env fallback */
+/** Tenant ID resolved at runtime from env → localStorage fallback */
 function getTenantId(): string {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('beba_tenant_id') ?? process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+  if (process.env.NEXT_PUBLIC_TENANT_ID) {
+    return process.env.NEXT_PUBLIC_TENANT_ID;
   }
-  return process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('beba_tenant_id') ?? '';
+  }
+  return '';
 }
 
 // ─── Standard response envelope ──────────────────────────────────────────────

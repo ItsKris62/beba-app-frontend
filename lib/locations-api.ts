@@ -148,11 +148,13 @@ export const applicationsApi = {
     page?: number;
     limit?: number;
     status?: string;
+    search?: string;
   }): Promise<PaginatedResponse<MemberApplication>> => {
     const qs = new URLSearchParams();
     if (params?.page) qs.set('page', String(params.page));
     if (params?.limit) qs.set('limit', String(params.limit));
     if (params?.status) qs.set('status', params.status);
+    if (params?.search) qs.set('search', params.search);
     const query = qs.toString() ? `?${qs.toString()}` : '';
     // The backend returns { data, meta } directly — normalize to PaginatedResponse shape
     return apiFetch<PaginatedResponse<MemberApplication>>(`/admin/applications/pending${query}`)

@@ -229,9 +229,27 @@ function CreateMemberModal({
     if (submittedRef.current) return;
     setError(null);
 
-    if (isStagePos(form.position) && !form.stageId) {
-      setError('Please select a stage');
-      return;
+    if (isStagePos(form.position)) {
+      if (!form.idNumber.trim()) {
+        setError('ID Number is required');
+        return;
+      }
+      if (!/^\d{7,8}$/.test(form.idNumber.trim())) {
+        setError('ID Number must be 7 or 8 digits (e.g. 31081907)');
+        return;
+      }
+      if (!form.phoneNumber.trim()) {
+        setError('Phone Number is required');
+        return;
+      }
+      if (!/^(07\d{8}|2547\d{8}|\+2547\d{8})$/.test(form.phoneNumber.trim())) {
+        setError('Phone must be a valid Kenyan number (e.g. 0712345678 or 2547XXXXXXXX)');
+        return;
+      }
+      if (!form.stageId) {
+        setError('Please select a stage');
+        return;
+      }
     }
 
     submittedRef.current = true;

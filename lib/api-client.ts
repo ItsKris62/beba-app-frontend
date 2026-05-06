@@ -765,6 +765,87 @@ export const stagesAdminApi = {
   },
 };
 
+// ─── System Health (SUPER_ADMIN) ──────────────────────────────────────────────
+
+export interface SystemServiceStatus {
+  id: string;
+  name: string;
+  status: 'online' | 'degraded' | 'offline';
+  latencyMs: number | null;
+  uptime: number | null;
+  lastCheckedAt: string;
+  details?: Record<string, unknown>;
+}
+
+export interface SystemErrorLog {
+  id: string;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'FATAL';
+  source: string;
+  message: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SystemBackgroundJob {
+  id: string;
+  name: string;
+  displayName: string;
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  status: 'idle' | 'running' | 'failed';
+}
+
+export interface SystemBlockedIP {
+  id: string;
+  ipAddress: string;
+  reason: string;
+  blockedAt: string;
+  expiresAt: string | null;
+  isActive: boolean;
+}
+
+export interface SystemFailedLogin {
+  username: string;
+  ipAddress: string;
+  attempts: number;
+  lastAttemptAt: string;
+}
+
+export const systemHealthApi = {
+  getServices: () =>
+    apiFetch<SystemServiceStatus[]>('/admin/health/services'),
+
+  testService: (serviceId: string) =>
+    apiFetch<SystemServiceStatus>(`/admin/health/services/${serviceId}/test`, { method: 'POST' }),
+
+  getErrorLogs: (params?: { level?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.level) q.set('level', params.level);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<{ data: SystemErrorLog[]; total: number }>(`/admin/health/error-logs?${q}`);
+  },
+
+  getBackgroundJobs: () =>
+    apiFetch<SystemBackgroundJob[]>('/admin/health/background-jobs'),
+
+  getBlockedIPs: (params?: { page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<{ data: SystemBlockedIP[]; total: number }>(`/admin/health/blocked-ips?${q}`);
+  },
+
+  unblockIP: (id: string) =>
+    apiFetch<void>(`/admin/health/blocked-ips/${id}`, { method: 'DELETE' }),
+
+  getFailedLogins: () =>
+    apiFetch<SystemFailedLogin[]>('/admin/health/failed-logins'),
+};
+
 // ─── Staff user management endpoints ─────────────────────────────────────────
 
 export const usersApi = {

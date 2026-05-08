@@ -521,11 +521,17 @@ async function apiFetch<T>(
 // ─── Auth endpoints ───────────────────────────────────────────────────────────
 
 export const authApi = {
-  login: (email: string, password: string) =>
-    apiFetch<LoginResponse>('/auth/login', {
+  login: (identifier: string, password: string) => {
+    // Basic check for phone number (optional leading '+', then digits only)
+    // Kenyan numbers might be +2547... or 07...
+    const isPhone = /^\+?[0-9]+$/.test(identifier.replace(/\s+/g, ''));
+    const payload = isPhone ? { phone: identifier, password } : { email: identifier, password };
+    
+    return apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+      body: JSON.stringify(payload),
+    });
+  },
 
   register: (data: {
     email: string;

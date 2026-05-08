@@ -20,42 +20,42 @@ export default function LoginPage() {
   const { login, isAuthenticated, isLoading, user } = useAuth()
   const [showPassword, setShowPassword] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [email, setEmail] = React.useState("")
+  const [identifier, setIdentifier] = React.useState("")
   const [password, setPassword] = React.useState("")
 
   // Redirect already-authenticated users who land on this page
   React.useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
       if (user.mustChangePassword) {
-        router.replace("/change-password")
+        window.location.href = "/change-password"
       } else if (isAdmin(user.role)) {
-        router.replace("/admin/dashboard")
+        window.location.href = "/admin/dashboard"
       } else {
-        router.replace("/member/dashboard")
+        window.location.href = "/member/dashboard"
       }
     }
-  }, [isLoading, isAuthenticated, user, router])
+  }, [isLoading, isAuthenticated, user])
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!email || !password) {
-      toast.error("Please enter your email and password")
+    if (!identifier || !password) {
+      toast.error("Please enter your email or phone and password")
       return
     }
     setIsSubmitting(true)
     try {
-      const result = await login(email, password)
+      const result = await login(identifier, password)
       if (!result.success || !result.user) {
         toast.error(result.error ?? "Invalid credentials. Please try again.")
         return
       }
       toast.success("Welcome back!")
       if (result.user.mustChangePassword) {
-        router.replace("/change-password")
+        window.location.href = "/change-password"
       } else if (isAdmin(result.user.role)) {
-        router.replace("/admin/dashboard")
+        window.location.href = "/admin/dashboard"
       } else {
-        router.replace("/member/dashboard")
+        window.location.href = "/member/dashboard"
       }
     } catch {
       toast.error("Something went wrong. Please try again.")
@@ -89,18 +89,18 @@ export default function LoginPage() {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="identifier">Email Address or Phone</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
+                      id="identifier"
+                      type="text"
+                      placeholder="you@example.com or +2547..."
                       className="pl-9"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
                       required
-                      autoComplete="email"
+                      autoComplete="username"
                     />
                   </div>
                 </div>

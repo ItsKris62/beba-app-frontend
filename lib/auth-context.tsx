@@ -8,7 +8,7 @@ interface AuthContextValue {
   user: LoginResponse["user"] | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
   logout: () => Promise<void>;
   /** Update the stored user object (e.g. after mustChangePassword is cleared) */
   updateUser: (patch: Partial<LoginResponse["user"]>) => void;
@@ -37,8 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await authApi.login(email, password);
+  const login = useCallback(async (identifier: string, password: string) => {
+    const res = await authApi.login(identifier, password);
     if (!res.success || !res.data) {
       return { success: false, error: res.error?.message ?? "Login failed" };
     }

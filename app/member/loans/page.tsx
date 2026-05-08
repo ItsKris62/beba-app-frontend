@@ -112,6 +112,10 @@ export default function LoansPage() {
     if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
       toast.error("Please fill all required fields"); return
     }
+    if (amount > maxLoanable) {
+      toast.error(`Loan amount exceeds your maximum eligible limit of ${formatCurrency(maxLoanable)}`);
+      return
+    }
     setIsApplying(true)
     try {
       const res = await memberApi.applyForLoan(
@@ -200,7 +204,10 @@ export default function LoansPage() {
                 <Input id="principal" type="number" placeholder="50000" value={principalAmount}
                   onChange={(e) => setPrincipalAmount(e.target.value)}
                   min={product ? parseFloat(product.minAmount) : 1000}
-                  max={Math.min(product ? parseFloat(product.maxAmount) : maxLoanable, maxLoanable)} required />
+                  max={Math.max(
+                    product ? parseFloat(product.minAmount) : 1000,
+                    Math.min(product ? parseFloat(product.maxAmount) : maxLoanable, maxLoanable)
+                  )} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tenure">Repayment Period (months)</Label>

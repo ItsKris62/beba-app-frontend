@@ -37,6 +37,15 @@ export interface ApiResponse<T = unknown> {
   error: { code: string; message: string; details?: unknown } | null;
 }
 
+interface ProblemDetails {
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  errorCode?: string;
+  correlationId?: string;
+}
+
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 export interface LoginResponse {
@@ -538,6 +547,25 @@ async function apiFetch<T>(
     data: null,
     error: { code: 'PARSE_ERROR', message: 'Invalid response from server' },
   }));
+
+  if (!response.ok) {
+    const problem = json as ProblemDetails;
+    const message =
+      problem.detail ??
+      problem.title ??
+      (json as { error?: { message?: string } }).error?.message ??
+      `Request failed with status ${response.status}`;
+
+    return {
+      success: false,
+      data: null as T,
+      error: {
+        code: problem.errorCode ?? problem.title ?? `HTTP_${response.status}`,
+        message,
+        details: json,
+      },
+    };
+  }
 
   // Normalize: if the backend returns a raw object (no success/error fields),
   // wrap it so callers can use res.success and res.data consistently.

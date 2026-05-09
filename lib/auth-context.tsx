@@ -23,6 +23,8 @@ const AuthContext = createContext<AuthContextValue>({
   updateUser: () => {},
 });
 
+import { jwtDecode } from "jwt-decode";
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<LoginResponse["user"] | null>(null);
@@ -31,8 +33,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Hydrate from localStorage on mount
   useEffect(() => {
     const stored = tokenStore.getUser();
-    if (stored && tokenStore.getAccess()) {
-      setUser(stored);
+    const access = tokenStore.getAccess();
+    if (stored && access) {
+      try {
+        const decoded = jwtDecode(access);
+        // Check if token is expired (exp is in seconds)
+        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+          tokenStore.clear();
+        } else {
+          setUser(stored);
+        }
+      } catch {
+        tokenStore.clear();
+      }
     }
     setIsLoading(false);
   }, []);

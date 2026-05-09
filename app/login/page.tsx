@@ -26,6 +26,23 @@ export default function LoginPage() {
   // Redirect already-authenticated users who land on this page
   React.useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
+      // Check if we were redirected here because of an expired token
+      if (typeof window !== "undefined") {
+        const searchParams = new URLSearchParams(window.location.search)
+        if (searchParams.get("reason") === "expired") {
+          // Clear local state immediately to avoid race conditions
+          // before the async logout finishes
+          import("@/lib/api-client").then(({ tokenStore }) => {
+            tokenStore.clear()
+          })
+          logout().then(() => {
+            window.history.replaceState({}, document.title, "/login")
+          })
+          toast.error("Your session has expired. Please log in again.")
+          return
+        }
+      }
+
       if (user.mustChangePassword) {
         window.location.href = "/change-password"
       } else if (isAdmin(user.role)) {
@@ -34,7 +51,7 @@ export default function LoginPage() {
         window.location.href = "/member/dashboard"
       }
     }
-  }, [isLoading, isAuthenticated, user])
+  }, [isLoading, isAuthenticated, user, logout])
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

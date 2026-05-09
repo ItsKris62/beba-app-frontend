@@ -47,7 +47,7 @@ function GuarantorCard({ loanId, applicantName, loanNumber, loanAmount, guarante
   const respond = async (action: "ACCEPT" | "DECLINE") => {
     setIsSubmitting(true)
     try {
-      const res = await memberApi.respondToGuarantor(loanId, action, notes)
+      const res = await memberApi.respondToGuarantor(loanId, action, notes, generateIdempotencyKey())
       if (!res.success) { toast.error(res.error?.message ?? "Failed"); return }
       toast.success(action === "ACCEPT" ? "Guarantee accepted!" : "Guarantee declined.")
       onRespond()

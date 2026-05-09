@@ -17,7 +17,7 @@ import { useAuth, isAdmin } from "@/lib/auth-context"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, isAuthenticated, isLoading, user } = useAuth()
+  const { login, logout, isAuthenticated, isLoading, user } = useAuth()
   const [showPassword, setShowPassword] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [identifier, setIdentifier] = React.useState("")

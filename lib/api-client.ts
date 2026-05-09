@@ -121,6 +121,13 @@ export interface LoanProduct {
   interestType: string;
   maxTenureMonths: number;
   processingFeeRate: string;
+  requiredAccountType?: string | null;
+  savingsMultiplier?: string;
+  minGuarantors: number;
+  maxGuarantors: number;
+  guarantorCoverageRatio: string;
+  requiresPayslip?: boolean;
+  minActiveMonths?: number;
   gracePeriodMonths: number;
   isActive: boolean;
 }
@@ -146,7 +153,12 @@ export interface Loan {
     memberNumber: string;
     user: { firstName: string; lastName: string; email?: string };
   };
-  loanProduct?: { name: string; interestType: string };
+  loanProduct?: {
+    name: string;
+    interestType: string;
+    minGuarantors?: number;
+    guarantorCoverageRatio?: string | number;
+  };
   guarantors?: GuarantorRecord[];
 }
 
@@ -162,6 +174,24 @@ export interface GuarantorRecord {
     memberNumber: string;
     user: { firstName: string; lastName: string; phone?: string };
   };
+}
+
+export interface GuarantorLookupResult {
+  memberId: string;
+  maskedName: string;
+  kycStatus: 'KYC_VERIFIED';
+  eligible: boolean;
+  reason?: string;
+}
+
+export interface GuarantorRequest {
+  loanId: string;
+  loanNumber: string;
+  applicantName: string;
+  amount: number;
+  guaranteedAmount: number;
+  status: string;
+  purpose: string | null;
 }
 
 export interface AdminStats {
@@ -596,6 +626,7 @@ export const memberApi = {
     tenureMonths: number;
     purpose?: string;
     notes?: string;
+    guarantorIds?: string[];
   }, idempotencyKey: string) =>
     apiFetch<Loan>('/members/loans/apply', {
       method: 'POST',
@@ -603,11 +634,21 @@ export const memberApi = {
       body: JSON.stringify(data),
     }),
 
-  respondToGuarantor: (loanId: string, action: 'ACCEPT' | 'DECLINE', notes?: string) =>
+  lookupGuarantor: (idNumber: string, requiredAmount: number) =>
+    apiFetch<GuarantorLookupResult>('/members/guarantors/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ idNumber, requiredAmount }),
+    }),
+
+  getGuarantorRequests: () =>
+    apiFetch<GuarantorRequest[]>('/members/guarantor/requests'),
+
+  respondToGuarantor: (loanId: string, action: 'ACCEPT' | 'DECLINE', notes: string | undefined, idempotencyKey: string) =>
     apiFetch<{ loanId: string; memberId: string; status: string }>(
       `/members/loans/${loanId}/guarantor-response`,
       {
         method: 'POST',
+        headers: { 'X-Idempotency-Key': idempotencyKey },
         body: JSON.stringify({ action, notes }),
       },
     ),
@@ -719,6 +760,15 @@ export const adminApi = {
     if (params?.search) q.set('search', params.search ?? '');
     return apiFetch<{ data: Loan[]; meta: ApiMeta }>(`/loans?${q}`);
   },
+
+  overrideGuarantor: (loanId: string, guarantorId: string, action: 'ACCEPT' | 'DECLINE', reason: string) =>
+    apiFetch<{ loanId: string; guarantorId: string; memberId: string; status: string; loanStatus: string }>(
+      `/admin/loans/${loanId}/guarantors/${guarantorId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ action, reason }),
+      },
+    ),
 
   getAuditLogs: (params?: { page?: number; limit?: number; action?: string; from?: string; to?: string }) => {
     const q = new URLSearchParams();

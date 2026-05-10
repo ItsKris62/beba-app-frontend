@@ -80,6 +80,7 @@ interface CreatedCredentials {
   email: string
   password: string
   role: string
+  mode: "created" | "regenerated"
 }
 
 const EMPTY_FORM: CreateForm = {
@@ -111,6 +112,7 @@ function CredentialsDialog({
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   if (!credentials) return null
+  const regenerated = credentials.mode === "regenerated"
 
   const copy = (value: string, field: string) => {
     navigator.clipboard.writeText(value).then(() => {
@@ -125,12 +127,12 @@ function CredentialsDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <DialogTitle>Account Created Successfully</DialogTitle>
+            <DialogTitle>{regenerated ? "Temporary Password Generated" : "Account Created Successfully"}</DialogTitle>
           </div>
           <DialogDescription>
             Share the credentials below with{" "}
             <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change their
-            password on first login.
+            password on next login.
           </DialogDescription>
         </DialogHeader>
 
@@ -167,7 +169,7 @@ function CredentialsDialog({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          This is the only time the password will be shown. Copy it before closing.
+          This is the only time this temporary password will be shown. Copy it before closing.
         </p>
 
         <DialogFooter>
@@ -244,7 +246,7 @@ export default function AdminUsers() {
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null)
 
   const [confirmAction, setConfirmAction] = useState<{
-    type: "deactivate" | "force-reset" | "approve"
+    type: "deactivate" | "force-reset" | "generate-temp-password" | "approve"
     user: StaffUser
   } | null>(null)
   const [isConfirming, setIsConfirming] = useState(false)
@@ -303,6 +305,7 @@ export default function AdminUsers() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
         role: form.role,
+        mode: "created",
       })
       setIsCreateOpen(false)
       setForm(EMPTY_FORM)
@@ -327,6 +330,19 @@ export default function AdminUsers() {
       res = r
     } else if (confirmAction.type === "deactivate") {
       res = await usersApi.deactivate(confirmAction.user.id)
+    } else if (confirmAction.type === "generate-temp-password") {
+      const r = await usersApi.generateTemporaryPassword(confirmAction.user.id)
+      res = r
+      if (r.success && r.data) {
+        setCreatedCredentials({
+          firstName: r.data.user.firstName,
+          lastName: r.data.user.lastName,
+          email: r.data.user.email,
+          password: r.data.temporaryPassword,
+          role: r.data.user.role,
+          mode: "regenerated",
+        })
+      }
     } else {
       res = await usersApi.forcePasswordReset(confirmAction.user.id)
     }
@@ -337,6 +353,8 @@ export default function AdminUsers() {
           ? `${confirmAction.user.firstName}'s account has been approved.`
           : confirmAction.type === "deactivate"
           ? `${confirmAction.user.firstName} has been deactivated.`
+          : confirmAction.type === "generate-temp-password"
+          ? `Temporary password generated for ${confirmAction.user.firstName}.`
           : `Password reset forced for ${confirmAction.user.firstName}.`
       toast.success(msg)
       setConfirmAction(null)
@@ -520,6 +538,12 @@ export default function AdminUsers() {
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 Force Password Reset
                               </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setConfirmAction({ type: "generate-temp-password", user: u })}
+                              >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Generate Temp Password
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -688,6 +712,8 @@ export default function AdminUsers() {
                 ? "Approve Account"
                 : confirmAction?.type === "deactivate"
                 ? "Deactivate User"
+                : confirmAction?.type === "generate-temp-password"
+                ? "Generate Temporary Password"
                 : "Force Password Reset"}
             </DialogTitle>
             <DialogDescription>
@@ -695,6 +721,8 @@ export default function AdminUsers() {
                 ? `This will approve ${confirmAction.user.firstName} ${confirmAction.user.lastName}'s account, allowing them to log in.`
                 : confirmAction?.type === "deactivate"
                 ? `This will immediately revoke all sessions for ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} and mark their account inactive.`
+                : confirmAction?.type === "generate-temp-password"
+                ? `This will replace ${confirmAction?.user.firstName} ${confirmAction?.user.lastName}'s current password with a new temporary password, invalidate sessions, and show the new value once.`
                 : `This will force ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} to set a new password on next login and invalidate all current sessions.`}
             </DialogDescription>
           </DialogHeader>

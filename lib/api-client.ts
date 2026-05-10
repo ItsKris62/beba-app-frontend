@@ -986,6 +986,16 @@ export const usersApi = {
     apiFetch<{ success: boolean; message: string }>(`/users/${id}/force-password-reset`, {
       method: 'PATCH',
     }),
+
+  generateTemporaryPassword: (id: string) =>
+    apiFetch<{
+      success: boolean;
+      temporaryPassword: string;
+      user: Pick<StaffUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'>;
+      message: string;
+    }>(`/users/${id}/generate-temporary-password`, {
+      method: 'PATCH',
+    }),
 };
 
 // ─── Tenants endpoints (SUPER_ADMIN only) ────────────────────────────────────

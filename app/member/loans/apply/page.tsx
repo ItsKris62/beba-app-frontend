@@ -49,7 +49,7 @@ export default function ApplyLoanPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div><h1 className="text-2xl font-bold">Apply for Loan</h1><p className="text-muted-foreground">Select guarantors by National ID only.</p></div>
+      <div><h1 className="text-2xl font-bold">Apply for Loan</h1><p className="text-muted-foreground">Search and select agreed guarantors by name or National ID.</p></div>
       {member && !isKycApproved && (
         <Alert className="border-amber-200 bg-amber-50">
           <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
@@ -78,7 +78,7 @@ export default function ApplyLoanPage() {
               <div>
                 <p className="font-medium">Choose guarantors</p>
                 <p className="text-xs text-muted-foreground">
-                  Search an active member by National ID and add them as a guarantor.
+                  Search an active member by name or National ID and add them as a guarantor.
                   {amount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
                 </p>
               </div>

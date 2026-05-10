@@ -26,6 +26,7 @@ import {
   Building2,
   Upload,
   MapPin,
+  Package,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -61,7 +62,7 @@ const memberNavItems = [
   { href: "/member/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/member/accounts", label: "Accounts", icon: Wallet },
   { href: "/member/loans", label: "Loans", icon: CreditCard },
-  { href: "/member/dashboard/guarantor-requests", label: "Guarantor Requests", icon: UserCheck },
+  { href: "/member/guarantors", label: "Guarantors", icon: UserCheck },
   { href: "/member/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/member/statements", label: "Statements", icon: FileText },
   { href: "/member/profile", label: "Profile", icon: User },
@@ -74,6 +75,7 @@ const ALL_ADMIN_NAV = [
   { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/users",             label: "Staff Users",    icon: User,            roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/loans",             label: "Loan Management",icon: CreditCard,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
+  { href: "/admin/products",          label: "Loan Products",  icon: Package,         roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
   { href: "/admin/transactions",      label: "Transactions",   icon: ArrowLeftRight,  roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
   { href: "/admin/import/upload",     label: "Import Members", icon: Upload,          roles: ["SUPER_ADMIN","TENANT_ADMIN"] },

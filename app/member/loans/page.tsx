@@ -92,9 +92,13 @@ function getGuarantorRequirements(loan: Loan) {
   const activeCoverage = activeGuarantors.reduce((sum, item) => sum + parseFloat(item.guaranteedAmount), 0)
   const remainingCoverage = Math.max(0, requiredCoverage - activeCoverage)
   const remainingCount = Math.max(0, minGuarantors - activeGuarantors.length)
+  const maxGuarantors = loan.loanProduct?.maxGuarantors ?? 3
+  const remainingSlots = Math.max(0, maxGuarantors - activeGuarantors.length)
 
   return {
     minGuarantors,
+    maxGuarantors,
+    remainingSlots,
     requiredCoverage,
     activeCoverage,
     remainingCoverage,
@@ -138,7 +142,7 @@ function LoanGuarantorRequestPanel({ loan, onRequested }: { loan: Loan; onReques
   const canRequest = ["DRAFT", "PENDING_GUARANTORS"].includes(loan.status)
   const needsGuarantors = requirements.minGuarantors > 0
 
-  if (!canRequest || !needsGuarantors) return null
+  if (!canRequest || !needsGuarantors || requirements.remainingSlots <= 0) return null
 
   const submitRequests = async () => {
     if (guarantors.length === 0) {
@@ -171,13 +175,15 @@ function LoanGuarantorRequestPanel({ loan, onRequested }: { loan: Loan; onReques
           {requirements.remainingCount > 0
             ? `Request ${requirements.remainingCount} more guarantor${requirements.remainingCount === 1 ? "" : "s"}.`
             : "You can request another eligible member while this loan is waiting for guarantors."}
-          {" "}Remaining coverage: {formatCurrency(requirements.remainingCoverage)}.
+          {" "}Remaining coverage: {formatCurrency(requirements.remainingCoverage)}. Remaining slots: {requirements.remainingSlots}.
         </AlertDescription>
       </Alert>
       <div className="mt-3 space-y-3">
         <GuarantorLookup
           requiredAmount={Math.max(requirements.requestAmount, 1)}
           minGuarantors={Math.max(requirements.remainingCount, 1)}
+          maxGuarantors={requirements.remainingSlots}
+          loanProductId={loan.loanProductId}
           guarantors={guarantors}
           onAdd={(guarantor) => setGuarantors((prev) => [...prev, guarantor])}
           onRemove={(memberId) => setGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
@@ -385,8 +391,8 @@ export default function LoansPage() {
                 <div className="space-y-3 rounded-lg border p-3">
                   <div>
                     <p className="font-medium">Choose guarantors</p>
-                    <p className="text-xs text-muted-foreground">
-                      Search an active member by National ID and add them as a guarantor.
+                      <p className="text-xs text-muted-foreground">
+                      Search an active member by name or National ID and add them as a guarantor.
                       {applicationAmount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
                     </p>
                   </div>
@@ -394,6 +400,8 @@ export default function LoansPage() {
                     <GuarantorLookup
                       requiredAmount={applicationRequiredCoverage}
                       minGuarantors={Math.max(applicationMinGuarantors, 1)}
+                      maxGuarantors={product.maxGuarantors}
+                      loanProductId={selectedProduct}
                       guarantors={applicationGuarantors}
                       onAdd={(guarantor) => setApplicationGuarantors((prev) => [...prev, guarantor])}
                       onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}

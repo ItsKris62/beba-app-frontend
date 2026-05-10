@@ -200,7 +200,7 @@ export default function MemberDashboardPage() {
                     Your guarantee: {formatCurrency(req.guaranteedAmount)}
                   </p>
                 </div>
-                <Link href={`/member/loans#guarantor`}>
+                <Link href="/member/guarantors">
                   <Button size="sm" variant="outline" className="gap-1 text-amber-800 border-amber-300">
                     Respond <ArrowRight className="h-3 w-3" />
                   </Button>

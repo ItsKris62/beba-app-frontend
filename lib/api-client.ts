@@ -145,6 +145,7 @@ export interface LoanProduct {
 
 export interface Loan {
   id: string;
+  loanProductId?: string;
   loanNumber: string;
   status: string;
   purpose: string | null;
@@ -168,6 +169,7 @@ export interface Loan {
     name: string;
     interestType: string;
     minGuarantors?: number;
+    maxGuarantors?: number;
     guarantorCoverageRatio?: string | number;
   };
   guarantors?: GuarantorRecord[];
@@ -190,6 +192,7 @@ export interface GuarantorRecord {
 export interface GuarantorLookupResult {
   memberId: string;
   maskedName: string;
+  maskedMemberNumber?: string;
   kycStatus: 'KYC_VERIFIED';
   eligible: boolean;
   reason?: string;
@@ -353,6 +356,26 @@ export interface DepositStatusResponse {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   amount?: string;
   completedAt?: string | null;
+}
+
+export interface LoanProductPayload {
+  name: string;
+  description?: string;
+  minAmount: number;
+  maxAmount: number;
+  interestRate: number;
+  interestType: 'FLAT' | 'REDUCING_BALANCE';
+  maxTenureMonths: number;
+  processingFeeRate?: number;
+  requiredAccountType?: 'FOSA' | 'BOSA';
+  savingsMultiplier?: number;
+  minGuarantors?: number;
+  maxGuarantors?: number;
+  guarantorCoverageRatio?: number;
+  requiresPayslip?: boolean;
+  minActiveMonths?: number;
+  gracePeriodMonths?: number;
+  isActive?: boolean;
 }
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
@@ -686,6 +709,12 @@ export const memberApi = {
       body: JSON.stringify({ idNumber, requiredAmount, loanProductId }),
     }),
 
+  searchGuarantors: (query: string, requiredAmount: number, loanProductId?: string) =>
+    apiFetch<GuarantorLookupResult[]>('/members/guarantors/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, requiredAmount, loanProductId }),
+    }),
+
   getGuarantorRequests: () =>
     apiFetch<GuarantorRequest[]>('/members/guarantor/requests'),
 
@@ -725,8 +754,25 @@ export const memberApi = {
 // ─── Loan products (public-ish) ───────────────────────────────────────────────
 
 export const loansApi = {
-  getProducts: () =>
-    apiFetch<LoanProduct[]>('/loans/products'),
+  getProducts: (includeInactive = false) =>
+    apiFetch<LoanProduct[]>(`/loans/products${includeInactive ? '?includeInactive=true' : ''}`),
+
+  createProduct: (data: LoanProductPayload) =>
+    apiFetch<LoanProduct>('/loans/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateProduct: (id: string, data: Partial<LoanProductPayload>) =>
+    apiFetch<LoanProduct>(`/loans/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deactivateProduct: (id: string) =>
+    apiFetch<LoanProduct>(`/loans/products/${id}`, {
+      method: 'DELETE',
+    }),
 
   // F2: Member self-service loan list → /members/loans (not /loans)
   getMyLoans: (params?: { status?: string; page?: number; limit?: number }) => {

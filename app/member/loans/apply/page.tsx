@@ -31,10 +31,12 @@ export default function ApplyLoanPage() {
   const amount = Number(principalAmount || 0)
   const tenure = Number(tenureMonths || 0)
   const minGuarantors = product?.minGuarantors ?? 0
+  const maxGuarantors = product?.maxGuarantors ?? 0
   const coverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
   const requiredCoverage = amount * coverageRatio
   const coveragePasses = minGuarantors === 0 || guarantors.length >= minGuarantors
-  const canSubmit = Boolean(product && amount > 0 && tenure > 0 && coveragePasses)
+  const maxPasses = maxGuarantors <= 0 || guarantors.length <= maxGuarantors
+  const canSubmit = Boolean(product && amount > 0 && tenure > 0 && coveragePasses && maxPasses)
   const apply = useMutation({
     mutationFn: () => memberApi.applyForLoan({ loanProductId, principalAmount: amount, tenureMonths: tenure, purpose, guarantorIds: guarantors.map((g) => g.memberId) }, generateIdempotencyKey()),
     onSuccess: (res) => {
@@ -70,7 +72,7 @@ export default function ApplyLoanPage() {
           <div className="space-y-2"><Label>Loan Product</Label><Select value={loanProductId} onValueChange={(value) => { setLoanProductId(value); setGuarantors([]) }}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent>{productList.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value)} min={product ? Number(product.minAmount) : 100} /></div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
           <div className="space-y-2"><Label>Purpose</Label><Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={3} /></div>
-          {product && <Alert><AlertTitle>Guarantor requirements</AlertTitle><AlertDescription>{minGuarantors} guarantor(s), coverage ratio {(coverageRatio * 100).toFixed(0)}%, required coverage {formatCurrency(requiredCoverage)}.</AlertDescription></Alert>}
+          {product && <Alert><AlertTitle>Guarantor requirements</AlertTitle><AlertDescription>{minGuarantors} to {maxGuarantors} guarantor(s), coverage ratio {(coverageRatio * 100).toFixed(0)}%, required coverage {formatCurrency(requiredCoverage)}.</AlertDescription></Alert>}
           {product && (
             <div className="space-y-3 rounded-lg border p-3">
               <div>
@@ -81,7 +83,15 @@ export default function ApplyLoanPage() {
                 </p>
               </div>
               {amount > 0 ? (
-                <GuarantorLookup requiredAmount={requiredCoverage} minGuarantors={Math.max(minGuarantors, 1)} guarantors={guarantors} onAdd={(g) => setGuarantors((prev) => [...prev, g])} onRemove={(id) => setGuarantors((prev) => prev.filter((g) => g.memberId !== id))} />
+                <GuarantorLookup
+                  requiredAmount={requiredCoverage}
+                  minGuarantors={Math.max(minGuarantors, 1)}
+                  maxGuarantors={maxGuarantors}
+                  loanProductId={loanProductId}
+                  guarantors={guarantors}
+                  onAdd={(g) => setGuarantors((prev) => maxGuarantors > 0 && prev.length >= maxGuarantors ? prev : [...prev, g])}
+                  onRemove={(id) => setGuarantors((prev) => prev.filter((g) => g.memberId !== id))}
+                />
               ) : (
                 <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">Enter a loan amount to enable guarantor lookup.</p>
               )}

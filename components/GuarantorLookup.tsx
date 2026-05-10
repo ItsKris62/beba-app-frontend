@@ -36,9 +36,13 @@ export function GuarantorLookup({
   guarantors,
   onAdd,
   onRemove,
+  loanProductId,
+  maxGuarantors,
 }: {
   requiredAmount: number
   minGuarantors: number
+  loanProductId?: string
+  maxGuarantors?: number
   guarantors: SelectedGuarantor[]
   onAdd: (guarantor: SelectedGuarantor) => void
   onRemove: (memberId: string) => void
@@ -47,8 +51,9 @@ export function GuarantorLookup({
   const [result, setResult] = React.useState<GuarantorLookupResult | null>(null)
   const perGuarantorRequired = minGuarantors > 0 ? requiredAmount / minGuarantors : 0
   const remaining = Math.max(0, minGuarantors - guarantors.length)
+  const maxReached = Boolean(maxGuarantors && guarantors.length >= maxGuarantors)
   const lookup = useMutation({
-    mutationFn: () => memberApi.lookupGuarantor(idNumber.trim(), perGuarantorRequired),
+    mutationFn: () => memberApi.lookupGuarantor(idNumber.trim(), perGuarantorRequired, loanProductId),
     onSuccess: (res) => {
       if (!res.success || !res.data) {
         toast.error(mapGuarantorError(res.error?.message))
@@ -68,6 +73,10 @@ export function GuarantorLookup({
 
   const add = () => {
     if (!result?.eligible) return
+    if (maxReached) {
+      toast.error(`You can select at most ${maxGuarantors} guarantor(s) for this product.`)
+      return
+    }
     if (guarantors.some((item) => item.memberId === result.memberId)) {
       toast.error("This guarantor is already selected.")
       return
@@ -96,7 +105,7 @@ export function GuarantorLookup({
           <AlertTitle>{result.eligible ? "Eligible guarantor found" : "Guarantor not eligible"}</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-3">
             <span>{result.maskedName} · {result.kycStatus}{result.reason ? ` · ${mapGuarantorError(result.reason)}` : ""}</span>
-            {result.eligible && <Button type="button" size="sm" onClick={add}>Add</Button>}
+            {result.eligible && <Button type="button" size="sm" onClick={add} disabled={maxReached} title={maxReached ? `Maximum ${maxGuarantors} guarantors selected` : "Add guarantor"}>Add</Button>}
           </AlertDescription>
         </Alert>
       )}
@@ -104,7 +113,7 @@ export function GuarantorLookup({
       <div className="rounded-lg border p-3">
         <div className="flex items-center justify-between">
           <p className="font-medium">Selected guarantors</p>
-          <Badge variant={remaining === 0 ? "default" : "secondary"}>{remaining === 0 ? "Minimum met" : `You need ${remaining} more guarantors`}</Badge>
+          <Badge variant={remaining === 0 ? "default" : "secondary"}>{maxReached ? `Maximum ${maxGuarantors} selected` : remaining === 0 ? "Minimum met" : `You need ${remaining} more guarantors`}</Badge>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">Required coverage: {formatCurrency(requiredAmount)}. Estimated hold per guarantor: {formatCurrency(perGuarantorRequired)}.</p>
         <div className="mt-3 space-y-2">

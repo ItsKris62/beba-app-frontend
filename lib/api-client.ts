@@ -677,10 +677,10 @@ export const memberApi = {
       body: JSON.stringify({ guarantorIds }),
     }),
 
-  lookupGuarantor: (idNumber: string, requiredAmount: number) =>
+  lookupGuarantor: (idNumber: string, requiredAmount: number, loanProductId?: string) =>
     apiFetch<GuarantorLookupResult>('/members/guarantors/lookup', {
       method: 'POST',
-      body: JSON.stringify({ idNumber, requiredAmount }),
+      body: JSON.stringify({ idNumber, requiredAmount, loanProductId }),
     }),
 
   getGuarantorRequests: () =>

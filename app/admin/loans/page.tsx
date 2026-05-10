@@ -17,7 +17,7 @@ import { useAuth, canApproveLoans } from "@/lib/auth-context"
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING_GUARANTORS: "bg-amber-100 text-amber-700",
-  UNDER_REVIEW: "bg-blue-100 text-blue-700",
+  PENDING_REVIEW: "bg-blue-100 text-blue-700",
   PENDING_APPROVAL: "bg-purple-100 text-purple-700",
   APPROVED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
@@ -118,7 +118,7 @@ export default function AdminLoansPage() {
             <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
               <TabsList>
                 <TabsTrigger value="PENDING_APPROVAL">Pending Approval</TabsTrigger>
-                <TabsTrigger value="UNDER_REVIEW">Under Review</TabsTrigger>
+                <TabsTrigger value="PENDING_REVIEW">Under Review</TabsTrigger>
                 <TabsTrigger value="APPROVED">Approved</TabsTrigger>
                 <TabsTrigger value="ACTIVE">Active</TabsTrigger>
                 <TabsTrigger value="">All</TabsTrigger>

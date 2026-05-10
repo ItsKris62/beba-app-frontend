@@ -112,6 +112,8 @@ export interface BosaStatement {
   generatedAt: string;
   periodFrom: string;
   periodTo: string;
+  openingBalance: number;
+  closingBalance: number;
   totalSavings: number;
   welfareContributions: number;
   transactions: StatementTransaction[];
@@ -165,24 +167,20 @@ export interface FinancialExecuteResponse {
 // ─── Dashboard API ────────────────────────────────────────────────────────────
 
 // Shape returned by the backend /admin/dashboard/stats endpoint
-interface BackendDashboardStats {
+type BackendDashboardStats = DashboardStats & {
   members: { total: number; active: number; inactive: number; pendingKyc: number };
   loans: {
     active: number;
     totalOutstandingAmount: number;
-    pendingApprovals: number;
     defaulted: number;
     defaultRatePercent: number;
   };
-  mpesa: {
-    deposits7d: { count: number; totalAmount: number };
-    deposits30d: { count: number; totalAmount: number };
-  };
-}
+};
 
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     const raw = await apiFetch<BackendDashboardStats>('/admin/dashboard/stats');
+    return raw;
     const now = new Date().toISOString();
     const cachedUntil = new Date(Date.now() + 60_000).toISOString();
 
@@ -260,33 +258,53 @@ export const statementApi = {
     type: 'FOSA' | 'BOSA',
     params?: { memberId?: string; periodFrom?: string; periodTo?: string },
   ) => {
-    const token = tokenStore.getAccess() ?? '';
     const qs = new URLSearchParams({
       type,
       ...Object.fromEntries(
         Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
       ),
     }).toString();
-    const url = `${API_BASE}/statements/export/pdf?${qs}`;
+    return downloadFile(`/statements/export/pdf?${qs}`);
+  },
 
-    // Trigger browser download via fetch + blob (auth headers required)
-    fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'X-Tenant-ID': TENANT_ID,
-      },
-    })
-      .then((r) => r.blob())
-      .then((blob) => {
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.setAttribute('download', '');
-        a.click();
-        URL.revokeObjectURL(blobUrl);
-      });
+  downloadCsv: (
+    type: 'FOSA' | 'BOSA',
+    params?: { memberId?: string; periodFrom?: string; periodTo?: string },
+  ) => {
+    const qs = new URLSearchParams({
+      type,
+      ...Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
+      ),
+    }).toString();
+    return downloadFile(`/statements/export/csv?${qs}`);
   },
 };
+
+async function downloadFile(path: string): Promise<void> {
+  const token = tokenStore.getAccess() ?? '';
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': TENANT_ID,
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: response.statusText }));
+    throw new Error((err as { message?: string }).message ?? 'Download failed');
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'statement-export';
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(blobUrl);
+}
 
 // ─── Security / Consent API ───────────────────────────────────────────────────
 

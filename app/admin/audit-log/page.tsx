@@ -34,10 +34,12 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [actionFilter, setActionFilter] = useState("all")
+  const [entityTypeFilter, setEntityTypeFilter] = useState("")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null)
 
   const loadLogs = async (p = 1) => {
     setIsLoading(true)
@@ -45,6 +47,7 @@ export default function AuditLogPage() {
       page: p,
       limit: 25,
       action: actionFilter === "all" ? undefined : actionFilter,
+      entityType: entityTypeFilter || undefined,
       from: from || undefined,
       to: to || undefined,
     })
@@ -66,6 +69,24 @@ export default function AuditLogPage() {
   }
 
   const totalPages = Math.ceil(total / 25)
+  const exportFilters = {
+    action: actionFilter === "all" ? undefined : actionFilter,
+    entityType: entityTypeFilter || undefined,
+    from: from || undefined,
+    to: to || undefined,
+  }
+
+  const handleExport = async (format: "csv" | "pdf") => {
+    setExporting(format)
+    try {
+      await adminApi.exportAuditLogs({ ...exportFilters, format })
+      toast.success(`Audit ${format.toUpperCase()} export started`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to export audit logs")
+    } finally {
+      setExporting(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -78,8 +99,11 @@ export default function AuditLogPage() {
           <Button variant="outline" size="sm" onClick={() => loadLogs(page)}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.info("Export coming soon")}>
-            <Download className="mr-2 h-4 w-4" /> Export
+          <Button variant="outline" size="sm" onClick={() => void handleExport("csv")} disabled={exporting != null}>
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void handleExport("pdf")} disabled={exporting != null}>
+            <Download className="mr-2 h-4 w-4" /> PDF
           </Button>
         </div>
       </div>
@@ -115,13 +139,23 @@ export default function AuditLogPage() {
               <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="entityType">Resource</Label>
+              <Input
+                id="entityType"
+                value={entityTypeFilter}
+                onChange={(e) => setEntityTypeFilter(e.target.value)}
+                placeholder="Loan, User, Statement"
+                className="w-44"
+              />
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="to">To</Label>
               <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
             </div>
             <Button type="submit" className="gap-2">
               <Search className="h-4 w-4" /> Search
             </Button>
-            <Button type="button" variant="outline" onClick={() => { setActionFilter("all"); setFrom(""); setTo(""); setTimeout(() => loadLogs(1), 0) }}>
+            <Button type="button" variant="outline" onClick={() => { setActionFilter("all"); setEntityTypeFilter(""); setFrom(""); setTo(""); setTimeout(() => loadLogs(1), 0) }}>
               Clear
             </Button>
           </form>
@@ -178,7 +212,7 @@ export default function AuditLogPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-sm">
-                          <span className="font-medium">{log.resource}</span>
+                          <span className="font-medium">{log.resource ?? log.entityType}</span>
                           {log.resourceId && <p className="text-xs text-muted-foreground font-mono">{log.resourceId.slice(0, 12)}…</p>}
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">
@@ -232,8 +266,9 @@ export default function AuditLogPage() {
                   </p>
                   {selectedLog.user && <p className="text-xs text-muted-foreground">{selectedLog.user.email}</p>}
                 </div>
-                <div><Label className="text-muted-foreground">Resource</Label><p className="font-medium mt-1">{selectedLog.resource}</p></div>
+                <div><Label className="text-muted-foreground">Resource</Label><p className="font-medium mt-1">{selectedLog.resource ?? selectedLog.entityType}</p></div>
                 {selectedLog.resourceId && <div><Label className="text-muted-foreground">Resource ID</Label><p className="font-mono text-xs mt-1">{selectedLog.resourceId}</p></div>}
+                {selectedLog.entryHash && <div className="col-span-2"><Label className="text-muted-foreground">Entry Hash</Label><p className="font-mono text-xs mt-1 break-all">{selectedLog.entryHash}</p></div>}
                 {selectedLog.ipAddress && <div><Label className="text-muted-foreground">IP Address</Label><p className="font-mono text-xs mt-1">{selectedLog.ipAddress}</p></div>}
                 {selectedLog.userAgent && <div className="col-span-2"><Label className="text-muted-foreground">User Agent</Label><p className="text-xs mt-1 break-all">{selectedLog.userAgent}</p></div>}
               </div>

@@ -285,13 +285,19 @@ export interface AdminMemberDetail {
 export interface AuditLog {
   id: string;
   tenantId: string;
+  actorId?: string | null;
   userId: string | null;
   action: string;
+  entityType?: string;
+  entityId?: string | null;
   resource: string;
   resourceId: string | null;
   metadata: unknown;
+  payload?: unknown;
   ipAddress: string | null;
   userAgent: string | null;
+  requestId?: string | null;
+  entryHash?: string | null;
   timestamp: string;
   user?: { firstName: string; lastName: string; email: string } | null;
 }
@@ -866,14 +872,42 @@ export const adminApi = {
       },
     ),
 
-  getAuditLogs: (params?: { page?: number; limit?: number; action?: string; from?: string; to?: string }) => {
+  getAuditLogs: (params?: {
+    page?: number;
+    limit?: number;
+    action?: string;
+    entityType?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.page) q.set('page', String(params.page));
     if (params?.limit) q.set('limit', String(params.limit));
     if (params?.action) q.set('action', params.action);
+    if (params?.entityType) q.set('entityType', params.entityType);
+    if (params?.actorId) q.set('actorId', params.actorId);
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
     return apiFetch<{ data: AuditLog[]; meta: ApiMeta }>(`/audit?${q}`);
+  },
+
+  exportAuditLogs: (params?: {
+    format?: 'csv' | 'pdf';
+    action?: string;
+    entityType?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    const q = new URLSearchParams();
+    q.set('format', params?.format ?? 'csv');
+    if (params?.action) q.set('action', params.action);
+    if (params?.entityType) q.set('entityType', params.entityType);
+    if (params?.actorId) q.set('actorId', params.actorId);
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    return downloadAuthenticatedFile(`/audit/export?${q}`);
   },
 
   getPendingMembers: (params?: { search?: string; page?: number; limit?: number }) => {
@@ -1097,6 +1131,30 @@ export function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+async function downloadAuthenticatedFile(path: string): Promise<void> {
+  const accessToken = tokenStore.getAccess();
+  const headers: Record<string, string> = {
+    'X-Tenant-ID': getTenantId(),
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: response.statusText }));
+    throw new Error((err as { message?: string }).message ?? 'Download failed');
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'export';
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(blobUrl);
+}
+
 // ─── Deposit polling helper ───────────────────────────────────────────────────
 
 export interface DepositPollResult {
@@ -1137,8 +1195,8 @@ export function useDepositPolling(
             if (res.data.status === 'FAILED') {
               setError('M-Pesa payment failed. Please try again.');
               return;
-            }
-          }
+  }
+}
         } catch {
           // Network errors during polling are non-fatal — keep polling
         }

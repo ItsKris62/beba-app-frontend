@@ -136,7 +136,7 @@ export default function MemberStatementsPage() {
   const [statement, setStatement] = useState<FosaStatement | BosaStatement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<'pdf' | 'csv' | null>(null);
 
   // Check consent on mount
   useEffect(() => {
@@ -166,13 +166,20 @@ export default function MemberStatementsPage() {
     }
   }, [statementType, periodFrom, periodTo]);
 
-  const handleDownload = () => {
-    setDownloading(true);
-    statementApi.downloadPdf(statementType, {
-      ...(periodFrom ? { periodFrom } : {}),
-      ...(periodTo ? { periodTo } : {}),
-    });
-    setTimeout(() => setDownloading(false), 3000);
+  const handleDownload = async (format: 'pdf' | 'csv') => {
+    setDownloading(format);
+    try {
+      const params = {
+        ...(periodFrom ? { periodFrom } : {}),
+        ...(periodTo ? { periodTo } : {}),
+      };
+      if (format === 'pdf') await statementApi.downloadPdf(statementType, params);
+      else await statementApi.downloadCsv(statementType, params);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to download statement');
+    } finally {
+      setDownloading(null);
+    }
   };
 
   // Show consent modal if not consented
@@ -189,9 +196,14 @@ export default function MemberStatementsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Account Statements</h1>
         {statement && (
-          <Button onClick={handleDownload} disabled={downloading} variant="outline">
-            {downloading ? 'Preparing PDF…' : '⬇ Download PDF'}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => void handleDownload('csv')} disabled={downloading != null} variant="outline">
+              {downloading === 'csv' ? 'Preparing CSV...' : 'Download CSV'}
+            </Button>
+            <Button onClick={() => void handleDownload('pdf')} disabled={downloading != null} variant="outline">
+              {downloading === 'pdf' ? 'Preparing PDF...' : 'Download PDF'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -293,12 +305,20 @@ export default function MemberStatementsPage() {
               ) : (
                 <>
                   <div>
+                    <p className="text-xs text-muted-foreground">Opening Balance</p>
+                    <p className="font-bold">KES {(statement as BosaStatement).openingBalance.toLocaleString()}</p>
+                  </div>
+                  <div>
                     <p className="text-xs text-muted-foreground">Total Savings</p>
                     <p className="font-bold text-green-600">KES {(statement as BosaStatement).totalSavings.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Welfare Contributions</p>
                     <p className="font-bold text-blue-600">KES {(statement as BosaStatement).welfareContributions.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Closing Balance</p>
+                    <p className="font-bold">KES {(statement as BosaStatement).closingBalance.toLocaleString()}</p>
                   </div>
                 </>
               )}

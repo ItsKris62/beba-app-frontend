@@ -72,9 +72,10 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'FOSA' | 'BOSA'>('FOSA');
+  const [exportMemberId, setExportMemberId] = useState('');
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
 
   useEffect(() => {
     dashboardApi
@@ -84,13 +85,25 @@ export default function AdminReportsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleExport = () => {
-    setExporting(true);
-    statementApi.downloadPdf(exportType, {
-      ...(exportFrom ? { periodFrom: exportFrom } : {}),
-      ...(exportTo ? { periodTo: exportTo } : {}),
-    });
-    setTimeout(() => setExporting(false), 3000);
+  const handleExport = async (format: 'pdf' | 'csv') => {
+    if (!exportMemberId.trim()) {
+      setError('Member ID is required to export a statement.');
+      return;
+    }
+    setExporting(format);
+    try {
+      const params = {
+        memberId: exportMemberId.trim(),
+        ...(exportFrom ? { periodFrom: exportFrom } : {}),
+        ...(exportTo ? { periodTo: exportTo } : {}),
+      };
+      if (format === 'pdf') await statementApi.downloadPdf(exportType, params);
+      else await statementApi.downloadCsv(exportType, params);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to export statement');
+    } finally {
+      setExporting(null);
+    }
   };
 
   if (error) {
@@ -138,6 +151,15 @@ export default function AdminReportsPage() {
               </div>
             </div>
             <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Member ID</label>
+              <input
+                value={exportMemberId}
+                onChange={(e) => setExportMemberId(e.target.value)}
+                placeholder="Member UUID"
+                className="border rounded px-3 py-1.5 text-sm w-64"
+              />
+            </div>
+            <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">From</label>
               <input
                 type="date"
@@ -155,8 +177,11 @@ export default function AdminReportsPage() {
                 className="border rounded px-3 py-1.5 text-sm"
               />
             </div>
-            <Button onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Generating PDF…' : '⬇ Export PDF'}
+            <Button onClick={() => void handleExport('csv')} disabled={exporting != null}>
+              {exporting === 'csv' ? 'Generating CSV...' : 'Export CSV'}
+            </Button>
+            <Button onClick={() => void handleExport('pdf')} disabled={exporting != null}>
+              {exporting === 'pdf' ? 'Generating PDF...' : 'Export PDF'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-3">

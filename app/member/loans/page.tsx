@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
 import {
   memberApi, loansApi, formatCurrency, formatDate, generateIdempotencyKey,
   type Loan, type LoanProduct, type MemberDashboard,
@@ -78,6 +80,115 @@ function GuarantorCard({ loanId, applicantName, loanNumber, loanAmount, guarante
   )
 }
 
+const ACTIVE_GUARANTOR_STATUSES = new Set(["PENDING", "ACCEPTED"])
+
+function getGuarantorRequirements(loan: Loan) {
+  const principal = parseFloat(loan.principalAmount)
+  const minGuarantors = loan.loanProduct?.minGuarantors ?? 0
+  const coverageRatio = Number(loan.loanProduct?.guarantorCoverageRatio ?? 1)
+  const requiredCoverage = principal * coverageRatio
+  const activeGuarantors = (loan.guarantors ?? []).filter((item) => ACTIVE_GUARANTOR_STATUSES.has(item.status))
+  const activeCoverage = activeGuarantors.reduce((sum, item) => sum + parseFloat(item.guaranteedAmount), 0)
+  const remainingCoverage = Math.max(0, requiredCoverage - activeCoverage)
+  const remainingCount = Math.max(0, minGuarantors - activeGuarantors.length)
+
+  return {
+    minGuarantors,
+    requiredCoverage,
+    activeCoverage,
+    remainingCoverage,
+    remainingCount,
+    requestAmount: remainingCoverage > 0
+      ? remainingCoverage
+      : remainingCount > 0 && minGuarantors > 0
+        ? (requiredCoverage / minGuarantors) * remainingCount
+        : requiredCoverage,
+  }
+}
+
+function GuarantorStatusList({ loan }: { loan: Loan }) {
+  if (!loan.guarantors?.length) return null
+
+  return (
+    <div className="border-t pt-3">
+      <p className="text-xs font-medium uppercase text-muted-foreground">Guarantors</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {loan.guarantors.map((guarantor) => (
+          <div key={guarantor.id} className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+            <span>
+              {guarantor.member
+                ? `${guarantor.member.user.firstName} ${guarantor.member.user.lastName}`
+                : guarantor.memberId}
+            </span>
+            <Badge variant={guarantor.status === "ACCEPTED" ? "default" : "secondary"}>
+              {guarantor.status.replace(/_/g, " ")}
+            </Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LoanGuarantorRequestPanel({ loan, onRequested }: { loan: Loan; onRequested: () => void }) {
+  const [guarantors, setGuarantors] = React.useState<SelectedGuarantor[]>([])
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const requirements = getGuarantorRequirements(loan)
+  const canRequest = ["DRAFT", "PENDING_GUARANTORS"].includes(loan.status)
+  const needsGuarantors = requirements.minGuarantors > 0
+
+  if (!canRequest || !needsGuarantors) return null
+
+  const submitRequests = async () => {
+    if (guarantors.length === 0) {
+      toast.error("Select at least one guarantor to request.")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const res = await memberApi.requestGuarantors(loan.id, guarantors.map((item) => item.memberId))
+      if (!res.success) {
+        toast.error(res.error?.message ?? "Could not request guarantors.")
+        return
+      }
+      toast.success(`${res.data.invitedCount} guarantor request${res.data.invitedCount === 1 ? "" : "s"} sent.`)
+      setGuarantors([])
+      onRequested()
+    } catch {
+      toast.error("Network error while requesting guarantors.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="border-t pt-3">
+      <Alert>
+        <AlertTitle>Guarantor requests</AlertTitle>
+        <AlertDescription>
+          {requirements.remainingCount > 0
+            ? `Request ${requirements.remainingCount} more guarantor${requirements.remainingCount === 1 ? "" : "s"}.`
+            : "You can request another eligible member while this loan is waiting for guarantors."}
+          {" "}Remaining coverage: {formatCurrency(requirements.remainingCoverage)}.
+        </AlertDescription>
+      </Alert>
+      <div className="mt-3 space-y-3">
+        <GuarantorLookup
+          requiredAmount={Math.max(requirements.requestAmount, 1)}
+          minGuarantors={Math.max(requirements.remainingCount, 1)}
+          guarantors={guarantors}
+          onAdd={(guarantor) => setGuarantors((prev) => [...prev, guarantor])}
+          onRemove={(memberId) => setGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
+        />
+        <Button type="button" disabled={isSubmitting || guarantors.length === 0} onClick={submitRequests}>
+          {isSubmitting ? "Requesting..." : "Request selected guarantors"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function LoansPage() {
   const [products, setProducts] = React.useState<LoanProduct[]>([])
   const [loans, setLoans] = React.useState<Loan[]>([])
@@ -88,6 +199,7 @@ export default function LoansPage() {
   const [principalAmount, setPrincipalAmount] = React.useState("")
   const [tenureMonths, setTenureMonths] = React.useState("")
   const [purpose, setPurpose] = React.useState("")
+  const [applicationGuarantors, setApplicationGuarantors] = React.useState<SelectedGuarantor[]>([])
   const [isApplying, setIsApplying] = React.useState(false)
 
   const loadData = React.useCallback(async () => {
@@ -112,6 +224,11 @@ export default function LoansPage() {
     if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
       toast.error("Please fill all required fields"); return
     }
+    const requiredGuarantors = product?.minGuarantors ?? 0
+    if (applicationGuarantors.length < requiredGuarantors) {
+      toast.error(`Please select ${requiredGuarantors} guarantor${requiredGuarantors === 1 ? "" : "s"}.`)
+      return
+    }
     if (amount > maxLoanable) {
       toast.error(`Loan amount exceeds your maximum eligible limit of ${formatCurrency(maxLoanable)}`);
       return
@@ -119,13 +236,20 @@ export default function LoansPage() {
     setIsApplying(true)
     try {
       const res = await memberApi.applyForLoan(
-        { loanProductId: selectedProduct, principalAmount: amount, tenureMonths: tenure, purpose },
+        {
+          loanProductId: selectedProduct,
+          principalAmount: amount,
+          tenureMonths: tenure,
+          purpose,
+          guarantorIds: applicationGuarantors.map((item) => item.memberId),
+        },
         generateIdempotencyKey()
       )
       if (!res.success) { toast.error(res.error?.message ?? "Application failed"); return }
-      toast.success("Loan application submitted!")
+      toast.success(applicationGuarantors.length > 0 ? "Loan application submitted and guarantors requested." : "Loan application submitted!")
       setShowApplyForm(false)
       setPrincipalAmount(""); setTenureMonths(""); setPurpose(""); setSelectedProduct("")
+      setApplicationGuarantors([])
       loadData()
     } catch { toast.error("Network error.") }
     finally { setIsApplying(false) }
@@ -133,6 +257,10 @@ export default function LoansPage() {
 
   const product = products.find((p) => p.id === selectedProduct)
   const maxLoanable = dashboard ? (dashboard.balances.bosa * 3 + dashboard.balances.fosa * 1.5) : 0
+  const applicationAmount = parseFloat(principalAmount || "0")
+  const applicationMinGuarantors = product?.minGuarantors ?? 0
+  const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
+  const applicationRequiredCoverage = applicationAmount * applicationCoverageRatio
 
   if (isLoading) {
     return (
@@ -183,7 +311,7 @@ export default function LoansPage() {
             <form onSubmit={handleApply} className="space-y-4 max-w-lg">
               <div className="space-y-2">
                 <Label>Loan Product</Label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct} required>
+                <Select value={selectedProduct} onValueChange={(value) => { setSelectedProduct(value); setApplicationGuarantors([]) }} required>
                   <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
                   <SelectContent>
                     {products.map((p) => (
@@ -220,6 +348,24 @@ export default function LoansPage() {
                 <Textarea id="purpose" placeholder="Describe the purpose…" value={purpose}
                   onChange={(e) => setPurpose(e.target.value)} rows={3} />
               </div>
+              {product && applicationMinGuarantors > 0 && (
+                <Alert>
+                  <AlertTitle>Guarantors required</AlertTitle>
+                  <AlertDescription>
+                    This product needs {applicationMinGuarantors} guarantor{applicationMinGuarantors === 1 ? "" : "s"}.
+                    {applicationAmount > 0 && <> Required coverage: {formatCurrency(applicationRequiredCoverage)}.</>}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {product && applicationMinGuarantors > 0 && applicationAmount > 0 && (
+                <GuarantorLookup
+                  requiredAmount={applicationRequiredCoverage}
+                  minGuarantors={applicationMinGuarantors}
+                  guarantors={applicationGuarantors}
+                  onAdd={(guarantor) => setApplicationGuarantors((prev) => [...prev, guarantor])}
+                  onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
+                />
+              )}
               <Button type="submit" disabled={isApplying} className="w-full">
                 {isApplying ? "Submitting…" : "Submit Application"}
               </Button>
@@ -275,6 +421,8 @@ export default function LoansPage() {
                   </div>
                   {loan.dueDate && <p className="text-xs text-muted-foreground">Due: {formatDate(loan.dueDate)}</p>}
                   {loan.notes && <p className="text-xs text-muted-foreground border-t pt-2">{loan.notes}</p>}
+                  <GuarantorStatusList loan={loan} />
+                  <LoanGuarantorRequestPanel loan={loan} onRequested={loadData} />
                 </div>
               ))}
             </div>

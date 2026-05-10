@@ -662,6 +662,19 @@ export const memberApi = {
       body: JSON.stringify(data),
     }),
 
+  requestGuarantors: (loanId: string, guarantorIds: string[]) =>
+    apiFetch<{
+      loanId: string;
+      invitedCount: number;
+      totalGuaranteedAmount: number;
+      minimumCoverageRequired: number;
+      coverageMet: boolean;
+      results: Array<{ memberId: string; guaranteedAmount: number; status: 'invited' | 'skipped'; reason?: string }>;
+    }>(`/members/loans/${loanId}/guarantors/request`, {
+      method: 'POST',
+      body: JSON.stringify({ guarantorIds }),
+    }),
+
   lookupGuarantor: (idNumber: string, requiredAmount: number) =>
     apiFetch<GuarantorLookupResult>('/members/guarantors/lookup', {
       method: 'POST',

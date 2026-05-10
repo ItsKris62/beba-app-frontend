@@ -13,7 +13,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
-import { loansApi, memberApi, formatCurrency, generateIdempotencyKey } from "@/lib/api-client"
+import { loansApi, memberApi, formatCurrency, generateIdempotencyKey, type LoanProduct, type MemberDashboard } from "@/lib/api-client"
+
+function getEligibleSavings(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
+  if (!dashboard) return 0
+  if (product?.requiredAccountType === "BOSA") return dashboard.balances.bosa
+  if (product?.requiredAccountType === "FOSA") return dashboard.balances.fosa
+  return dashboard.balances.bosa + dashboard.balances.fosa
+}
+
+function getProductLoanLimit(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
+  if (!product) return 0
+  const savingsLimit = getEligibleSavings(product, dashboard) * Number(product.savingsMultiplier ?? 3)
+  return Math.min(Number(product.maxAmount), savingsLimit)
+}
 
 export default function ApplyLoanPage() {
   const router = useRouter()
@@ -25,7 +38,8 @@ export default function ApplyLoanPage() {
   const products = useQuery({ queryKey: ["loan-products"], queryFn: () => loansApi.getProducts() })
   const dashboard = useQuery({ queryKey: ["member-dashboard"], queryFn: () => memberApi.getDashboard() })
   const productList = products.data?.success ? products.data.data ?? [] : []
-  const member = dashboard.data?.success ? dashboard.data.data?.member : null
+  const dashboardData = dashboard.data?.success ? dashboard.data.data : null
+  const member = dashboardData?.member ?? null
   const isKycApproved = member?.kycStatus === "APPROVED"
   const product = productList.find((item) => item.id === loanProductId)
   const amount = Number(principalAmount || 0)
@@ -36,7 +50,10 @@ export default function ApplyLoanPage() {
   const requiredCoverage = amount * coverageRatio
   const coveragePasses = minGuarantors === 0 || guarantors.length >= minGuarantors
   const maxPasses = maxGuarantors <= 0 || guarantors.length <= maxGuarantors
-  const canSubmit = Boolean(product && amount > 0 && tenure > 0 && coveragePasses && maxPasses)
+  const productLoanLimit = getProductLoanLimit(product, dashboardData)
+  const amountPasses = Boolean(product && amount >= Number(product.minAmount) && amount <= productLoanLimit)
+  const tenurePasses = Boolean(product && tenure >= 1 && tenure <= product.maxTenureMonths)
+  const canSubmit = Boolean(product && amountPasses && tenurePasses && coveragePasses && maxPasses)
   const apply = useMutation({
     mutationFn: () => memberApi.applyForLoan({ loanProductId, principalAmount: amount, tenureMonths: tenure, purpose, guarantorIds: guarantors.map((g) => g.memberId) }, generateIdempotencyKey()),
     onSuccess: (res) => {
@@ -70,7 +87,7 @@ export default function ApplyLoanPage() {
         <CardHeader><CardTitle>Loan Details</CardTitle><CardDescription>Product terms determine guarantor coverage.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2"><Label>Loan Product</Label><Select value={loanProductId} onValueChange={(value) => { setLoanProductId(value); setGuarantors([]) }}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent>{productList.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value)} min={product ? Number(product.minAmount) : 100} /></div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
+          <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value)} min={product ? Number(product.minAmount) : 100} max={product ? Math.max(Number(product.minAmount), productLoanLimit) : undefined} />{product && <p className="text-xs text-muted-foreground">Product limit: {formatCurrency(productLoanLimit)}.</p>}</div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
           <div className="space-y-2"><Label>Purpose</Label><Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={3} /></div>
           {product && <Alert><AlertTitle>Guarantor requirements</AlertTitle><AlertDescription>{minGuarantors} to {maxGuarantors} guarantor(s), coverage ratio {(coverageRatio * 100).toFixed(0)}%, required coverage {formatCurrency(requiredCoverage)}.</AlertDescription></Alert>}
           {product && (

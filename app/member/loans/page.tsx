@@ -83,6 +83,23 @@ function GuarantorCard({ loanId, applicantName, loanNumber, loanAmount, guarante
 
 const ACTIVE_GUARANTOR_STATUSES = new Set(["PENDING", "ACCEPTED"])
 
+function getEligibleSavings(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
+  if (!dashboard) return 0
+  if (product?.requiredAccountType === "BOSA") return dashboard.balances.bosa
+  if (product?.requiredAccountType === "FOSA") return dashboard.balances.fosa
+  return dashboard.balances.bosa + dashboard.balances.fosa
+}
+
+function getProductLoanLimit(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
+  if (!product) return 0
+  const savingsLimit = getEligibleSavings(product, dashboard) * Number(product.savingsMultiplier ?? 3)
+  return Math.min(Number(product.maxAmount), savingsLimit)
+}
+
+function getRequiredAccountLabel(product: LoanProduct | undefined) {
+  return product?.requiredAccountType ?? "combined FOSA+BOSA"
+}
+
 function getGuarantorRequirements(loan: Loan) {
   const principal = parseFloat(loan.principalAmount)
   const minGuarantors = loan.loanProduct?.minGuarantors ?? 0
@@ -235,13 +252,21 @@ export default function LoansPage() {
     if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
       toast.error("Please fill all required fields"); return
     }
+    if (product && amount < Number(product.minAmount)) {
+      toast.error(`Minimum amount for this product is ${formatCurrency(Number(product.minAmount))}`)
+      return
+    }
+    if (product && amount > productLoanLimit) {
+      toast.error(`Loan amount exceeds your product limit of ${formatCurrency(productLoanLimit)}`)
+      return
+    }
+    if (product && tenure > product.maxTenureMonths) {
+      toast.error(`Maximum tenure for this product is ${product.maxTenureMonths} months`)
+      return
+    }
     const requiredGuarantors = product?.minGuarantors ?? 0
     if (applicationGuarantors.length < requiredGuarantors) {
       toast.error(`Please select ${requiredGuarantors} guarantor${requiredGuarantors === 1 ? "" : "s"}.`)
-      return
-    }
-    if (amount > maxLoanable) {
-      toast.error(`Loan amount exceeds your maximum eligible limit of ${formatCurrency(maxLoanable)}`);
       return
     }
     setIsApplying(true)
@@ -267,12 +292,14 @@ export default function LoansPage() {
   }
 
   const product = products.find((p) => p.id === selectedProduct)
-  const maxLoanable = dashboard ? (dashboard.balances.bosa * 3 + dashboard.balances.fosa * 1.5) : 0
+  const selectedProductLimit = getProductLoanLimit(product, dashboard)
+  const savingsVisible = dashboard ? dashboard.balances.bosa + dashboard.balances.fosa : 0
   const isKycApproved = dashboard?.member.kycStatus === "APPROVED"
   const applicationAmount = parseFloat(principalAmount || "0")
   const applicationMinGuarantors = product?.minGuarantors ?? 0
   const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
   const applicationRequiredCoverage = applicationAmount * applicationCoverageRatio
+  const productLoanLimit = selectedProductLimit
 
   if (isLoading) {
     return (
@@ -302,8 +329,8 @@ export default function LoansPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Maximum loan eligibility</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(maxLoanable)}</p>
+              <p className="text-sm text-muted-foreground">Available savings for loan rules</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(savingsVisible)}</p>
             </div>
             <div className="text-right text-sm text-muted-foreground">
               <p>BOSA {formatCurrency(dashboard?.balances.bosa ?? 0)} × 3</p>
@@ -362,10 +389,12 @@ export default function LoansPage() {
                 <Input id="principal" type="number" placeholder="50000" value={principalAmount}
                   onChange={(e) => setPrincipalAmount(e.target.value)}
                   min={product ? parseFloat(product.minAmount) : 1000}
-                  max={Math.max(
-                    product ? parseFloat(product.minAmount) : 1000,
-                    Math.min(product ? parseFloat(product.maxAmount) : maxLoanable, maxLoanable)
-                  )} required />
+                  max={Math.max(product ? Number(product.minAmount) : 1000, productLoanLimit)} required />
+                {product && (
+                  <p className="text-xs text-muted-foreground">
+                    Product limit: {formatCurrency(productLoanLimit)} based on {getRequiredAccountLabel(product)} savings x {Number(product.savingsMultiplier ?? 3)} and product max {formatCurrency(Number(product.maxAmount))}.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tenure">Repayment Period (months)</Label>

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -124,6 +125,7 @@ export default function AdminDashboardPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.activeMembers ?? 0} active`} colorClass="text-blue-600" />
+          <KpiCard title="KYC Queue" value={(stats.pendingKyc ?? 0).toLocaleString()} subtitle="Awaiting staff review" colorClass={(stats.pendingKyc ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
           <KpiCard title="Total Disbursed" value={fmt(stats.totalDisbursed ?? 0)} subtitle={`${stats.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
           <KpiCard title="Collection Rate" value={`${stats.collectionRate ?? 0}%`} subtitle={`${fmt(stats.totalRepaid ?? 0)} repaid`} colorClass={(stats.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />
           <KpiCard title="Default Rate" value={`${stats.defaultRate ?? 0}%`} subtitle={`${stats.defaultedLoans ?? 0} defaulted`} colorClass={(stats.defaultRate ?? 0) > 10 ? 'text-red-600' : 'text-green-600'} />
@@ -132,6 +134,24 @@ export default function AdminDashboardPage() {
           <KpiCard title="Welfare Collected" value={fmt(stats.welfareCollected ?? 0)} colorClass="text-green-600" />
           <KpiCard title="Welfare Deficit" value={fmt(stats.welfareDeficit ?? 0)} colorClass={(stats.welfareDeficit ?? 0) > 0 ? 'text-red-600' : 'text-green-600'} />
         </div>
+      )}
+
+      {!loading && stats && stats.pendingKyc > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base text-amber-900">KYC review needed</CardTitle>
+              <p className="text-sm text-amber-800">
+                {stats.pendingKyc} member{stats.pendingKyc === 1 ? '' : 's'} cannot apply for loans until KYC is approved.
+              </p>
+            </div>
+            <Link href="/admin/members/pending">
+              <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100">
+                Open KYC Queue
+              </Button>
+            </Link>
+          </CardHeader>
+        </Card>
       )}
 
       {/* Charts Row */}

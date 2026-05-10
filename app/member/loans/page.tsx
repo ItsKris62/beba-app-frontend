@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { CreditCard, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react"
+import Link from "next/link"
+import { CreditCard, CheckCircle2, XCircle, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -221,6 +222,10 @@ export default function LoansPage() {
     e.preventDefault()
     const amount = parseFloat(principalAmount)
     const tenure = parseInt(tenureMonths)
+    if (!isKycApproved) {
+      toast.error("KYC verification is required before applying for a loan.")
+      return
+    }
     if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
       toast.error("Please fill all required fields"); return
     }
@@ -257,6 +262,7 @@ export default function LoansPage() {
 
   const product = products.find((p) => p.id === selectedProduct)
   const maxLoanable = dashboard ? (dashboard.balances.bosa * 3 + dashboard.balances.fosa * 1.5) : 0
+  const isKycApproved = dashboard?.member.kycStatus === "APPROVED"
   const applicationAmount = parseFloat(principalAmount || "0")
   const applicationMinGuarantors = product?.minGuarantors ?? 0
   const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
@@ -300,6 +306,24 @@ export default function LoansPage() {
           </div>
         </CardContent>
       </Card>
+
+      {dashboard && !isKycApproved && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <ShieldCheck className="h-4 w-4 text-amber-700" />
+          <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Your KYC status is {dashboard.member.kycStatus.replace(/_/g, " ")}. Staff must approve it before a loan can be submitted.
+              {dashboard.member.kycRejectionReason ? ` Reason: ${dashboard.member.kycRejectionReason}` : ""}
+            </span>
+            <Link href="/member/profile">
+              <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100">
+                View Profile
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {showApplyForm && (
         <Card>
@@ -357,16 +381,29 @@ export default function LoansPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              {product && applicationMinGuarantors > 0 && applicationAmount > 0 && (
-                <GuarantorLookup
-                  requiredAmount={applicationRequiredCoverage}
-                  minGuarantors={applicationMinGuarantors}
-                  guarantors={applicationGuarantors}
-                  onAdd={(guarantor) => setApplicationGuarantors((prev) => [...prev, guarantor])}
-                  onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
-                />
+              {product && (
+                <div className="space-y-3 rounded-lg border p-3">
+                  <div>
+                    <p className="font-medium">Choose guarantors</p>
+                    <p className="text-xs text-muted-foreground">
+                      Search an active member by National ID and add them as a guarantor.
+                      {applicationAmount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
+                    </p>
+                  </div>
+                  {applicationAmount > 0 ? (
+                    <GuarantorLookup
+                      requiredAmount={applicationRequiredCoverage}
+                      minGuarantors={Math.max(applicationMinGuarantors, 1)}
+                      guarantors={applicationGuarantors}
+                      onAdd={(guarantor) => setApplicationGuarantors((prev) => [...prev, guarantor])}
+                      onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
+                    />
+                  ) : (
+                    <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">Enter a loan amount to enable guarantor lookup.</p>
+                  )}
+                </div>
               )}
-              <Button type="submit" disabled={isApplying} className="w-full">
+              <Button type="submit" disabled={isApplying || !isKycApproved} className="w-full">
                 {isApplying ? "Submitting…" : "Submit Application"}
               </Button>
             </form>

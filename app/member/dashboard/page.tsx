@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CreditCard, TrendingUp, Users, ArrowRight, RefreshCw } from 'lucide-react';
+import { CreditCard, TrendingUp, Users, ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   memberApi,
   formatCurrency,
@@ -94,6 +95,8 @@ export default function MemberDashboardPage() {
   ) ?? 0;
   const totalSavings = dashboard?.balances.bosa ?? 0;
   const fosaBalance = dashboard?.balances.fosa ?? 0;
+  const kycStatus = dashboard?.member.kycStatus ?? 'UNKNOWN';
+  const isKycApproved = kycStatus === 'APPROVED';
 
   if (error) {
     return (
@@ -150,6 +153,24 @@ export default function MemberDashboardPage() {
             variant="blue"
           />
         </div>
+      )}
+
+      {!loading && dashboard && !isKycApproved && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <ShieldCheck className="h-4 w-4 text-amber-700" />
+          <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Your KYC status is {kycStatus.replace(/_/g, ' ')}. Loan applications open after staff approval.
+              {dashboard.member.kycRejectionReason ? ` Reason: ${dashboard.member.kycRejectionReason}` : ''}
+            </span>
+            <Link href="/member/profile">
+              <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100">
+                View Profile
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Pending Guarantor Requests */}
@@ -305,12 +326,19 @@ export default function MemberDashboardPage() {
                 M-Pesa Deposit
               </Button>
             </Link>
-            <Link href="/member/loans">
-              <Button variant="outline">
+            {isKycApproved ? (
+              <Link href="/member/loans">
+                <Button variant="outline">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Apply for Loan
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" disabled>
                 <CreditCard className="mr-2 h-4 w-4" />
-                Apply for Loan
+                KYC Pending
               </Button>
-            </Link>
+            )}
           </div>
         </CardContent>
       </Card>

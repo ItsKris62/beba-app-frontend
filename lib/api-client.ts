@@ -68,6 +68,8 @@ export interface MemberDashboard {
     memberNumber: string;
     name: string;
     email: string;
+    kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | string;
+    kycRejectionReason?: string | null;
   };
   balances: {
     fosa: number;

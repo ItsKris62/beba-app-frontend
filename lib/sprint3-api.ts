@@ -39,6 +39,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 export interface DashboardStats {
   totalMembers: number;
   activeMembers: number;
+  pendingKyc: number;
   totalLoansCount: number;
   activeLoansCount: number;
   totalDisbursed: number;
@@ -189,6 +190,7 @@ export const dashboardApi = {
     return {
       totalMembers: raw.members?.total ?? 0,
       activeMembers: raw.members?.active ?? 0,
+      pendingKyc: raw.members?.pendingKyc ?? 0,
       totalLoansCount: (raw.loans?.active ?? 0) + (raw.loans?.defaulted ?? 0),
       activeLoansCount: raw.loans?.active ?? 0,
       totalDisbursed: raw.loans?.totalOutstandingAmount ?? 0,

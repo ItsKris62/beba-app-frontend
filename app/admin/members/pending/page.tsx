@@ -1,131 +1,100 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
-import { Search, CheckCircle2, XCircle, Eye, Clock, Copy, Check } from "lucide-react"
-import { toast } from "sonner"
-import { applicationsApi, type MemberApplication } from "@/lib/locations-api"
-import { useAuth } from "@/lib/auth-context"
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
+import {
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileCheck2,
+  RefreshCw,
+  Search,
+  XCircle,
+} from "lucide-react"
+import { toast } from "sonner"
 
-// ─── Credentials display after approval ──────────────────────────────────────
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
+import { adminApi, type PendingMember } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
 
-interface ApprovalCredentials {
-  memberNumber: string
-  email: string
-  temporaryPassword: string
-  firstName: string
-  lastName: string
-}
+const PAGE_SIZE = 20
 
-function CredentialsDialog({
-  credentials,
-  onClose,
-}: {
-  credentials: ApprovalCredentials | null
-  onClose: () => void
-}) {
-  const [copied, setCopied] = useState<string | null>(null)
+const CHECKLIST_ITEMS = [
+  { key: "idDocument", label: "ID document verified" },
+  { key: "phoneVerified", label: "Phone number verified" },
+  { key: "memberFormSigned", label: "Member form complete" },
+] as const
 
-  if (!credentials) return null
+type ChecklistKey = (typeof CHECKLIST_ITEMS)[number]["key"]
+type KycChecklist = Record<ChecklistKey, boolean>
 
-  const copy = (value: string, field: string) => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(field)
-      setTimeout(() => setCopied(null), 2000)
-    })
+function createChecklist(): KycChecklist {
+  return {
+    idDocument: false,
+    phoneVerified: false,
+    memberFormSigned: false,
   }
-
-  const CopyBtn = ({ value, field }: { value: string; field: string }) => (
-    <button
-      onClick={() => copy(value, field)}
-      className="ml-2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-      title="Copy"
-    >
-      {copied === field
-        ? <Check className="h-3.5 w-3.5 text-green-600" />
-        : <Copy className="h-3.5 w-3.5" />}
-    </button>
-  )
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            Member Account Created
-          </DialogTitle>
-          <DialogDescription>
-            Share these credentials with{" "}
-            <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change
-            their password on first login.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 rounded-lg border bg-gray-50 p-4 text-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Member Number</p>
-              <p className="font-mono font-semibold">{credentials.memberNumber}</p>
-            </div>
-            <CopyBtn value={credentials.memberNumber} field="memberNumber" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Login Email</p>
-              <p className="truncate font-mono font-medium">{credentials.email}</p>
-            </div>
-            <CopyBtn value={credentials.email} field="email" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Temporary Password</p>
-              <p className="font-mono font-semibold text-orange-600">{credentials.temporaryPassword}</p>
-            </div>
-            <CopyBtn value={credentials.temporaryPassword} field="password" />
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          This is the only time the temporary password will be shown. Copy it before closing.
-        </p>
-
-        <DialogFooter>
-          <Button onClick={onClose} className="w-full">Done</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+function parseDocumentUrls(value: string): string[] {
+  return value
+    .split(/[\n,]+/)
+    .map((url) => url.trim())
+    .filter(Boolean)
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return "-"
+  return new Date(value).toLocaleDateString("en-KE")
+}
+
+function fullName(member: PendingMember): string {
+  return `${member.user.firstName} ${member.user.lastName}`.trim()
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    SUBMITTED: "bg-blue-100 text-blue-800 border-blue-200",
     PENDING_REVIEW: "bg-amber-100 text-amber-800 border-amber-200",
+    APPROVED: "bg-green-100 text-green-800 border-green-200",
+    REJECTED: "bg-red-100 text-red-800 border-red-200",
   }
+
   return (
     <Badge variant="outline" className={map[status] ?? "bg-gray-100 text-gray-800"}>
-      {status.replace("_", " ")}
+      {status.split("_").join(" ")}
     </Badge>
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function PendingKycPage() {
   const { user } = useAuth()
   const router = useRouter()
+
+  const [members, setMembers] = useState<PendingMember[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [search, setSearch] = useState("")
+
+  const [viewMember, setViewMember] = useState<PendingMember | null>(null)
+  const [approveMember, setApproveMember] = useState<PendingMember | null>(null)
+  const [rejectMember, setRejectMember] = useState<PendingMember | null>(null)
+  const [documentUrls, setDocumentUrls] = useState("")
+  const [approvalNotes, setApprovalNotes] = useState("")
+  const [rejectReason, setRejectReason] = useState("")
+  const [checklist, setChecklist] = useState<KycChecklist>(() => createChecklist())
+  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
     if (user && !["TENANT_ADMIN", "MANAGER", "SUPER_ADMIN"].includes(user.role)) {
@@ -133,200 +102,248 @@ export default function PendingKycPage() {
     }
   }, [user, router])
 
-  const [applications, setApplications] = useState<MemberApplication[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState("")
-
-  const [viewApp, setViewApp] = useState<MemberApplication | null>(null)
-  const [approveApp, setApproveApp] = useState<MemberApplication | null>(null)
-  const [approveEmail, setApproveEmail] = useState("")
-  const [rejectApp, setRejectApp] = useState<MemberApplication | null>(null)
-  const [rejectReason, setRejectReason] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [credentials, setCredentials] = useState<ApprovalCredentials | null>(null)
-
-  const loadApplications = useCallback(async (p = 1, q = "") => {
+  const loadMembers = useCallback(async (p = 1, q = "") => {
     setIsLoading(true)
     try {
-      const result = await applicationsApi.getPending({ page: p, limit: 20, search: q || undefined })
-      setApplications(result.data ?? [])
-      setTotal(result.meta?.total ?? 0)
+      const result = await adminApi.getPendingMembers({
+        page: p,
+        limit: PAGE_SIZE,
+        search: q || undefined,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error?.message ?? "Failed to load KYC queue")
+      }
+
+      setMembers(result.data?.data ?? [])
+      setTotal(result.data?.meta?.total ?? 0)
+      setTotalPages(result.data?.meta?.totalPages ?? 1)
       setPage(p)
     } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message ?? "Failed to load applications")
+      toast.error((err as { message?: string })?.message ?? "Failed to load KYC queue")
     } finally {
       setIsLoading(false)
     }
   }, [])
 
-  useEffect(() => { loadApplications(1) }, [loadApplications])
+  useEffect(() => {
+    loadMembers(1)
+  }, [loadMembers])
 
-  // ─── Approve ─────────────────────────────────────────────────────────────
+  const checklistProgress = useMemo(() => {
+    const passed = CHECKLIST_ITEMS.filter((item) => checklist[item.key]).length
+    return Math.round((passed / CHECKLIST_ITEMS.length) * 100)
+  }, [checklist])
+
+  const openApproveDialog = (member: PendingMember) => {
+    setApproveMember(member)
+    setDocumentUrls(Array.isArray(member.kycDocumentUrls) ? member.kycDocumentUrls.join("\n") : "")
+    setApprovalNotes("")
+    setChecklist(createChecklist())
+  }
+
+  const closeApproveDialog = () => {
+    setApproveMember(null)
+    setDocumentUrls("")
+    setApprovalNotes("")
+    setChecklist(createChecklist())
+  }
+
+  const openRejectDialog = (member: PendingMember) => {
+    setRejectMember(member)
+    setRejectReason("")
+  }
+
+  const closeRejectDialog = () => {
+    setRejectMember(null)
+    setRejectReason("")
+  }
 
   async function handleApprove() {
-    if (!approveApp) return
+    if (!approveMember) return
+
+    const urls = parseDocumentUrls(documentUrls)
+    if (urls.length === 0) {
+      toast.error("Add at least one KYC document URL before approval")
+      return
+    }
+
+    const incomplete = CHECKLIST_ITEMS.filter((item) => !checklist[item.key])
+    if (incomplete.length > 0) {
+      toast.error("Complete the KYC checklist before approval")
+      return
+    }
+
     setIsProcessing(true)
     try {
-      const result = await applicationsApi.approve(approveApp.id, {
-        email: approveEmail.trim() || undefined,
+      const result = await adminApi.updateKyc(approveMember.id, {
+        verified: true,
+        documentUrls: urls,
+        checklist,
+        notes: approvalNotes.trim() || undefined,
       })
-      setCredentials({
-        memberNumber: result.member.memberNumber,
-        email: result.user.email,
-        temporaryPassword: result.temporaryPassword,
-        firstName: result.user.firstName,
-        lastName: result.user.lastName,
-      })
-      setApproveApp(null)
-      setApproveEmail("")
-      setViewApp(null)
-      loadApplications(page, search)
+
+      if (!result.success) {
+        throw new Error(result.error?.message ?? "KYC approval failed")
+      }
+
+      toast.success(`${fullName(approveMember)} approved`)
+      closeApproveDialog()
+      setViewMember(null)
+      loadMembers(page, search)
     } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message ?? "Approval failed")
+      toast.error((err as { message?: string })?.message ?? "KYC approval failed")
     } finally {
       setIsProcessing(false)
     }
   }
 
-  // ─── Reject ──────────────────────────────────────────────────────────────
-
   async function handleReject() {
-    if (!rejectApp) return
+    if (!rejectMember) return
+
     if (!rejectReason.trim()) {
       toast.error("Please enter a rejection reason")
       return
     }
+
     setIsProcessing(true)
     try {
-      await applicationsApi.reject(rejectApp.id, rejectReason.trim())
-      toast.success(`${rejectApp.firstName}'s application rejected`)
-      setRejectApp(null)
-      setRejectReason("")
-      setViewApp(null)
-      loadApplications(page, search)
+      const result = await adminApi.updateKyc(rejectMember.id, {
+        verified: false,
+        notes: rejectReason.trim(),
+      })
+
+      if (!result.success) {
+        throw new Error(result.error?.message ?? "KYC rejection failed")
+      }
+
+      toast.success(`${fullName(rejectMember)} rejected`)
+      closeRejectDialog()
+      setViewMember(null)
+      loadMembers(page, search)
     } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message ?? "Rejection failed")
+      toast.error((err as { message?: string })?.message ?? "KYC rejection failed")
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const totalPages = Math.ceil(total / 20)
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    loadMembers(1, search)
+  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">KYC Review Queue</h1>
-        <p className="text-muted-foreground">
-          Review and action pending member applications. Oldest submissions appear first.
-        </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">KYC Review Queue</h1>
+          <p className="text-muted-foreground">
+            Review existing member KYC records awaiting approval.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => loadMembers(page, search)}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push("/admin/applications")}>
+            Member Applications
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Awaiting Review</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Pending applications</p>
+            <p className="mt-1 text-xs text-muted-foreground">Pending member KYC records</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Applications</CardTitle>
+          <CardTitle>Pending Members</CardTitle>
           <CardDescription>
-            Applications submitted for membership — approve to create member account and assign FOSA &amp; BOSA accounts.
+            Members with pending review KYC status, ordered oldest first.
           </CardDescription>
-          <div className="flex gap-2 mt-2">
+          <form onSubmit={handleSearch} className="mt-2 flex gap-2">
             <div className="relative max-w-sm flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name, ID, or phone…"
+                placeholder="Search by name, member number, ID, or email"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") loadApplications(1, search)
-                }}
+                onChange={(event) => setSearch(event.target.value)}
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={() => loadApplications(1, search)}>
+            <Button type="submit" variant="outline" size="sm">
               Search
             </Button>
-          </div>
+          </form>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full" />
               ))}
             </div>
-          ) : applications.length === 0 ? (
-            <div className="text-center py-16">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-green-400 mb-3" />
+          ) : members.length === 0 ? (
+            <div className="py-16 text-center">
+              <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-500" />
               <p className="font-medium">Queue is clear</p>
-              <p className="text-sm text-muted-foreground">No pending applications to review.</p>
+              <p className="text-sm text-muted-foreground">No members are pending KYC review.</p>
             </div>
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Member No.</TableHead>
                     <TableHead>National ID</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Position</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {applications.map((app) => (
-                    <TableRow key={app.id}>
+                  {members.map((member) => (
+                    <TableRow key={member.id}>
                       <TableCell>
-                        <p className="font-medium">{app.firstName} {app.lastName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {app.ward?.constituency?.county?.name ?? ""}
-                        </p>
+                        <p className="font-medium">{fullName(member)}</p>
+                        <p className="text-xs text-muted-foreground">{member.user.email}</p>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{app.idNumber}</TableCell>
-                      <TableCell className="text-muted-foreground">{app.phoneNumber}</TableCell>
-                      <TableCell className="text-muted-foreground">{app.stageName}</TableCell>
+                      <TableCell className="font-mono text-sm">{member.memberNumber}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {member.nationalId ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {member.user.phone ?? "-"}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{app.position}</Badge>
+                        <StatusBadge status={member.kycStatus} />
                       </TableCell>
-                      <TableCell>
-                        <StatusBadge status={app.status} />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(app.createdAt).toLocaleDateString("en-KE")}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(member.joinedAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewApp(app)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setViewMember(member)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-600 border-green-300 hover:bg-green-50"
-                            onClick={() => { setApproveApp(app); setApproveEmail("") }}
+                            className="border-green-300 text-green-700 hover:bg-green-50"
+                            onClick={() => openApproveDialog(member)}
                             disabled={isProcessing}
                           >
                             <CheckCircle2 className="mr-1 h-4 w-4" />
@@ -335,8 +352,8 @@ export default function PendingKycPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-300 hover:bg-red-50"
-                            onClick={() => { setRejectApp(app); setRejectReason("") }}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            onClick={() => openRejectDialog(member)}
                             disabled={isProcessing}
                           >
                             <XCircle className="mr-1 h-4 w-4" />
@@ -352,20 +369,22 @@ export default function PendingKycPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4">
                   <p className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages} · {total} pending
+                    Page {page} of {totalPages} - {total} pending
                   </p>
                   <div className="flex gap-2">
                     <Button
-                      variant="outline" size="sm"
+                      variant="outline"
+                      size="sm"
                       disabled={page <= 1}
-                      onClick={() => loadApplications(page - 1, search)}
+                      onClick={() => loadMembers(page - 1, search)}
                     >
                       Previous
                     </Button>
                     <Button
-                      variant="outline" size="sm"
+                      variant="outline"
+                      size="sm"
                       disabled={page >= totalPages}
-                      onClick={() => loadApplications(page + 1, search)}
+                      onClick={() => loadMembers(page + 1, search)}
                     >
                       Next
                     </Button>
@@ -377,61 +396,48 @@ export default function PendingKycPage() {
         </CardContent>
       </Card>
 
-      {/* ── View Detail Dialog ── */}
-      <Dialog open={!!viewApp} onOpenChange={(o) => { if (!isProcessing && !o) setViewApp(null) }}>
+      <Dialog open={!!viewMember} onOpenChange={(open) => { if (!open) setViewMember(null) }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{viewApp?.firstName} {viewApp?.lastName}</DialogTitle>
+            <DialogTitle>{viewMember ? fullName(viewMember) : "Member Details"}</DialogTitle>
             <DialogDescription>
-              Submitted {viewApp ? new Date(viewApp.createdAt).toLocaleDateString("en-KE") : ""}
-              {viewApp && (
-                <span className="ml-2">
-                  · <StatusBadge status={viewApp.status} />
-                </span>
-              )}
+              {viewMember?.memberNumber} {viewMember && <StatusBadge status={viewMember.kycStatus} />}
             </DialogDescription>
           </DialogHeader>
 
-          {viewApp && (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">National ID</Label>
-                  <p className="mt-0.5 font-mono">{viewApp.idNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Phone</Label>
-                  <p className="mt-0.5">{viewApp.phoneNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Stage</Label>
-                  <p className="mt-0.5">{viewApp.stageName}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Position</Label>
-                  <p className="mt-0.5">{viewApp.position}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ward</Label>
-                  <p className="mt-0.5">{viewApp.ward?.name ?? "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">County</Label>
-                  <p className="mt-0.5">{viewApp.ward?.constituency?.county?.name ?? "—"}</p>
-                </div>
-                {viewApp.documentUrl && (
-                  <div className="col-span-2">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">KYC Document</Label>
-                    <a
-                      href={viewApp.documentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-0.5 block text-blue-600 underline text-sm"
-                    >
-                      View Document
-                    </a>
-                  </div>
-                )}
+          {viewMember && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Email</Label>
+                <p className="mt-0.5 break-all">{viewMember.user.email}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Phone</Label>
+                <p className="mt-0.5">{viewMember.user.phone ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">National ID</Label>
+                <p className="mt-0.5 font-mono">{viewMember.nationalId ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">KRA PIN</Label>
+                <p className="mt-0.5 font-mono">{viewMember.kraPin ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Employer</Label>
+                <p className="mt-0.5">{viewMember.employer ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Occupation</Label>
+                <p className="mt-0.5">{viewMember.occupation ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Date of Birth</Label>
+                <p className="mt-0.5">{formatDate(viewMember.dateOfBirth)}</p>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Joined</Label>
+                <p className="mt-0.5">{formatDate(viewMember.joinedAt)}</p>
               </div>
             </div>
           )}
@@ -439,16 +445,22 @@ export default function PendingKycPage() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
-              onClick={() => { setRejectApp(viewApp); setRejectReason(""); setViewApp(null) }}
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              onClick={() => {
+                if (viewMember) openRejectDialog(viewMember)
+                setViewMember(null)
+              }}
               disabled={isProcessing}
             >
               <XCircle className="mr-1 h-4 w-4" />
               Reject
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => { setApproveApp(viewApp); setApproveEmail(""); setViewApp(null) }}
+              className="bg-green-600 text-white hover:bg-green-700"
+              onClick={() => {
+                if (viewMember) openApproveDialog(viewMember)
+                setViewMember(null)
+              }}
               disabled={isProcessing}
             >
               <CheckCircle2 className="mr-1 h-4 w-4" />
@@ -458,83 +470,110 @@ export default function PendingKycPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Approve Dialog (email + confirm) ── */}
-      <Dialog open={!!approveApp} onOpenChange={(o) => { if (!isProcessing && !o) { setApproveApp(null); setApproveEmail("") } }}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={!!approveMember}
+        onOpenChange={(open) => { if (!isProcessing && !open) closeApproveDialog() }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Approve Application</DialogTitle>
+            <DialogTitle>Approve KYC</DialogTitle>
             <DialogDescription>
-              Creating a member account for{" "}
-              <strong>{approveApp?.firstName} {approveApp?.lastName}</strong>.
-              FOSA &amp; BOSA accounts will be created automatically.
+              {approveMember ? fullName(approveMember) : "Member"} will be marked as KYC approved.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="approveEmail">Email (optional)</Label>
-              <Input
-                id="approveEmail"
-                type="email"
-                placeholder="member@example.com — leave blank to auto-generate"
-                value={approveEmail}
-                onChange={(e) => setApproveEmail(e.target.value)}
-                className="mt-1"
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="documentUrls">Document URLs</Label>
+              <Textarea
+                id="documentUrls"
+                value={documentUrls}
+                onChange={(event) => setDocumentUrls(event.target.value)}
+                placeholder="https://storage.example.com/kyc/id-card.pdf"
+                rows={3}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                If blank, a system email will be generated from the member&apos;s ID number.
+              <p className="text-xs text-muted-foreground">
+                Enter one full URL per line. At least one document is required.
               </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>KYC Checklist</Label>
+                <span className="text-xs text-muted-foreground">{checklistProgress}%</span>
+              </div>
+              <Progress value={checklistProgress} />
+              <div className="space-y-2 rounded-md border p-3">
+                {CHECKLIST_ITEMS.map((item) => (
+                  <label key={item.key} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={checklist[item.key]}
+                      onCheckedChange={(checked) => {
+                        setChecklist((current) => ({
+                          ...current,
+                          [item.key]: checked === true,
+                        }))
+                      }}
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="approvalNotes">Notes</Label>
+              <Textarea
+                id="approvalNotes"
+                value={approvalNotes}
+                onChange={(event) => setApprovalNotes(event.target.value)}
+                placeholder="Optional review note"
+                rows={3}
+              />
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => { setApproveApp(null); setApproveEmail("") }}
-              disabled={isProcessing}
-            >
+            <Button variant="outline" onClick={closeApproveDialog} disabled={isProcessing}>
               Cancel
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 text-white hover:bg-green-700"
               onClick={handleApprove}
               disabled={isProcessing}
             >
-              <CheckCircle2 className="mr-1 h-4 w-4" />
-              {isProcessing ? "Creating Account…" : "Confirm Approval"}
+              <FileCheck2 className="mr-1 h-4 w-4" />
+              {isProcessing ? "Approving..." : "Confirm Approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Reject Dialog ── */}
       <Dialog
-        open={!!rejectApp}
-        onOpenChange={(o) => { if (!isProcessing && !o) { setRejectApp(null); setRejectReason("") } }}
+        open={!!rejectMember}
+        onOpenChange={(open) => { if (!isProcessing && !open) closeRejectDialog() }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Application</DialogTitle>
+            <DialogTitle>Reject KYC</DialogTitle>
             <DialogDescription>
-              Provide a clear reason. This will be noted on the application.
+              {rejectMember ? fullName(rejectMember) : "Member"} will be marked as KYC rejected.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-2">
-            <Label htmlFor="rejectReason">Rejection Reason <span className="text-red-500">*</span></Label>
+            <Label htmlFor="rejectReason">Rejection Reason</Label>
             <Textarea
               id="rejectReason"
-              placeholder="e.g. National ID number is invalid — please verify and resubmit."
               value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Example: ID document is unreadable. Please upload a clearer copy."
               rows={4}
             />
           </div>
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => { setRejectApp(null); setRejectReason("") }}
-              disabled={isProcessing}
-            >
+            <Button variant="outline" onClick={closeRejectDialog} disabled={isProcessing}>
               Cancel
             </Button>
             <Button
@@ -542,17 +581,11 @@ export default function PendingKycPage() {
               onClick={handleReject}
               disabled={isProcessing || !rejectReason.trim()}
             >
-              {isProcessing ? "Submitting…" : "Reject Application"}
+              {isProcessing ? "Rejecting..." : "Reject KYC"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ── Credentials after approval ── */}
-      <CredentialsDialog
-        credentials={credentials}
-        onClose={() => setCredentials(null)}
-      />
     </div>
   )
 }

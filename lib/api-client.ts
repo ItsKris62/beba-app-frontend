@@ -327,6 +327,9 @@ export interface PendingMember {
   employer: string | null;
   occupation: string | null;
   dateOfBirth: string | null;
+  kycDocumentUrls?: string[] | null;
+  kycChecklist?: Record<string, boolean> | null;
+  kycReviewNotes?: string | null;
   kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
   joinedAt: string;
   user: {
@@ -789,6 +792,10 @@ export const adminApi = {
     occupation?: string;
     dateOfBirth?: string;
     phone?: string;
+    documentUrls?: string[];
+    verified?: boolean;
+    notes?: string;
+    checklist?: Record<string, boolean>;
   }) =>
     apiFetch<AdminMember>(`/admin/members/${memberId}/kyc`, {
       method: 'PATCH',

@@ -10,7 +10,7 @@
  * - ODPC consent gate (ConsentModal)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,16 @@ import {
   type BosaStatement,
   type StatementTransaction,
 } from '@/lib/sprint3-api';
+
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const TODAY = formatDateInput(new Date());
+const DEFAULT_FROM = formatDateInput(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
 
 // ─── Consent Modal ────────────────────────────────────────────────────────────
 
@@ -131,12 +141,13 @@ function TransactionTable({ transactions }: { transactions: StatementTransaction
 export default function MemberStatementsPage() {
   const [hasConsent, setHasConsent] = useState<boolean | null>(null);
   const [statementType, setStatementType] = useState<'FOSA' | 'BOSA'>('FOSA');
-  const [periodFrom, setPeriodFrom] = useState('');
-  const [periodTo, setPeriodTo] = useState('');
+  const [periodFrom, setPeriodFrom] = useState(DEFAULT_FROM);
+  const [periodTo, setPeriodTo] = useState(TODAY);
   const [statement, setStatement] = useState<FosaStatement | BosaStatement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<'pdf' | 'csv' | null>(null);
+  const initialLoadRef = useRef(false);
 
   // Check consent on mount
   useEffect(() => {
@@ -147,6 +158,15 @@ export default function MemberStatementsPage() {
   }, []);
 
   const loadStatement = useCallback(async () => {
+    if (periodFrom > TODAY || periodTo > TODAY) {
+      setError('Statement dates cannot be in the future');
+      return;
+    }
+    if (periodFrom && periodTo && periodFrom > periodTo) {
+      setError('From date cannot be later than To date');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -166,7 +186,18 @@ export default function MemberStatementsPage() {
     }
   }, [statementType, periodFrom, periodTo]);
 
+  useEffect(() => {
+    if (!hasConsent || initialLoadRef.current) return;
+    initialLoadRef.current = true;
+    void loadStatement();
+  }, [hasConsent, loadStatement]);
+
   const handleDownload = async (format: 'pdf' | 'csv') => {
+    if (periodFrom > TODAY || periodTo > TODAY || periodFrom > periodTo) {
+      setError('Choose a valid statement period before downloading');
+      return;
+    }
+
     setDownloading(format);
     try {
       const params = {
@@ -237,7 +268,8 @@ export default function MemberStatementsPage() {
               <input
                 type="date"
                 value={periodFrom}
-                onChange={(e) => setPeriodFrom(e.target.value)}
+                max={periodTo || TODAY}
+                onChange={(e) => setPeriodFrom(e.target.value > TODAY ? TODAY : e.target.value)}
                 className="border rounded px-3 py-2 text-sm"
               />
             </div>
@@ -246,7 +278,9 @@ export default function MemberStatementsPage() {
               <input
                 type="date"
                 value={periodTo}
-                onChange={(e) => setPeriodTo(e.target.value)}
+                min={periodFrom || undefined}
+                max={TODAY}
+                onChange={(e) => setPeriodTo(e.target.value > TODAY ? TODAY : e.target.value)}
                 className="border rounded px-3 py-2 text-sm"
               />
             </div>

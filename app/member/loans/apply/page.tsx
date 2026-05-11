@@ -13,7 +13,35 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
-import { loansApi, memberApi, formatCurrency, generateIdempotencyKey, type LoanProduct, type MemberDashboard } from "@/lib/api-client"
+import { loansApi, memberApi, formatCurrency, generateIdempotencyKey, type Loan, type LoanProduct, type MemberDashboard } from "@/lib/api-client"
+
+const OPEN_LOAN_STATUSES = new Set([
+  "DRAFT",
+  "PENDING_GUARANTORS",
+  "PENDING_REVIEW",
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "DISBURSED",
+  "ACTIVE",
+  "DEFAULTED",
+])
+
+function getPreviouslyAcceptedGuarantors(loans: Loan[]): SelectedGuarantor[] {
+  const selected = new Map<string, SelectedGuarantor>()
+
+  for (const loan of loans) {
+    for (const guarantor of loan.guarantors ?? []) {
+      if (guarantor.status !== "ACCEPTED" || !guarantor.member) continue
+      selected.set(guarantor.memberId, {
+        memberId: guarantor.memberId,
+        maskedName: `${guarantor.member.user.firstName} ${guarantor.member.user.lastName}`,
+        maskedMemberNumber: guarantor.member.memberNumber,
+      })
+    }
+  }
+
+  return Array.from(selected.values())
+}
 
 function getEligibleSavings(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
   if (!dashboard) return 0
@@ -37,8 +65,12 @@ export default function ApplyLoanPage() {
   const [guarantors, setGuarantors] = React.useState<SelectedGuarantor[]>([])
   const products = useQuery({ queryKey: ["loan-products"], queryFn: () => loansApi.getProducts() })
   const dashboard = useQuery({ queryKey: ["member-dashboard"], queryFn: () => memberApi.getDashboard() })
+  const memberLoans = useQuery({ queryKey: ["member-loans-for-apply"], queryFn: () => loansApi.getMyLoans({ limit: 50 }) })
   const productList = products.data?.success ? products.data.data ?? [] : []
   const dashboardData = dashboard.data?.success ? dashboard.data.data : null
+  const loans = memberLoans.data?.success ? memberLoans.data.data?.data ?? [] : []
+  const openLoan = loans.find((loan) => OPEN_LOAN_STATUSES.has(loan.status))
+  const previousGuarantors = React.useMemo(() => getPreviouslyAcceptedGuarantors(loans), [loans])
   const member = dashboardData?.member ?? null
   const isKycApproved = member?.kycStatus === "APPROVED"
   const product = productList.find((item) => item.id === loanProductId)
@@ -53,7 +85,17 @@ export default function ApplyLoanPage() {
   const productLoanLimit = getProductLoanLimit(product, dashboardData)
   const amountPasses = Boolean(product && amount >= Number(product.minAmount) && amount <= productLoanLimit)
   const tenurePasses = Boolean(product && tenure >= 1 && tenure <= product.maxTenureMonths)
-  const canSubmit = Boolean(product && amountPasses && tenurePasses && coveragePasses && maxPasses)
+  const canSubmit = Boolean(product && amountPasses && tenurePasses && coveragePasses && maxPasses && !openLoan && isKycApproved)
+  const addGuarantor = (guarantor: SelectedGuarantor) => {
+    setGuarantors((current) => {
+      if (current.some((item) => item.memberId === guarantor.memberId)) return current
+      if (maxGuarantors > 0 && current.length >= maxGuarantors) {
+        toast.error(`This product allows at most ${maxGuarantors} guarantor(s).`)
+        return current
+      }
+      return [...current, guarantor]
+    })
+  }
   const apply = useMutation({
     mutationFn: () => memberApi.applyForLoan({ loanProductId, principalAmount: amount, tenureMonths: tenure, purpose, guarantorIds: guarantors.map((g) => g.memberId) }, generateIdempotencyKey()),
     onSuccess: (res) => {
@@ -83,6 +125,21 @@ export default function ApplyLoanPage() {
           </AlertDescription>
         </Alert>
       )}
+      {openLoan && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertTitle className="text-amber-900">Existing loan must be cleared first</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              You already have loan {openLoan.loanNumber} in {openLoan.status.replace(/_/g, " ")} status. You can apply again after it is fully paid.
+            </span>
+            <Link href="/member/loans">
+              <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100">
+                View Loan Status
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
       <Card>
         <CardHeader><CardTitle>Loan Details</CardTitle><CardDescription>Product terms determine guarantor coverage.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
@@ -99,6 +156,31 @@ export default function ApplyLoanPage() {
                   {amount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
                 </p>
               </div>
+              {previousGuarantors.length > 0 && (
+                <div className="space-y-2 rounded-md bg-muted p-3">
+                  <p className="text-sm font-medium">Previously accepted guarantors</p>
+                  <div className="flex flex-wrap gap-2">
+                    {previousGuarantors.map((guarantor) => {
+                      const alreadySelected = guarantors.some((item) => item.memberId === guarantor.memberId)
+                      return (
+                        <Button
+                          key={guarantor.memberId}
+                          type="button"
+                          size="sm"
+                          variant={alreadySelected ? "secondary" : "outline"}
+                          disabled={alreadySelected}
+                          onClick={() => addGuarantor(guarantor)}
+                        >
+                          {alreadySelected ? "Selected" : "Select"} {guarantor.maskedName}
+                        </Button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The system will re-check their KYC and available savings before submitting.
+                  </p>
+                </div>
+              )}
               {amount > 0 ? (
                 <GuarantorLookup
                   requiredAmount={requiredCoverage}
@@ -106,7 +188,7 @@ export default function ApplyLoanPage() {
                   maxGuarantors={maxGuarantors}
                   loanProductId={loanProductId}
                   guarantors={guarantors}
-                  onAdd={(g) => setGuarantors((prev) => maxGuarantors > 0 && prev.length >= maxGuarantors ? prev : [...prev, g])}
+                  onAdd={addGuarantor}
                   onRemove={(id) => setGuarantors((prev) => prev.filter((g) => g.memberId !== id))}
                 />
               ) : (
@@ -114,7 +196,7 @@ export default function ApplyLoanPage() {
               )}
             </div>
           )}
-          <Button className="w-full" disabled={!canSubmit || apply.isPending || !isKycApproved} onClick={() => apply.mutate()}>{apply.isPending ? "Submitting…" : "Submit Application"}</Button>
+          <Button className="w-full" disabled={!canSubmit || apply.isPending} onClick={() => apply.mutate()}>{apply.isPending ? "Submitting..." : "Submit Application"}</Button>
         </CardContent>
       </Card>
     </div>

@@ -82,6 +82,33 @@ function GuarantorCard({ loanId, applicantName, loanNumber, loanAmount, guarante
 }
 
 const ACTIVE_GUARANTOR_STATUSES = new Set(["PENDING", "ACCEPTED"])
+const OPEN_LOAN_STATUSES = new Set([
+  "DRAFT",
+  "PENDING_GUARANTORS",
+  "PENDING_REVIEW",
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "DISBURSED",
+  "ACTIVE",
+  "DEFAULTED",
+])
+
+function getPreviouslyAcceptedGuarantors(loans: Loan[]): SelectedGuarantor[] {
+  const selected = new Map<string, SelectedGuarantor>()
+
+  for (const loan of loans) {
+    for (const guarantor of loan.guarantors ?? []) {
+      if (guarantor.status !== "ACCEPTED" || !guarantor.member) continue
+      selected.set(guarantor.memberId, {
+        memberId: guarantor.memberId,
+        maskedName: `${guarantor.member.user.firstName} ${guarantor.member.user.lastName}`,
+        maskedMemberNumber: guarantor.member.memberNumber,
+      })
+    }
+  }
+
+  return Array.from(selected.values())
+}
 
 function getEligibleSavings(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
   if (!dashboard) return 0
@@ -241,12 +268,19 @@ export default function LoansPage() {
 
   React.useEffect(() => { loadData() }, [loadData])
 
+  const openLoan = loans.find((loan) => OPEN_LOAN_STATUSES.has(loan.status))
+  const previousGuarantors = React.useMemo(() => getPreviouslyAcceptedGuarantors(loans), [loans])
+
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault()
     const amount = parseFloat(principalAmount)
     const tenure = parseInt(tenureMonths)
     if (!isKycApproved) {
       toast.error("KYC verification is required before applying for a loan.")
+      return
+    }
+    if (openLoan) {
+      toast.error(`You already have loan ${openLoan.loanNumber}. Apply again after it is fully paid.`)
       return
     }
     if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
@@ -300,6 +334,18 @@ export default function LoansPage() {
   const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
   const applicationRequiredCoverage = applicationAmount * applicationCoverageRatio
   const productLoanLimit = selectedProductLimit
+  const previousLoansCount = loans.filter((loan) => ["FULLY_PAID", "REJECTED", "REJECTED_GUARANTOR_DECLINE", "WRITTEN_OFF"].includes(loan.status)).length
+  const pendingLoansCount = loans.filter((loan) => ["DRAFT", "PENDING_GUARANTORS", "PENDING_REVIEW", "PENDING_APPROVAL", "APPROVED"].includes(loan.status)).length
+  const addApplicationGuarantor = (guarantor: SelectedGuarantor) => {
+    setApplicationGuarantors((current) => {
+      if (current.some((item) => item.memberId === guarantor.memberId)) return current
+      if (product?.maxGuarantors && current.length >= product.maxGuarantors) {
+        toast.error(`This product allows at most ${product.maxGuarantors} guarantor(s).`)
+        return current
+      }
+      return [...current, guarantor]
+    })
+  }
 
   if (isLoading) {
     return (
@@ -318,7 +364,7 @@ export default function LoansPage() {
           <h1 className="text-2xl font-bold tracking-tight">Loans</h1>
           <p className="text-muted-foreground">Apply for loans and manage your applications</p>
         </div>
-        <Button onClick={() => setShowApplyForm(!showApplyForm)} className="gap-2">
+        <Button onClick={() => setShowApplyForm(!showApplyForm)} className="gap-2" disabled={Boolean(openLoan)}>
           <CreditCard className="h-4 w-4" />
           {showApplyForm ? "Cancel" : "Apply for Loan"}
           {showApplyForm ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -354,6 +400,17 @@ export default function LoansPage() {
                 View Profile
               </Button>
             </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {openLoan && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <ShieldCheck className="h-4 w-4 text-amber-700" />
+          <AlertTitle className="text-amber-900">One loan at a time</AlertTitle>
+          <AlertDescription className="text-amber-800">
+            You already have loan {openLoan.loanNumber} in {openLoan.status.replace(/_/g, " ")} status.
+            New applications are available after the current loan is fully paid.
           </AlertDescription>
         </Alert>
       )}
@@ -425,6 +482,31 @@ export default function LoansPage() {
                       {applicationAmount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
                     </p>
                   </div>
+                  {previousGuarantors.length > 0 && (
+                    <div className="space-y-2 rounded-md bg-muted p-3">
+                      <p className="text-sm font-medium">Previously accepted guarantors</p>
+                      <div className="flex flex-wrap gap-2">
+                        {previousGuarantors.map((guarantor) => {
+                          const alreadySelected = applicationGuarantors.some((item) => item.memberId === guarantor.memberId)
+                          return (
+                            <Button
+                              key={guarantor.memberId}
+                              type="button"
+                              size="sm"
+                              variant={alreadySelected ? "secondary" : "outline"}
+                              disabled={alreadySelected}
+                              onClick={() => addApplicationGuarantor(guarantor)}
+                            >
+                              {alreadySelected ? "Selected" : "Select"} {guarantor.maskedName}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        The system will re-check their KYC and available savings before submitting.
+                      </p>
+                    </div>
+                  )}
                   {applicationAmount > 0 ? (
                     <GuarantorLookup
                       requiredAmount={applicationRequiredCoverage}
@@ -432,7 +514,7 @@ export default function LoansPage() {
                       maxGuarantors={product.maxGuarantors}
                       loanProductId={selectedProduct}
                       guarantors={applicationGuarantors}
-                      onAdd={(guarantor) => setApplicationGuarantors((prev) => [...prev, guarantor])}
+                      onAdd={addApplicationGuarantor}
                       onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
                     />
                   ) : (
@@ -440,7 +522,7 @@ export default function LoansPage() {
                   )}
                 </div>
               )}
-              <Button type="submit" disabled={isApplying || !isKycApproved} className="w-full">
+              <Button type="submit" disabled={isApplying || !isKycApproved || Boolean(openLoan)} className="w-full">
                 {isApplying ? "Submitting…" : "Submit Application"}
               </Button>
             </form>
@@ -463,6 +545,30 @@ export default function LoansPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Loan Status</CardTitle>
+          <CardDescription>Current, pending, and previous loan applications.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-md border px-3 py-3">
+              <p className="text-xs text-muted-foreground">Current loan</p>
+              <p className="mt-1 text-lg font-semibold">{openLoan ? openLoan.loanNumber : "None"}</p>
+              {openLoan && <LoanStatusBadge status={openLoan.status} />}
+            </div>
+            <div className="rounded-md border px-3 py-3">
+              <p className="text-xs text-muted-foreground">Pending applications</p>
+              <p className="mt-1 text-lg font-semibold">{pendingLoansCount}</p>
+            </div>
+            <div className="rounded-md border px-3 py-3">
+              <p className="text-xs text-muted-foreground">Previous loans</p>
+              <p className="mt-1 text-lg font-semibold">{previousLoansCount}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card id="active">
         <CardHeader>

@@ -9,7 +9,11 @@ import { tokenStore } from './api-client';
 
 // Must match api-client.ts exactly so all requests go to the same backend
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
+function getTenantId(): string {
+  if (process.env.NEXT_PUBLIC_TENANT_ID) return process.env.NEXT_PUBLIC_TENANT_ID;
+  if (typeof window !== 'undefined') return localStorage.getItem('beba_tenant_id') ?? '';
+  return '';
+}
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Use tokenStore (keys: beba_access_token) – NOT localStorage.getItem('accessToken')
@@ -17,19 +21,25 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'X-Tenant-ID': TENANT_ID,
+    'X-Tenant-ID': getTenantId(),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
   };
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    credentials: 'include',
     headers: { ...headers, ...((options.headers as Record<string, string>) ?? {}) },
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error((err as { message?: string }).message ?? 'API error');
+    const message =
+      (err as { detail?: string }).detail ??
+      (err as { message?: string }).message ??
+      (err as { error?: { message?: string } }).error?.message ??
+      'API error';
+    throw new Error(message);
   }
   return res.json() as Promise<T>;
 }
@@ -286,8 +296,9 @@ async function downloadFile(path: string): Promise<void> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
-      'X-Tenant-ID': TENANT_ID,
+      'X-Tenant-ID': getTenantId(),
     },
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -327,7 +338,8 @@ export const securityApi = {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${tokenStore.getAccess() ?? ''}`,
-        'X-Tenant-ID': TENANT_ID,
+        'X-Tenant-ID': getTenantId(),
       },
+      credentials: 'include',
     }),
 };

@@ -86,6 +86,8 @@ Cypress.Commands.add('clearAuth', () => {
   cy.clearCookie(TOKEN_KEY);
 });
 
+export {};
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {

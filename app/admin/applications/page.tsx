@@ -185,7 +185,7 @@ function ReviewModal({ application, onClose, onApprove, onReject, isLoading }: R
           <p><span className="font-medium">Phone:</span> {application.phoneNumber as string}</p>
           <p><span className="font-medium">Stage:</span> {application.stageName as string}</p>
           <p><span className="font-medium">Position:</span> {application.position as string}</p>
-          {application.documentUrl && (
+          {!!application.documentUrl && (
             <p>
               <span className="font-medium">KYC Document:</span>{' '}
               <a href={application.documentUrl as string} target="_blank" rel="noreferrer" className="text-blue-600 underline">
@@ -361,7 +361,7 @@ export default function ApplicationsPage() {
     [setValue],
   );
 
-  const applications: Record<string, unknown>[] = (queueData as { data?: Record<string, unknown>[] })?.data ?? [];
+  const applications: Record<string, unknown>[] = (queueData as unknown as { data?: Record<string, unknown>[] })?.data ?? [];
   const meta = (queueData as { meta?: { total: number; totalPages: number } })?.meta;
 
   return (

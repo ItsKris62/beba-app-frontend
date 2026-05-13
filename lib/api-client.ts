@@ -614,11 +614,14 @@ async function apiFetch<T>(
 
 export const authApi = {
   login: (identifier: string, password: string) => {
-    // Basic check for phone number (optional leading '+', then digits only)
-    // Kenyan numbers might be +2547... or 07...
-    const isPhone = /^\+?[0-9]+$/.test(identifier.replace(/\s+/g, ''));
-    const payload = isPhone ? { phone: identifier, password } : { email: identifier, password };
-    
+    const cleaned = identifier.replace(/\s+/g, '');
+    // Treat as phone if it's 9–15 digits with an optional leading '+'.
+    // Strip the '+' so the backend always receives the '254...' format.
+    const isPhone = /^\+?[0-9]{9,15}$/.test(cleaned);
+    const normalizedPhone = isPhone ? cleaned.replace(/^\+/, '') : cleaned;
+    const payload = isPhone
+      ? { phone: normalizedPhone, password }
+      : { email: cleaned, password };
     return apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload),

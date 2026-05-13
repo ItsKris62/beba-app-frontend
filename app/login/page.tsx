@@ -106,13 +106,13 @@ export default function LoginPage() {
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">Email Address or Phone</Label>
+                  <Label htmlFor="identifier">Email or Phone (254...)</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="identifier"
                       type="text"
-                      placeholder="you@example.com or +2547..."
+                      placeholder="you@example.com or 254712345678"
                       className="pl-9"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}

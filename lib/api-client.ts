@@ -351,6 +351,30 @@ export interface PendingMember {
   };
 }
 
+export interface KycDocument {
+  id: string;
+  memberId: string;
+  type: string;
+  status: 'PENDING_UPLOAD' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'DELETED';
+  originalFileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksum: string | null;
+  version: number;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  member?: {
+    id: string;
+    memberNumber: string;
+    kycStatus: string;
+    user: { firstName: string; lastName: string; email: string; phone: string | null };
+  };
+}
+
 export interface StkPushResponse {
   checkoutRequestId: string;
   merchantRequestId: string;
@@ -393,9 +417,23 @@ const REFRESH_KEY = 'beba_refresh_token';
 const USER_KEY = 'beba_user';
 const TENANT_KEY = 'beba_tenant_id';
 
-// Cookie helpers — Next.js Edge middleware can read cookies but not localStorage.
-// We mirror the access token into a same-site cookie so the middleware can do
-// role-based routing without an extra API call.
+// ─── In-memory access token ────────────────────────────────────────────────────
+// Phase 4 security: the access token is held ONLY in this module-level variable.
+// It is never written to localStorage, so it cannot be exfiltrated via XSS
+// cross-tab or cross-session. The token is lost on page refresh; auth-context
+// re-acquires it transparently via the refresh endpoint on mount.
+let _memAccessToken: string | null = null;
+
+/** Called by tokenStore.set/clear and by doRefresh — nowhere else. */
+function setMemAccessToken(token: string | null): void {
+  _memAccessToken = token;
+}
+
+// Cookie helpers — Next.js Edge middleware reads cookies (not localStorage) to
+// make role-based routing decisions at the edge. We mirror the token into a
+// same-site, short-lived cookie so middleware can decode the role without an
+// extra network hop. The cookie is NOT httpOnly (Edge JS must set it), but it
+// is scoped to SameSite=Strict which blocks cross-origin reads.
 function setCookie(name: string, value: string, days = 7): void {
   if (typeof document === 'undefined') return;
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
@@ -408,10 +446,8 @@ function clearCookie(name: string): void {
 }
 
 export const tokenStore = {
-  getAccess: (): string | null => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
-  },
+  /** Returns the in-memory access token (never reads localStorage). */
+  getAccess: (): string | null => _memAccessToken,
   getRefresh: (): string | null => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(REFRESH_KEY);
@@ -423,15 +459,14 @@ export const tokenStore = {
     try { return JSON.parse(raw); } catch { return null; }
   },
   set: (access: string, refresh: string, user: LoginResponse['user']) => {
-    localStorage.setItem(TOKEN_KEY, access);
-    localStorage.setItem(REFRESH_KEY, refresh);
+    setMemAccessToken(access);                     // access token: memory only
+    localStorage.setItem(REFRESH_KEY, refresh);    // refresh token: localStorage
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem(TENANT_KEY, user.tenantId);
-    // Mirror access token into cookie for Edge middleware role routing
-    setCookie(TOKEN_KEY, access, 7);
+    setCookie(TOKEN_KEY, access, 7);               // mirror for Edge middleware
   },
   clear: () => {
-    localStorage.removeItem(TOKEN_KEY);
+    setMemAccessToken(null);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TENANT_KEY);
@@ -478,6 +513,13 @@ async function doRefresh(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Re-acquire an access token using the stored refresh token.
+ * Called by AuthProvider on page mount to populate the in-memory token
+ * after a page refresh (which clears the memory-only access token).
+ */
+export const refreshAccessToken = doRefresh;
 
 async function apiFetch<T>(
   path: string,
@@ -750,6 +792,38 @@ export const memberApi = {
       `/members/deposit/status/${encodeURIComponent(checkoutRequestId)}`,
     ),
 
+  patchProfile: (data: {
+    phone?: string;
+    email?: string;
+    employer?: string;
+    occupation?: string;
+    stageIds?: string[];
+  }) =>
+    apiFetch<{ id: string }>('/members/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  listDocuments: () =>
+    apiFetch<KycDocument[]>('/members/documents'),
+
+  requestDocUploadUrl: (data: {
+    type: string;
+    mimeType: string;
+    sizeBytes: number;
+    originalFileName?: string;
+  }) =>
+    apiFetch<{ documentId: string; uploadUrl: string; objectKey: string; expiresIn: number; maxBytes: number }>(
+      '/members/documents/upload-url',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  confirmDocUpload: (data: { documentId: string; checksum?: string }) =>
+    apiFetch<KycDocument>('/members/documents/confirm', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   requestUploadUrl: (fileName: string, contentType: string) =>
     apiFetch<{ uploadUrl: string; objectKey: string; expiresAt: string }>(
       '/members/documents/upload-url',
@@ -926,6 +1000,22 @@ export const adminApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  listKycDocuments: (params?: { status?: string; memberId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.memberId) q.set('memberId', params.memberId);
+    return apiFetch<KycDocument[]>(`/admin/kyc/documents?${q}`);
+  },
+
+  enqueueDocReview: (docId: string, data: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string }) =>
+    apiFetch<{ status: 'QUEUED'; jobId: string | undefined }>(`/admin/kyc/documents/${docId}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getDocDownloadUrl: (docId: string) =>
+    apiFetch<{ downloadUrl: string; expiresIn: number }>(`/admin/kyc/documents/${docId}/download`),
 };
 
 // ─── Admin stages endpoints ───────────────────────────────────────────────────

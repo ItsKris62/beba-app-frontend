@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { User, Mail, Phone, Shield, Key, Smartphone, FileText, Upload, Eye, EyeOff } from "lucide-react"
+import {
+  User, Mail, Phone, Shield, Key, Smartphone, FileText, Upload,
+  Eye, EyeOff, CheckCircle, XCircle, Clock, AlertCircle,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -14,23 +17,73 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { memberApi, authApi, type MemberDashboard } from "@/lib/api-client"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import { memberApi, authApi, type MemberDashboard, type KycDocument } from "@/lib/api-client"
+
+const DOC_TYPES = [
+  { value: "NATIONAL_ID_FRONT", label: "National ID (Front)" },
+  { value: "NATIONAL_ID_BACK", label: "National ID (Back)" },
+  { value: "KRA_PIN", label: "KRA PIN Certificate" },
+  { value: "MEMBER_FORM", label: "Member Application Form" },
+  { value: "OTHER", label: "Other Document" },
+] as const
+
+const STATUS_CONFIG: Record<string, { icon: React.ElementType; label: string; className: string }> = {
+  APPROVED: { icon: CheckCircle, label: "Approved", className: "bg-green-100 text-green-700" },
+  REJECTED: { icon: XCircle, label: "Rejected", className: "bg-red-100 text-red-700" },
+  PENDING_REVIEW: { icon: Clock, label: "Under Review", className: "bg-yellow-100 text-yellow-700" },
+  PENDING_UPLOAD: { icon: AlertCircle, label: "Pending Upload", className: "bg-gray-100 text-gray-600" },
+  DELETED: { icon: XCircle, label: "Deleted", className: "bg-gray-100 text-gray-400" },
+}
+
+function DocStatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING_UPLOAD
+  const Icon = cfg.icon
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </span>
+  )
+}
 
 export default function ProfilePage() {
   const [dashboard, setDashboard] = React.useState<MemberDashboard | null>(null)
+  const [documents, setDocuments] = React.useState<KycDocument[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
-  const [isUpdating, setIsUpdating] = React.useState(false)
+  const [isDocsLoading, setIsDocsLoading] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [isUploading, setIsUploading] = React.useState(false)
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
   const [showNewPassword, setShowNewPassword] = React.useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false)
 
-  // Password form state
+  // Profile form
+  const [phone, setPhone] = React.useState("")
+  const [email, setEmail] = React.useState("")
+  const [employer, setEmployer] = React.useState("")
+  const [occupation, setOccupation] = React.useState("")
+
+  // Password form
   const [currentPassword, setCurrentPassword] = React.useState("")
   const [newPassword, setNewPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
 
-  // Document upload state
-  const [isUploading, setIsUploading] = React.useState(false)
+  // Upload form
+  const [uploadDocType, setUploadDocType] = React.useState<string>("")
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  const loadDocuments = React.useCallback(async () => {
+    setIsDocsLoading(true)
+    const res = await memberApi.listDocuments()
+    if (res.success && res.data) {
+      setDocuments(Array.isArray(res.data) ? res.data : [])
+    }
+    setIsDocsLoading(false)
+  }, [])
 
   React.useEffect(() => {
     const load = async () => {
@@ -38,16 +91,38 @@ export default function ProfilePage() {
       const res = await memberApi.getDashboard()
       if (res.success && res.data) {
         setDashboard(res.data)
+        setEmail(res.data.member.email ?? "")
       }
       setIsLoading(false)
     }
     load()
-  }, [])
+    loadDocuments()
+  }, [loadDocuments])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Profile update (email/phone) is a Phase 2 feature requiring admin approval
-    toast.info("Profile update requests must be submitted to the branch. Contact support.")
+    const payload: { phone?: string; email?: string; employer?: string; occupation?: string } = {}
+    if (phone) payload.phone = phone
+    if (email) payload.email = email
+    if (employer) payload.employer = employer
+    if (occupation) payload.occupation = occupation
+
+    if (Object.keys(payload).length === 0) {
+      toast.info("No changes to save.")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const res = await memberApi.patchProfile(payload)
+      if (!res.success) {
+        toast.error(res.error?.message ?? "Failed to update profile.")
+        return
+      }
+      toast.success("Profile updated successfully.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -60,7 +135,7 @@ export default function ProfilePage() {
       toast.error("New password must be at least 8 characters.")
       return
     }
-    setIsUpdating(true)
+    setIsChangingPassword(true)
     try {
       const res = await authApi.changePassword(currentPassword, newPassword)
       if (!res.success) {
@@ -72,46 +147,69 @@ export default function ProfilePage() {
       setNewPassword("")
       setConfirmPassword("")
     } finally {
-      setIsUpdating(false)
+      setIsChangingPassword(false)
     }
   }
 
-  const handleUploadDocument = async () => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = "image/*,.pdf"
-    input.onchange = async (ev) => {
-      const file = (ev.target as HTMLInputElement).files?.[0]
-      if (!file) return
-      setIsUploading(true)
-      try {
-        const urlRes = await memberApi.requestUploadUrl(file.name, file.type)
-        if (!urlRes.success || !urlRes.data) {
-          toast.error("Failed to get upload URL.")
-          return
-        }
-        const putRes = await fetch(urlRes.data.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
-        })
-        if (!putRes.ok) {
-          toast.error("Upload failed. Please try again.")
-          return
-        }
-        toast.success("Document uploaded successfully! It will be reviewed by our team.")
-      } catch {
-        toast.error("Upload failed. Please check your connection.")
-      } finally {
-        setIsUploading(false)
-      }
+  const handleUploadDocument = async (file: File) => {
+    if (!uploadDocType) {
+      toast.error("Please select a document type first.")
+      return
     }
-    input.click()
+
+    const mimeType = file.type || "application/octet-stream"
+    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+    if (!allowedMimes.includes(mimeType)) {
+      toast.error("Only JPG, PNG, WebP, and PDF files are accepted.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File exceeds the 5 MB limit.")
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const urlRes = await memberApi.requestDocUploadUrl({
+        type: uploadDocType,
+        mimeType,
+        sizeBytes: file.size,
+        originalFileName: file.name,
+      })
+      if (!urlRes.success || !urlRes.data) {
+        toast.error(urlRes.error?.message ?? "Failed to get upload URL.")
+        return
+      }
+      const { documentId, uploadUrl } = urlRes.data
+
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": mimeType },
+      })
+      if (!putRes.ok) {
+        toast.error("Upload to storage failed. Please try again.")
+        return
+      }
+
+      const confirmRes = await memberApi.confirmDocUpload({ documentId })
+      if (!confirmRes.success) {
+        toast.error(confirmRes.error?.message ?? "Failed to confirm upload.")
+        return
+      }
+
+      toast.success("Document uploaded successfully! It will be reviewed by our team.")
+      setUploadDocType("")
+      await loadDocuments()
+    } catch {
+      toast.error("Upload failed. Please check your connection and try again.")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const displayName = dashboard?.member.name ?? "—"
   const memberNumber = dashboard?.member.memberNumber ?? "—"
-  const email = dashboard?.member.email ?? "—"
   const initials = displayName
     .split(" ")
     .map((n: string) => n[0])
@@ -121,13 +219,11 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
         <p className="text-muted-foreground">Manage your account settings and security</p>
       </div>
 
-      {/* Profile Overview Card */}
       <Card>
         <CardContent className="p-6">
           {isLoading ? (
@@ -150,6 +246,17 @@ export default function ProfilePage() {
                 <p className="text-muted-foreground">Member No: {memberNumber}</p>
                 <div className="mt-2 flex flex-wrap justify-center gap-2 sm:justify-start">
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Active</Badge>
+                  {dashboard?.member.kycStatus && (
+                    <Badge
+                      className={
+                        dashboard.member.kycStatus === "APPROVED"
+                          ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
+                          : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                      }
+                    >
+                      KYC: {dashboard.member.kycStatus.replace(/_/g, " ")}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -178,7 +285,7 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Your registered details with the SACCO</CardDescription>
+              <CardDescription>Update your contact details and employment information</CardDescription>
             </CardHeader>
             <form onSubmit={handleUpdateProfile}>
               <CardContent className="space-y-4">
@@ -194,7 +301,7 @@ export default function ProfilePage() {
                       <div className="space-y-2">
                         <Label>Full Name</Label>
                         <Input value={displayName} disabled />
-                        <p className="text-xs text-muted-foreground">Contact support to update</p>
+                        <p className="text-xs text-muted-foreground">Contact your branch to update</p>
                       </div>
                       <div className="space-y-2">
                         <Label>Member Number</Label>
@@ -202,33 +309,72 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <Separator />
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="pl-9"
+                            placeholder="your@email.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="phone"
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="pl-9"
+                            placeholder="+254700000000"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Format: +254XXXXXXXXX</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="employer">Employer</Label>
                         <Input
-                          id="email"
-                          type="email"
-                          value={email}
-                          disabled
-                          className="pl-9"
+                          id="employer"
+                          value={employer}
+                          onChange={(e) => setEmployer(e.target.value)}
+                          placeholder="Current employer name"
+                          maxLength={255}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">Contact support to update your email</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="occupation">Occupation</Label>
+                        <Input
+                          id="occupation"
+                          value={occupation}
+                          onChange={(e) => setOccupation(e.target.value)}
+                          placeholder="Your occupation / role"
+                          maxLength={255}
+                        />
+                      </div>
                     </div>
                   </>
                 )}
               </CardContent>
               <CardFooter>
-                <Button type="submit" variant="outline">
-                  Request Profile Update
+                <Button type="submit" disabled={isSaving || isLoading}>
+                  {isSaving ? "Saving…" : "Save Changes"}
                 </Button>
               </CardFooter>
             </form>
           </Card>
         </TabsContent>
 
-        {/* Security Settings */}
+        {/* Security */}
         <TabsContent value="security">
           <div className="space-y-6">
             <Card>
@@ -268,7 +414,7 @@ export default function ProfilePage() {
                       <Input
                         id="newPassword"
                         type={showNewPassword ? "text" : "password"}
-                        placeholder="Enter new password (min 8 chars)"
+                        placeholder="At least 8 characters"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="pr-9"
@@ -289,7 +435,7 @@ export default function ProfilePage() {
                     <Input
                       id="confirmPassword"
                       type="password"
-                      placeholder="Confirm new password"
+                      placeholder="Repeat new password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
@@ -298,8 +444,8 @@ export default function ProfilePage() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" disabled={isUpdating}>
-                    {isUpdating ? "Changing…" : "Change Password"}
+                  <Button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword ? "Changing…" : "Change Password"}
                   </Button>
                 </CardFooter>
               </form>
@@ -316,23 +462,19 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <p className="font-medium">Google Authenticator</p>
+                    <p className="font-medium">Authenticator App</p>
                     <p className="text-sm text-muted-foreground">
                       {twoFactorEnabled
                         ? "Your account is protected with 2FA"
                         : "Secure your account with time-based codes"}
                     </p>
                   </div>
-                  <Switch
-                    checked={twoFactorEnabled}
-                    onCheckedChange={setTwoFactorEnabled}
-                  />
+                  <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
                 </div>
-                {/* TODO Phase 2: Implement Google Authenticator setup flow */}
                 {twoFactorEnabled && (
                   <div className="mt-4 rounded-lg bg-green-50 p-3">
                     <p className="text-sm text-green-700">
-                      Two-factor authentication is enabled. You&apos;ll need to enter a code when logging in.
+                      Two-factor authentication is enabled. Contact support to set up your authenticator.
                     </p>
                   </div>
                 )}
@@ -341,34 +483,100 @@ export default function ProfilePage() {
           </div>
         </TabsContent>
 
-        {/* Document Vault */}
+        {/* Documents */}
         <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Vault</CardTitle>
-              <CardDescription>Upload and manage your KYC documents</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border border-dashed p-8 text-center">
-                <FileText className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground mb-4">
-                  Upload your KYC documents (National ID, Passport Photo, Proof of Address)
-                </p>
+          <div className="space-y-4">
+            {/* Upload card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload KYC Document</CardTitle>
+                <CardDescription>
+                  Accepted formats: JPG, PNG, WebP, PDF · Max 5 MB per file
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Document Type</Label>
+                  <Select value={uploadDocType} onValueChange={setUploadDocType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select document type…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOC_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleUploadDocument(file)
+                    e.target.value = ""
+                  }}
+                />
                 <Button
                   variant="outline"
                   className="gap-2"
-                  onClick={handleUploadDocument}
-                  disabled={isUploading}
+                  disabled={isUploading || !uploadDocType}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="h-4 w-4" />
-                  {isUploading ? "Uploading…" : "Upload Document"}
+                  {isUploading ? "Uploading…" : "Choose File & Upload"}
                 </Button>
-              </div>
-              <p className="mt-4 text-xs text-muted-foreground">
-                Accepted formats: JPG, PNG, PDF. Max size: 10MB. Documents will be reviewed within 2 business days.
-              </p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Document list */}
+            <Card>
+              <CardHeader>
+                <CardTitle>My Documents</CardTitle>
+                <CardDescription>All KYC documents you have submitted</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isDocsLoading ? (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+                  </div>
+                ) : documents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <FileText className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No documents uploaded yet. Use the form above to submit your KYC documents.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="divide-y">
+                    {documents.map((doc) => {
+                      const typeLabel = DOC_TYPES.find((t) => t.value === doc.type)?.label ?? doc.type
+                      return (
+                        <li key={doc.id} className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{typeLabel}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {doc.originalFileName} · v{doc.version}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="ml-3 shrink-0">
+                            <DocStatusBadge status={doc.status} />
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

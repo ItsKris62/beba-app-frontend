@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { authApi, tokenStore, type LoginResponse } from "./api-client";
+import { authApi, tokenStore, refreshAccessToken, type LoginResponse } from "./api-client";
 
 interface AuthContextValue {
   user: LoginResponse["user"] | null;
@@ -23,31 +23,33 @@ const AuthContext = createContext<AuthContextValue>({
   updateUser: () => {},
 });
 
-import { jwtDecode } from "jwt-decode";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<LoginResponse["user"] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
+  // Re-hydrate on page mount.
+  // Phase 4: the access token is memory-only (not in localStorage), so after a
+  // page refresh it's gone. We re-acquire it via the refresh endpoint using the
+  // stored refresh token (localStorage) + the HttpOnly cookie the backend set.
   useEffect(() => {
     const stored = tokenStore.getUser();
-    const access = tokenStore.getAccess();
-    if (stored && access) {
-      try {
-        const decoded = jwtDecode(access);
-        // Check if token is expired (exp is in seconds)
-        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-          tokenStore.clear();
-        } else {
-          setUser(stored);
-        }
-      } catch {
+    const hasRefresh = !!tokenStore.getRefresh();
+
+    if (!stored || !hasRefresh) {
+      setIsLoading(false);
+      return;
+    }
+
+    refreshAccessToken().then((token) => {
+      if (token) {
+        setUser(stored);
+      } else {
+        // Refresh failed (expired / rotated) — force re-login
         tokenStore.clear();
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    });
   }, []);
 
   const login = useCallback(async (identifier: string, password: string) => {
@@ -75,11 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, ...patch };
-      // Persist updated user to localStorage
-      const access = tokenStore.getAccess();
+      // Persist updated user data to localStorage (access token stays in memory)
       const refresh = tokenStore.getRefresh();
-      if (access && refresh) {
+      const access = tokenStore.getAccess();
+      if (refresh && access) {
         tokenStore.set(access, refresh, updated);
+      } else if (refresh) {
+        // Only update the user record without touching the token
+        localStorage.setItem('beba_user', JSON.stringify(updated));
       }
       return updated;
     });

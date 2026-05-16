@@ -66,17 +66,20 @@ export default function AccountsPage() {
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const amountNum = parseFloat(amount)
-    if (!phone || isNaN(amountNum) || amountNum < 10) {
-      toast.error("Enter a valid phone number and amount (min KES 10)")
+    
+    if (!phone || (!phone.startsWith("07") && !phone.startsWith("01")) || phone.length !== 10) {
+      toast.error("Please enter a valid 10-digit phone number starting with 07 or 01")
       return
     }
-    // Normalize phone: 07xx → 2547xx
-    const normalizedPhone = phone.startsWith("0")
-      ? "254" + phone.slice(1)
-      : phone.startsWith("+")
-      ? phone.slice(1)
-      : phone
+
+    const amountNum = parseFloat(amount)
+    if (isNaN(amountNum) || amountNum < 10) {
+      toast.error("Enter a valid amount (min KES 10)")
+      return
+    }
+    
+    // Normalize phone: 07xx/01xx → 2547xx/2541xx
+    const normalizedPhone = "254" + phone.slice(1)
 
     setIsDepositing(true)
     setDepositStatus("pending")
@@ -256,7 +259,15 @@ export default function AccountsPage() {
                   type="tel"
                   placeholder="0712345678"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/\D/g, "")
+                    if (val.startsWith("254")) {
+                      val = "0" + val.slice(3)
+                    }
+                    if (val.length <= 10) {
+                      setPhone(val)
+                    }
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">Enter the phone number registered with M-Pesa</p>

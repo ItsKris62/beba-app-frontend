@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select"
 import {
   Search,
-  Download,
   Filter,
   ArrowUpRight,
   ArrowDownRight,
@@ -30,336 +29,405 @@ import {
   CreditCard,
   TrendingUp,
   TrendingDown,
-  Calendar,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
 } from "lucide-react"
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts"
+  adminApi,
+  formatCurrency,
+  formatDateTime,
+  type AdminTransaction,
+  type TransactionType,
+  type TransactionStatus,
+  type ApiMeta,
+} from "@/lib/api-client"
 
-const transactions = [
-  { id: "TXN001", memberId: "M001", memberName: "John Kamau", type: "deposit", amount: 25000, channel: "M-Pesa", date: "2024-01-15 14:32:00", status: "completed", reference: "QKL8H2M5N9" },
-  { id: "TXN002", memberId: "M002", memberName: "Mary Wanjiku", type: "withdrawal", amount: 15000, channel: "Bank Transfer", date: "2024-01-15 13:45:00", status: "completed", reference: "BNK93847562" },
-  { id: "TXN003", memberId: "M003", memberName: "Peter Ochieng", type: "loan_repayment", amount: 8500, channel: "M-Pesa", date: "2024-01-15 12:20:00", status: "completed", reference: "RPY456123789" },
-  { id: "TXN004", memberId: "M004", memberName: "Grace Muthoni", type: "transfer", amount: 50000, channel: "Internal", date: "2024-01-15 11:15:00", status: "completed", reference: "TRF789012345" },
-  { id: "TXN005", memberId: "M005", memberName: "David Kiprop", type: "loan_disbursement", amount: 100000, channel: "Bank Transfer", date: "2024-01-15 10:00:00", status: "completed", reference: "DSB012345678" },
-  { id: "TXN006", memberId: "M006", memberName: "Sarah Akinyi", type: "deposit", amount: 30000, channel: "M-Pesa", date: "2024-01-15 09:30:00", status: "pending", reference: "MPE567890123" },
-  { id: "TXN007", memberId: "M007", memberName: "Michael Njoroge", type: "withdrawal", amount: 20000, channel: "ATM", date: "2024-01-14 16:45:00", status: "completed", reference: "ATM890123456" },
-  { id: "TXN008", memberId: "M008", memberName: "Jane Wambui", type: "deposit", amount: 12000, channel: "M-Pesa", date: "2024-01-14 15:20:00", status: "failed", reference: "MPE123456789" },
-  { id: "TXN009", memberId: "M001", memberName: "John Kamau", type: "loan_repayment", amount: 10000, channel: "Standing Order", date: "2024-01-14 14:00:00", status: "completed", reference: "STO345678901" },
-  { id: "TXN010", memberId: "M002", memberName: "Mary Wanjiku", type: "transfer", amount: 35000, channel: "Internal", date: "2024-01-14 11:30:00", status: "completed", reference: "TRF678901234" },
-]
+// ─── Label / colour maps ──────────────────────────────────────────────────────
 
-const dailyVolume = [
-  { date: "Jan 9", deposits: 2500000, withdrawals: 1800000, volume: 4300000 },
-  { date: "Jan 10", deposits: 3200000, withdrawals: 2100000, volume: 5300000 },
-  { date: "Jan 11", deposits: 2800000, withdrawals: 1950000, volume: 4750000 },
-  { date: "Jan 12", deposits: 3500000, withdrawals: 2400000, volume: 5900000 },
-  { date: "Jan 13", deposits: 2900000, withdrawals: 2000000, volume: 4900000 },
-  { date: "Jan 14", deposits: 3800000, withdrawals: 2600000, volume: 6400000 },
-  { date: "Jan 15", deposits: 4200000, withdrawals: 2800000, volume: 7000000 },
-]
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-KE", {
-    style: "currency",
-    currency: "KES",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+const TYPE_LABELS: Record<TransactionType, string> = {
+  DEPOSIT: "Deposit",
+  WITHDRAWAL: "Withdrawal",
+  LOAN_DISBURSEMENT: "Loan Disbursement",
+  LOAN_REPAYMENT: "Loan Repayment",
+  INTEREST_EARNED: "Interest Earned",
+  INTEREST_ACCRUAL: "Interest Accrual",
+  PENALTY: "Penalty",
+  DIVIDEND_PAYOUT: "Dividend",
+  FEE_CHARGE: "Fee",
+  TRANSFER: "Transfer",
 }
 
+const TYPE_COLORS: Record<TransactionType, string> = {
+  DEPOSIT: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  WITHDRAWAL: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+  LOAN_DISBURSEMENT: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+  LOAN_REPAYMENT: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  INTEREST_EARNED: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300",
+  INTEREST_ACCRUAL: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300",
+  PENALTY: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+  DIVIDEND_PAYOUT: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  FEE_CHARGE: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+  TRANSFER: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+}
+
+const STATUS_VARIANT: Record<
+  TransactionStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  COMPLETED: "default",
+  PENDING: "secondary",
+  FAILED: "destructive",
+  REVERSED: "outline",
+  RECON_PENDING: "outline",
+}
+
+const STATUS_LABELS: Record<TransactionStatus, string> = {
+  COMPLETED: "Completed",
+  PENDING: "Pending",
+  FAILED: "Failed",
+  REVERSED: "Reversed",
+  RECON_PENDING: "Recon Pending",
+}
+
+// ─── Type icon ────────────────────────────────────────────────────────────────
+
+function TypeIcon({ type }: { type: TransactionType }) {
+  switch (type) {
+    case "DEPOSIT":
+    case "INTEREST_EARNED":
+    case "DIVIDEND_PAYOUT":
+      return <ArrowDownRight className="h-4 w-4 text-green-500" />
+    case "WITHDRAWAL":
+    case "PENALTY":
+    case "FEE_CHARGE":
+      return <ArrowUpRight className="h-4 w-4 text-red-500" />
+    case "TRANSFER":
+      return <ArrowLeftRight className="h-4 w-4 text-blue-500" />
+    default:
+      return <CreditCard className="h-4 w-4 text-muted-foreground" />
+  }
+}
+
+// Whether a type should be displayed with a + prefix (inflow from account perspective)
+function isInflow(type: TransactionType): boolean {
+  return ["DEPOSIT", "INTEREST_EARNED", "DIVIDEND_PAYOUT", "LOAN_DISBURSEMENT"].includes(type)
+}
+
+// ─── Stat summary derived from current page ───────────────────────────────────
+
+function deriveStats(transactions: AdminTransaction[]) {
+  let deposits = 0
+  let withdrawals = 0
+  let count = 0
+
+  for (const tx of transactions) {
+    if (tx.status !== "COMPLETED") continue
+    count++
+    if (isInflow(tx.type)) deposits += tx.amount
+    else withdrawals += tx.amount
+  }
+
+  return { deposits, withdrawals, count, volume: deposits + withdrawals }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function AdminTransactions() {
+  const [transactions, setTransactions] = useState<AdminTransaction[]>([])
+  const [meta, setMeta] = useState<ApiMeta | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchQuery, setSearchQuery] = useState("")
-  const [typeFilter, setTypeFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [dateRange, setDateRange] = useState("7d")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState<TransactionType | "all">("all")
+  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "all">("all")
+  const [page, setPage] = useState(1)
 
-  const filteredTransactions = transactions.filter((txn) => {
-    const matchesSearch =
-      txn.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      txn.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      txn.reference.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesType = typeFilter === "all" || txn.type === typeFilter
-    const matchesStatus = statusFilter === "all" || txn.status === statusFilter
-    return matchesSearch && matchesType && matchesStatus
-  })
+  // Debounce search so we don't hammer the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [searchQuery])
 
-  const todayStats = {
-    totalVolume: 7000000,
-    deposits: 4200000,
-    withdrawals: 2800000,
-    transactionCount: 1284,
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await adminApi.getTransactions({
+        ...(typeFilter !== "all" && { type: typeFilter }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
+        ...(debouncedSearch && { search: debouncedSearch }),
+        page,
+        limit: 20,
+      })
+
+      if (!res.success) {
+        setError(res.error?.message ?? "Failed to load transactions")
+        return
+      }
+
+      const payload = res.data as { data: AdminTransaction[]; meta: ApiMeta }
+      setTransactions(payload.data)
+      setMeta(payload.meta)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }, [typeFilter, statusFilter, debouncedSearch, page])
+
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
+
+  // Reset to page 1 when filters change
+  const handleTypeChange = (v: string) => {
+    setTypeFilter(v as TransactionType | "all")
+    setPage(1)
+  }
+  const handleStatusChange = (v: string) => {
+    setStatusFilter(v as TransactionStatus | "all")
+    setPage(1)
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "deposit":
-        return <ArrowDownRight className="h-4 w-4 text-green-500" />
-      case "withdrawal":
-        return <ArrowUpRight className="h-4 w-4 text-red-500" />
-      case "transfer":
-        return <ArrowLeftRight className="h-4 w-4 text-blue-500" />
-      case "loan_repayment":
-        return <CreditCard className="h-4 w-4 text-purple-500" />
-      case "loan_disbursement":
-        return <CreditCard className="h-4 w-4 text-amber-500" />
-      default:
-        return <CreditCard className="h-4 w-4" />
-    }
-  }
-
-  const getTypeBadge = (type: string) => {
-    const typeLabels: Record<string, string> = {
-      deposit: "Deposit",
-      withdrawal: "Withdrawal",
-      transfer: "Transfer",
-      loan_repayment: "Loan Repayment",
-      loan_disbursement: "Loan Disbursement",
-    }
-    const typeColors: Record<string, string> = {
-      deposit: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      withdrawal: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-      transfer: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      loan_repayment: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      loan_disbursement: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
-    }
-    return (
-      <Badge className={typeColors[type] || ""} variant="outline">
-        {getTypeIcon(type)}
-        <span className="ml-1">{typeLabels[type] || type}</span>
-      </Badge>
-    )
-  }
+  const stats = deriveStats(transactions)
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">
-            Monitor and manage all financial transactions
-          </p>
+          <p className="text-muted-foreground">Monitor and manage all financial transactions</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-32">
-              <Calendar className="mr-2 h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1d">Today</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={fetchTransactions} disabled={loading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats cards — derived from current page data */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Volume</CardTitle>
+            <CardTitle className="text-sm font-medium">Page Volume</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(todayStats.totalVolume)}</div>
-            <p className="text-xs text-muted-foreground">{todayStats.transactionCount} transactions</p>
+            <div className="text-2xl font-bold">{formatCurrency(stats.volume)}</div>
+            <p className="text-xs text-muted-foreground">{stats.count} completed</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Deposits</CardTitle>
+            <CardTitle className="text-sm font-medium">Inflows</CardTitle>
             <ArrowDownRight className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(todayStats.deposits)}</div>
-            <p className="text-xs text-muted-foreground">+12.5% from yesterday</p>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.deposits)}</div>
+            <p className="text-xs text-muted-foreground">Deposits &amp; disbursements</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Withdrawals</CardTitle>
+            <CardTitle className="text-sm font-medium">Outflows</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(todayStats.withdrawals)}</div>
-            <p className="text-xs text-muted-foreground">+8.2% from yesterday</p>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.withdrawals)}</div>
+            <p className="text-xs text-muted-foreground">Withdrawals &amp; fees</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Net Flow</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(todayStats.deposits - todayStats.withdrawals)}
+            <div
+              className={`text-2xl font-bold ${
+                stats.deposits - stats.withdrawals >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {formatCurrency(stats.deposits - stats.withdrawals)}
             </div>
-            <p className="text-xs text-muted-foreground">Positive inflow</p>
+            <p className="text-xs text-muted-foreground">This page</p>
           </CardContent>
         </Card>
       </div>
-
-      {/* Volume Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction Volume</CardTitle>
-          <CardDescription>Daily transaction volume over the last 7 days</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyVolume}>
-                <defs>
-                  <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#305CDE" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#305CDE" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" className="text-xs" />
-                <YAxis
-                  className="text-xs"
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="volume"
-                  stroke="#305CDE"
-                  fillOpacity={1}
-                  fill="url(#volumeGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Transactions Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>A detailed list of all transactions</CardDescription>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>
+                {meta ? `${meta.total.toLocaleString()} total records` : "Loading…"}
+              </CardDescription>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search transactions..."
-                  className="pl-8 w-full sm:w-64"
+                  placeholder="Reference or account…"
+                  className="pl-8 w-full sm:w-56"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+              <Select value={typeFilter} onValueChange={handleTypeChange}>
+                <SelectTrigger className="w-full sm:w-44">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="deposit">Deposits</SelectItem>
-                  <SelectItem value="withdrawal">Withdrawals</SelectItem>
-                  <SelectItem value="transfer">Transfers</SelectItem>
-                  <SelectItem value="loan_repayment">Loan Repayments</SelectItem>
-                  <SelectItem value="loan_disbursement">Disbursements</SelectItem>
+                  <SelectItem value="DEPOSIT">Deposit</SelectItem>
+                  <SelectItem value="WITHDRAWAL">Withdrawal</SelectItem>
+                  <SelectItem value="TRANSFER">Transfer</SelectItem>
+                  <SelectItem value="LOAN_DISBURSEMENT">Loan Disbursement</SelectItem>
+                  <SelectItem value="LOAN_REPAYMENT">Loan Repayment</SelectItem>
+                  <SelectItem value="INTEREST_EARNED">Interest Earned</SelectItem>
+                  <SelectItem value="INTEREST_ACCRUAL">Interest Accrual</SelectItem>
+                  <SelectItem value="PENALTY">Penalty</SelectItem>
+                  <SelectItem value="DIVIDEND_PAYOUT">Dividend</SelectItem>
+                  <SelectItem value="FEE_CHARGE">Fee</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-32">
+              <Select value={statusFilter} onValueChange={handleStatusChange}>
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value="REVERSED">Reversed</SelectItem>
+                  <SelectItem value="RECON_PENDING">Recon Pending</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardHeader>
+
         <CardContent>
+          {error && (
+            <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive mb-4">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead>Member</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Member / Account</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Date & Time</TableHead>
+                  <TableHead className="text-right">Balance After</TableHead>
+                  <TableHead>Date &amp; Time</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Reference</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell className="font-mono text-sm">{txn.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{txn.memberName}</p>
-                        <p className="text-sm text-muted-foreground">{txn.memberId}</p>
-                      </div>
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <div className="h-4 rounded bg-muted animate-pulse" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : transactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                      No transactions found
                     </TableCell>
-                    <TableCell>{getTypeBadge(txn.type)}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      <span className={
-                        txn.type === "deposit" || txn.type === "loan_disbursement"
-                          ? "text-green-600"
-                          : txn.type === "withdrawal"
-                          ? "text-red-600"
-                          : ""
-                      }>
-                        {txn.type === "deposit" || txn.type === "loan_disbursement" ? "+" : "-"}
-                        {formatCurrency(txn.amount)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{txn.channel}</TableCell>
-                    <TableCell className="text-sm">{txn.date}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          txn.status === "completed"
-                            ? "default"
-                            : txn.status === "pending"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        {txn.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{txn.reference}</TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-mono text-sm">{tx.reference}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">
+                            {tx.account.member.user.firstName} {tx.account.member.user.lastName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {tx.account.member.memberNumber} · {tx.account.accountNumber} ({tx.account.accountType})
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={TYPE_COLORS[tx.type]} variant="outline">
+                          <TypeIcon type={tx.type} />
+                          <span className="ml-1">{TYPE_LABELS[tx.type]}</span>
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        <span className={isInflow(tx.type) ? "text-green-600" : "text-red-600"}>
+                          {isInflow(tx.type) ? "+" : "-"}
+                          {formatCurrency(tx.amount)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {formatCurrency(tx.balanceAfter)}
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">
+                        {formatDateTime(tx.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[tx.status]}>
+                          {STATUS_LABELS[tx.status]}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {meta && meta.totalPages && meta.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {meta.page} of {meta.totalPages} &mdash; {meta.total.toLocaleString()} records
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= (meta.totalPages ?? 1) || loading}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

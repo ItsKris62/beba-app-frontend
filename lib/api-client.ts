@@ -312,6 +312,52 @@ export interface Tenant {
   _count?: { users: number; members: number };
 }
 
+export type TransactionType =
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'LOAN_DISBURSEMENT'
+  | 'LOAN_REPAYMENT'
+  | 'INTEREST_EARNED'
+  | 'INTEREST_ACCRUAL'
+  | 'PENALTY'
+  | 'DIVIDEND_PAYOUT'
+  | 'FEE_CHARGE'
+  | 'TRANSFER';
+
+export type TransactionStatus =
+  | 'PENDING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'REVERSED'
+  | 'RECON_PENDING';
+
+export interface AdminTransaction {
+  id: string;
+  tenantId: string;
+  accountId: string;
+  loanId: string | null;
+  type: TransactionType;
+  status: TransactionStatus;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  reference: string;
+  description: string | null;
+  processedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  account: {
+    id: string;
+    accountNumber: string;
+    accountType: 'FOSA' | 'BOSA';
+    member: {
+      id: string;
+      memberNumber: string;
+      user: { firstName: string; lastName: string };
+    };
+  };
+}
+
 export interface StaffUser {
   id: string;
   email: string;
@@ -995,6 +1041,26 @@ export const adminApi = {
     return apiFetch<{ data: PendingMember[]; meta: ApiMeta }>(`/admin/members/pending?${q}`);
   },
 
+  getTransactions: (params?: {
+    type?: TransactionType;
+    status?: TransactionStatus;
+    from?: string;
+    to?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.set('type', params.type);
+    if (params?.status) q.set('status', params.status);
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.search) q.set('search', params.search);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<{ data: AdminTransaction[]; meta: ApiMeta }>(`/admin/transactions?${q}`);
+  },
+
   reviewMember: (memberId: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string }) =>
     apiFetch<{ success: boolean; action: string }>(`/admin/members/${memberId}/review`, {
       method: 'PATCH',
@@ -1016,6 +1082,24 @@ export const adminApi = {
 
   getDocDownloadUrl: (docId: string) =>
     apiFetch<{ downloadUrl: string; expiresIn: number }>(`/admin/kyc/documents/${docId}/download`),
+
+  requestUploadUrl: (data: {
+    memberId: string;
+    type: string;
+    mimeType: string;
+    sizeBytes: number;
+    originalFileName?: string;
+  }) =>
+    apiFetch<{ documentId: string; uploadUrl: string; objectKey: string; expiresIn: number; maxBytes: number }>(
+      '/admin/kyc/documents/upload-url',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  confirmUpload: (data: { documentId: string; memberId: string; checksum?: string }) =>
+    apiFetch<KycDocument>('/admin/kyc/documents/confirm-upload', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ─── Admin stages endpoints ───────────────────────────────────────────────────

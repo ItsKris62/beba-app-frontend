@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { adminApi, stagesAdminApi, usersApi, type AdminMember, type AdminStage } from '@/lib/api-client';
 import { applicationsApi } from '@/lib/locations-api';
+import { EditMemberModal } from './edit-member-modal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -572,6 +573,8 @@ export default function MembersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<AdminMember | null>(null);
 
   const loadMembers = useCallback(async (p = 1, q = '') => {
     setLoading(true);
@@ -745,6 +748,9 @@ export default function MembersPage() {
                           <DropdownMenuItem onClick={() => router.push(`/admin/members/${m.id}`)}>
                             <Eye className="mr-2 h-4 w-4" /> View Profile
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedMember(m); setShowEdit(true); }}>
+                            <Users className="mr-2 h-4 w-4" /> Edit Profile
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -786,6 +792,14 @@ export default function MembersPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onSuccess={() => { setPage(1); loadMembers(1, search); }}
+      />
+
+      {/* ── Edit Member Modal ── */}
+      <EditMemberModal
+        open={showEdit}
+        member={selectedMember}
+        onClose={() => { setShowEdit(false); setSelectedMember(null); }}
+        onSuccess={() => { loadMembers(page, search); setShowEdit(false); setSelectedMember(null); }}
       />
     </div>
   );

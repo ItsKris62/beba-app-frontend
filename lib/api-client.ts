@@ -461,6 +461,14 @@ export interface DepositStatusResponse {
   completedAt?: string | null;
 }
 
+export interface StkStatusResponse {
+  checkoutRequestId: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED' | 'RECON_PENDING';
+  amount: string;
+  lastUpdated: string;
+  failureReason?: string;
+}
+
 export interface LoanProductPayload {
   name: string;
   description?: string;
@@ -933,6 +941,13 @@ export const memberApi = {
 };
 
 // ─── Loan products (public-ish) ───────────────────────────────────────────────
+
+export const mpesaApi = {
+  getStkStatus: (checkoutRequestId: string) =>
+    apiFetch<StkStatusResponse>(
+      `/mpesa/transactions/${encodeURIComponent(checkoutRequestId)}/status`,
+    ),
+};
 
 export const loansApi = {
   getProducts: (includeInactive = false) =>

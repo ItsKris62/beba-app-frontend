@@ -53,7 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (identifier: string, password: string) => {
     const res = await authApi.login(identifier, password);
     if (!res.success || !res.data) {
-      return { success: false, error: res.error?.message ?? "Login failed" };
+      const message = res.error?.message ?? "Login failed";
+      if (message.includes("Email not verified")) {
+        return {
+          success: false,
+          error: "Please verify your email before logging in. Use the verification email we sent, or request a new link.",
+        };
+      }
+      return { success: false, error: message };
     }
     tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user, {
       persistRefresh: !res.data.migrateRefreshToken,

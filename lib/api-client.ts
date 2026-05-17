@@ -9,6 +9,32 @@
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const AUTH_BASE = `${API_BASE}/auth`;
+
+export const authClient = {
+  baseURL: '/api/auth',
+  withCredentials: true,
+  post: (path: string, body?: unknown) =>
+    fetch(`${AUTH_BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': getTenantId(),
+      },
+      credentials: 'include',
+      body: JSON.stringify(body ?? {}),
+    }),
+  get: (path: string, accessToken?: string | null) =>
+    fetch(`${AUTH_BASE}${path}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': getTenantId(),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      credentials: 'include',
+    }),
+};
 
 /** Tenant ID resolved at runtime from env → localStorage fallback */
 function getTenantId(): string {
@@ -51,6 +77,7 @@ interface ProblemDetails {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  migrateRefreshToken?: boolean;
   user: {
     id: string;
     email: string;
@@ -470,6 +497,10 @@ const TENANT_KEY = 'beba_tenant_id';
 // re-acquires it transparently via the refresh endpoint on mount.
 let _memAccessToken: string | null = null;
 
+interface TokenStoreOptions {
+  persistRefresh?: boolean;
+}
+
 /** Called by tokenStore.set/clear and by doRefresh — nowhere else. */
 function setMemAccessToken(token: string | null): void {
   _memAccessToken = token;
@@ -504,9 +535,19 @@ export const tokenStore = {
     if (!raw) return null;
     try { return JSON.parse(raw); } catch { return null; }
   },
-  set: (access: string, refresh: string, user: LoginResponse['user']) => {
+  set: (
+    access: string,
+    refresh: string,
+    user: LoginResponse['user'],
+    options: TokenStoreOptions = {},
+  ) => {
+    const persistRefresh = options.persistRefresh ?? true;
     setMemAccessToken(access);                     // access token: memory only
-    localStorage.setItem(REFRESH_KEY, refresh);    // refresh token: localStorage
+    if (persistRefresh) {
+      localStorage.setItem(REFRESH_KEY, refresh);  // transition fallback only
+    } else {
+      localStorage.removeItem(REFRESH_KEY);
+    }
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem(TENANT_KEY, user.tenantId);
     setCookie(TOKEN_KEY, access, 7);               // mirror for Edge middleware
@@ -526,20 +567,18 @@ let isRefreshing = false;
 let refreshQueue: Array<(token: string) => void> = [];
 
 async function doRefresh(): Promise<string | null> {
-  const refreshToken = tokenStore.getRefresh();
-  if (!refreshToken) return null;
+  const legacyRefreshToken = tokenStore.getRefresh();
+
+  const refreshRequest = (refreshToken?: string) =>
+    authClient.post('/refresh', refreshToken ? { refreshToken } : {});
 
   try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': getTenantId(),
-      },
-      // Phase 2: send cookies if backend sets httpOnly refresh cookie
-      credentials: 'include',
-      body: JSON.stringify({ refreshToken }),
-    });
+    let usedLegacyFallback = false;
+    let res = await refreshRequest();
+    if (!res.ok && legacyRefreshToken) {
+      usedLegacyFallback = true;
+      res = await refreshRequest(legacyRefreshToken);
+    }
     if (!res.ok) {
       tokenStore.clear();
       return null;
@@ -551,7 +590,9 @@ async function doRefresh(): Promise<string | null> {
     }
     const user = tokenStore.getUser();
     if (user) {
-      tokenStore.set(json.data.accessToken, json.data.refreshToken, user);
+      tokenStore.set(json.data.accessToken, json.data.refreshToken, user, {
+        persistRefresh: usedLegacyFallback,
+      });
     }
     return json.data.accessToken;
   } catch {
@@ -693,6 +734,17 @@ async function apiFetch<T>(
   // wrap it so callers can use res.success and res.data consistently.
   if (json && typeof json === 'object' && !('success' in json) && !('error' in json)) {
     return { success: true, data: json as T, error: null };
+  }
+
+  const maybeEnvelope = json as ApiResponse<unknown>;
+  if (
+    maybeEnvelope.success &&
+    maybeEnvelope.data &&
+    typeof maybeEnvelope.data === 'object' &&
+    'migrateRefreshToken' in maybeEnvelope.data &&
+    typeof window !== 'undefined'
+  ) {
+    localStorage.removeItem(REFRESH_KEY);
   }
 
   return json as ApiResponse<T>;

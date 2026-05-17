@@ -34,9 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // stored refresh token (localStorage) + the HttpOnly cookie the backend set.
   useEffect(() => {
     const stored = tokenStore.getUser();
-    const hasRefresh = !!tokenStore.getRefresh();
-
-    if (!stored || !hasRefresh) {
+    if (!stored) {
       setIsLoading(false);
       return;
     }
@@ -57,7 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.success || !res.data) {
       return { success: false, error: res.error?.message ?? "Login failed" };
     }
-    tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user);
+    tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user, {
+      persistRefresh: !res.data.migrateRefreshToken,
+    });
     setUser(res.data.user);
     return { success: true, user: res.data.user };
   }, []);
@@ -80,10 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Persist updated user data to localStorage (access token stays in memory)
       const refresh = tokenStore.getRefresh();
       const access = tokenStore.getAccess();
-      if (refresh && access) {
-        tokenStore.set(access, refresh, updated);
-      } else if (refresh) {
-        // Only update the user record without touching the token
+      if (access) {
+        tokenStore.set(access, refresh ?? "", updated, { persistRefresh: !!refresh });
+      } else {
         localStorage.setItem('beba_user', JSON.stringify(updated));
       }
       return updated;

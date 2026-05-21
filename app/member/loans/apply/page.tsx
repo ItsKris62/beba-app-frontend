@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
 import { loansApi, memberApi, formatCurrency, generateIdempotencyKey, type Loan, type LoanProduct, type MemberDashboard } from "@/lib/api-client"
+import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
 
 const OPEN_LOAN_STATUSES = new Set([
   "DRAFT",
@@ -72,7 +73,7 @@ export default function ApplyLoanPage() {
   const openLoan = loans.find((loan) => OPEN_LOAN_STATUSES.has(loan.status))
   const previousGuarantors = React.useMemo(() => getPreviouslyAcceptedGuarantors(loans), [loans])
   const member = dashboardData?.member ?? null
-  const isKycApproved = member?.kycStatus === "APPROVED"
+  const isKycApproved = isKycVerified(member?.kycStatus)
   const product = productList.find((item) => item.id === loanProductId)
   const amount = Number(principalAmount || 0)
   const tenure = Number(tenureMonths || 0)
@@ -114,7 +115,7 @@ export default function ApplyLoanPage() {
           <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Your KYC status is {member.kycStatus.replace(/_/g, " ")}. Staff must approve it before a loan can be submitted.
+              Your KYC status is {getFormattedStatusLabel(member.kycStatus)}. Staff must approve it before a loan can be submitted.
               {member.kycRejectionReason ? ` Reason: ${member.kycRejectionReason}` : ""}
             </span>
             <Link href="/member/profile">

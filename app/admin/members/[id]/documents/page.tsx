@@ -20,7 +20,10 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { adminApi, memberApi, type KycDocument } from "@/lib/api-client"
+import { useDocumentUpload } from "@/hooks/use-document-upload"
+import { adminApi, type KycDocument } from "@/lib/api-client"
+import { getFormattedStatusLabel } from "@/lib/kyc-status"
+import { UploadProgress } from "@/components/upload/UploadProgress"
 
 const DOC_TYPES = [
   { value: "NATIONAL_ID_FRONT", label: "National ID (Front)" },
@@ -35,6 +38,7 @@ const STATUS_CONFIG: Record<string, { icon: React.ElementType; label: string; cl
   REJECTED: { icon: XCircle, label: "Rejected", className: "bg-red-100 text-red-700 border-red-200" },
   PENDING_REVIEW: { icon: Clock, label: "Pending Review", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   PENDING_UPLOAD: { icon: AlertCircle, label: "Pending Upload", className: "bg-gray-100 text-gray-600 border-gray-200" },
+  QUARANTINE: { icon: AlertCircle, label: "Quarantined", className: "bg-orange-100 text-orange-700 border-orange-200" },
   DELETED: { icon: XCircle, label: "Deleted", className: "bg-gray-100 text-gray-400 border-gray-200" },
 }
 
@@ -44,7 +48,7 @@ function DocStatusBadge({ status }: { status: string }) {
   return (
     <Badge variant="outline" className={`gap-1 ${cfg.className}`}>
       <Icon className="h-3 w-3" />
-      {cfg.label}
+      {getFormattedStatusLabel(status) || cfg.label}
     </Badge>
   )
 }
@@ -144,6 +148,10 @@ export default function MemberDocumentsPage() {
   const [reviewDoc, setReviewDoc] = React.useState<KycDocument | null>(null)
   const [uploadDocType, setUploadDocType] = React.useState("")
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const uploader = useDocumentUpload(undefined, undefined, {
+    onTokenExpiry: () => toast.warning("Upload session expired. Please restart."),
+    onQuarantine: (reason) => toast.error(reason),
+  })
 
   const loadDocs = React.useCallback(async () => {
     setIsLoading(true)
@@ -183,10 +191,10 @@ export default function MemberDocumentsPage() {
     }
 
     setIsUploading(true)
+    let keepUploadPanelOpen = false
     try {
-      // Upload on behalf of the member via the member portal endpoint
-      // (admin uses the same member-facing upload flow)
-      const urlRes = await memberApi.requestDocUploadUrl({
+      const urlRes = await adminApi.requestUploadUrl({
+        memberId,
         type: uploadDocType,
         mimeType: file.type,
         sizeBytes: file.size,
@@ -196,30 +204,36 @@ export default function MemberDocumentsPage() {
         toast.error(urlRes.error?.message ?? "Failed to get upload URL.")
         return
       }
-      const { documentId, uploadUrl } = urlRes.data
-
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+      const result = await uploader.uploadToIntent(file, urlRes.data, async ({ documentId, checksum, uploadToken }) => {
+        const confirmRes = await adminApi.confirmUpload({
+          memberId,
+          documentId,
+          checksum,
+          uploadToken,
+        })
+        if (!confirmRes.success) {
+          const details = confirmRes.error?.details as { statusCode?: number } | undefined
+          return {
+            success: false,
+            status: details?.statusCode,
+            message: confirmRes.error?.message ?? "Failed to confirm upload.",
+          }
+        }
+        return { success: true, documentId }
       })
-      if (!putRes.ok) {
-        toast.error("Upload to storage failed.")
-        return
-      }
-
-      const confirmRes = await memberApi.confirmDocUpload({ documentId })
-      if (!confirmRes.success) {
-        toast.error(confirmRes.error?.message ?? "Failed to confirm upload.")
-        return
-      }
       toast.success("Document uploaded — refreshing list…")
+      if (!result.success) {
+        keepUploadPanelOpen = true
+        toast.error(result.message)
+        return
+      }
       setUploadDocType("")
       await loadDocs()
-    } catch {
-      toast.error("Upload failed. Please try again.")
+    } catch (error) {
+      keepUploadPanelOpen = true
+      toast.error(error instanceof Error ? error.message : "Upload failed. Please try again.")
     } finally {
-      setIsUploading(false)
+      if (!keepUploadPanelOpen) setIsUploading(false)
     }
   }
 
@@ -269,8 +283,9 @@ export default function MemberDocumentsPage() {
           <CardTitle>Upload Document</CardTitle>
           <CardDescription>Upload a KYC document on behalf of this member (max 5 MB)</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
             <Label>Document Type</Label>
             <Select value={uploadDocType} onValueChange={setUploadDocType}>
               <SelectTrigger className="w-56">
@@ -303,6 +318,31 @@ export default function MemberDocumentsPage() {
             <Upload className="h-4 w-4" />
             {isUploading ? "Uploading…" : "Choose & Upload"}
           </Button>
+          </div>
+          {isUploading && uploader.status !== "idle" && (
+            <div className="max-w-md">
+              <UploadProgress
+                progress={uploader.progress}
+                status={uploader.status}
+                error={uploader.error}
+                retryCount={uploader.retryCount}
+                onRetry={async () => {
+                  const retryResult = await uploader.retry()
+                  if (retryResult.success) {
+                    toast.success("Document uploaded. Refreshing list.")
+                    await loadDocs()
+                    setIsUploading(false)
+                  } else {
+                    toast.error(retryResult.message)
+                  }
+                }}
+                onCancel={() => {
+                  uploader.cancel()
+                  setIsUploading(false)
+                }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

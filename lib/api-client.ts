@@ -428,7 +428,7 @@ export interface KycDocument {
   id: string;
   memberId: string;
   type: string;
-  status: 'PENDING_UPLOAD' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'DELETED';
+  status: 'PENDING_UPLOAD' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'QUARANTINE' | 'DELETED';
   originalFileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -459,6 +459,16 @@ export interface DepositStatusResponse {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   amount?: string;
   completedAt?: string | null;
+}
+
+export interface DocumentUploadIntent {
+  documentId: string;
+  uploadUrl: string;
+  preSignedUrl?: string;
+  objectKey: string;
+  uploadToken?: string;
+  expiresIn: number;
+  maxBytes: number;
 }
 
 export interface StkStatusResponse {
@@ -721,9 +731,11 @@ async function apiFetch<T>(
 
   if (!response.ok) {
     const problem = json as ProblemDetails;
+    const topLevelMessage = (json as { message?: string | string[] }).message;
     const message =
       problem.detail ??
       problem.title ??
+      (Array.isArray(topLevelMessage) ? topLevelMessage.join(', ') : topLevelMessage) ??
       (json as { error?: { message?: string } }).error?.message ??
       `Request failed with status ${response.status}`;
 
@@ -918,13 +930,14 @@ export const memberApi = {
     mimeType: string;
     sizeBytes: number;
     originalFileName?: string;
+    checksum?: string;
   }) =>
-    apiFetch<{ documentId: string; uploadUrl: string; objectKey: string; expiresIn: number; maxBytes: number }>(
+    apiFetch<DocumentUploadIntent>(
       '/members/documents/upload-url',
       { method: 'POST', body: JSON.stringify(data) },
     ),
 
-  confirmDocUpload: (data: { documentId: string; checksum?: string }) =>
+  confirmDocUpload: (data: { documentId: string; checksum?: string; uploadToken?: string }) =>
     apiFetch<KycDocument>('/members/documents/confirm', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1156,16 +1169,21 @@ export const adminApi = {
     mimeType: string;
     sizeBytes: number;
     originalFileName?: string;
+    checksum?: string;
   }) =>
-    apiFetch<{ documentId: string; uploadUrl: string; objectKey: string; expiresIn: number; maxBytes: number }>(
+    apiFetch<DocumentUploadIntent>(
       '/admin/kyc/documents/upload-url',
       { method: 'POST', body: JSON.stringify(data) },
     ),
 
-  confirmUpload: (data: { documentId: string; memberId: string; checksum?: string }) =>
-    apiFetch<KycDocument>('/admin/kyc/documents/confirm-upload', {
+  confirmUpload: (data: { documentId: string; memberId: string; checksum?: string; uploadToken?: string }) =>
+    apiFetch<KycDocument>(`/admin/kyc/documents/${data.documentId}/confirm`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        memberId: data.memberId,
+        checksum: data.checksum,
+        uploadToken: data.uploadToken,
+      }),
     }),
 };
 

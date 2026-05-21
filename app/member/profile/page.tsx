@@ -21,6 +21,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { memberApi, authApi, type MemberDashboard, type KycDocument } from "@/lib/api-client"
+import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
+import { useDocumentUpload } from "@/hooks/use-document-upload"
+import { UploadProgress } from "@/components/upload/UploadProgress"
 
 const DOC_TYPES = [
   { value: "NATIONAL_ID_FRONT", label: "National ID (Front)" },
@@ -44,7 +47,7 @@ function DocStatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
       <Icon className="h-3 w-3" />
-      {cfg.label}
+      {getFormattedStatusLabel(status) || cfg.label}
     </span>
   )
 }
@@ -75,6 +78,10 @@ export default function ProfilePage() {
   // Upload form
   const [uploadDocType, setUploadDocType] = React.useState<string>("")
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const uploader = useDocumentUpload(undefined, undefined, {
+    onTokenExpiry: () => toast.warning("Upload session expired. Please restart the upload."),
+    onQuarantine: (reason) => toast.error(reason),
+  })
 
   const loadDocuments = React.useCallback(async () => {
     setIsDocsLoading(true)
@@ -169,6 +176,7 @@ export default function ProfilePage() {
     }
 
     setIsUploading(true)
+    let keepUploadPanelOpen = false
     try {
       const urlRes = await memberApi.requestDocUploadUrl({
         type: uploadDocType,
@@ -180,21 +188,22 @@ export default function ProfilePage() {
         toast.error(urlRes.error?.message ?? "Failed to get upload URL.")
         return
       }
-      const { documentId, uploadUrl } = urlRes.data
 
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": mimeType },
+      const result = await uploader.uploadToIntent(file, urlRes.data, async ({ documentId, checksum, uploadToken }) => {
+        const confirmRes = await memberApi.confirmDocUpload({ documentId, checksum, uploadToken })
+        if (!confirmRes.success) {
+          const details = confirmRes.error?.details as { status?: number; statusCode?: number } | undefined
+          return {
+            success: false,
+            status: details?.status ?? details?.statusCode,
+            message: confirmRes.error?.message ?? "Failed to confirm upload.",
+          }
+        }
+        return { success: true, documentId }
       })
-      if (!putRes.ok) {
-        toast.error("Upload to storage failed. Please try again.")
-        return
-      }
-
-      const confirmRes = await memberApi.confirmDocUpload({ documentId })
-      if (!confirmRes.success) {
-        toast.error(confirmRes.error?.message ?? "Failed to confirm upload.")
+      if (!result.success) {
+        keepUploadPanelOpen = true
+        toast.error(result.message)
         return
       }
 
@@ -202,9 +211,10 @@ export default function ProfilePage() {
       setUploadDocType("")
       await loadDocuments()
     } catch {
+      keepUploadPanelOpen = true
       toast.error("Upload failed. Please check your connection and try again.")
     } finally {
-      setIsUploading(false)
+      if (!keepUploadPanelOpen) setIsUploading(false)
     }
   }
 
@@ -249,12 +259,12 @@ export default function ProfilePage() {
                   {dashboard?.member.kycStatus && (
                     <Badge
                       className={
-                        dashboard.member.kycStatus === "APPROVED"
+                        isKycVerified(dashboard.member.kycStatus)
                           ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
                           : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
                       }
                     >
-                      KYC: {dashboard.member.kycStatus.replace(/_/g, " ")}
+                      KYC: {getFormattedStatusLabel(dashboard.member.kycStatus)}
                     </Badge>
                   )}
                 </div>
@@ -530,6 +540,28 @@ export default function ProfilePage() {
                   <Upload className="h-4 w-4" />
                   {isUploading ? "Uploading…" : "Choose File & Upload"}
                 </Button>
+                {isUploading && uploader.status !== "idle" && (
+                  <UploadProgress
+                    progress={uploader.progress}
+                    status={uploader.status}
+                    error={uploader.error}
+                    retryCount={uploader.retryCount}
+                    onRetry={async () => {
+                      const result = await uploader.retry()
+                      if (result.success) {
+                        toast.success("Document uploaded successfully.")
+                        await loadDocuments()
+                        setIsUploading(false)
+                      } else {
+                        toast.error(result.message)
+                      }
+                    }}
+                    onCancel={() => {
+                      uploader.cancel()
+                      setIsUploading(false)
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
 

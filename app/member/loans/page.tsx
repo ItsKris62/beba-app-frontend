@@ -19,6 +19,7 @@ import {
   memberApi, loansApi, formatCurrency, formatDate, generateIdempotencyKey,
   type Loan, type LoanProduct, type MemberDashboard,
 } from "@/lib/api-client"
+import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -328,7 +329,7 @@ export default function LoansPage() {
   const product = products.find((p) => p.id === selectedProduct)
   const selectedProductLimit = getProductLoanLimit(product, dashboard)
   const savingsVisible = dashboard ? dashboard.balances.bosa + dashboard.balances.fosa : 0
-  const isKycApproved = dashboard?.member.kycStatus === "APPROVED"
+  const isKycApproved = isKycVerified(dashboard?.member.kycStatus)
   const applicationAmount = parseFloat(principalAmount || "0")
   const applicationMinGuarantors = product?.minGuarantors ?? 0
   const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
@@ -392,7 +393,7 @@ export default function LoansPage() {
           <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Your KYC status is {dashboard.member.kycStatus.replace(/_/g, " ")}. Staff must approve it before a loan can be submitted.
+              Your KYC status is {getFormattedStatusLabel(dashboard.member.kycStatus)}. Staff must approve it before a loan can be submitted.
               {dashboard.member.kycRejectionReason ? ` Reason: ${dashboard.member.kycRejectionReason}` : ""}
             </span>
             <Link href="/member/profile">

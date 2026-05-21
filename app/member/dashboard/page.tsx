@@ -15,6 +15,7 @@ import {
   formatDateTime,
   type MemberDashboard,
 } from '@/lib/api-client';
+import { getFormattedStatusLabel, isKycVerified } from '@/lib/kyc-status';
 
 // ─── Loan status colours ──────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export default function MemberDashboardPage() {
   const totalSavings = dashboard?.balances.bosa ?? 0;
   const fosaBalance = dashboard?.balances.fosa ?? 0;
   const kycStatus = dashboard?.member.kycStatus ?? 'UNKNOWN';
-  const isKycApproved = kycStatus === 'APPROVED';
+  const isKycApproved = isKycVerified(kycStatus);
 
   if (error) {
     return (
@@ -161,7 +162,7 @@ export default function MemberDashboardPage() {
           <AlertTitle className="text-amber-900">KYC verification required</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Your KYC status is {kycStatus.replace(/_/g, ' ')}. Loan applications open after staff approval.
+              Your KYC status is {getFormattedStatusLabel(kycStatus)}. Loan applications open after staff approval.
               {dashboard.member.kycRejectionReason ? ` Reason: ${dashboard.member.kycRejectionReason}` : ''}
             </span>
             <Link href="/member/profile">

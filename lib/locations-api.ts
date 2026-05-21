@@ -7,9 +7,9 @@
  * All calls automatically attach Authorization + X-Tenant-ID headers.
  */
 import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
+import { tokenStore } from './api-client';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,16 +83,17 @@ export interface PaginatedResponse<T> {
 
 // ─── Internal fetch helper (mirrors api-client.ts pattern) ───────────────────
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('beba_access_token');
+function getTenantId(): string {
+  if (process.env.NEXT_PUBLIC_TENANT_ID) return process.env.NEXT_PUBLIC_TENANT_ID;
+  if (typeof window !== 'undefined') return localStorage.getItem('beba_tenant_id') ?? '';
+  return '';
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const token = tokenStore.getAccess();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Tenant-ID': TENANT_ID,
+    'X-Tenant-ID': getTenantId(),
     ...(options.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;

@@ -6,6 +6,7 @@
  * to ensure consistent auth headers across all requests.
  */
 import { tokenStore } from './api-client';
+import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
 
 // Must match api-client.ts exactly so all requests go to the same backend
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
@@ -26,20 +27,31 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: { ...headers, ...((options.headers as Record<string, string>) ?? {}) },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: { ...headers, ...((options.headers as Record<string, string>) ?? {}) },
+    });
+  } catch (error) {
+    throw sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: options.method ?? 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+  }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    const message =
-      (err as { detail?: string }).detail ??
-      (err as { message?: string }).message ??
-      (err as { error?: { message?: string } }).error?.message ??
-      'API error';
-    throw new Error(message);
+    const body = await res.json().catch(() => ({ errorCode: `HTTP_${res.status}` }));
+    throw sanitizeHttpError({
+      response: res,
+      body,
+      endpoint: path,
+      method: options.method ?? 'GET',
+    });
   }
   return res.json() as Promise<T>;
 }
@@ -293,17 +305,33 @@ export const statementApi = {
 
 async function downloadFile(path: string): Promise<void> {
   const token = tokenStore.getAccess() ?? '';
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'X-Tenant-ID': getTenantId(),
-    },
-    credentials: 'include',
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': getTenantId(),
+      },
+      credentials: 'include',
+    });
+  } catch (error) {
+    throw sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+  }
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error((err as { message?: string }).message ?? 'Download failed');
+    const body = await response.json().catch(() => ({ errorCode: `HTTP_${response.status}` }));
+    throw sanitizeHttpError({
+      response,
+      body,
+      endpoint: path,
+      method: 'GET',
+    });
   }
 
   const blob = await response.blob();

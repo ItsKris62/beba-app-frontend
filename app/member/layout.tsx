@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { useAuth, isAdmin } from "@/lib/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -41,7 +42,9 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       userName={displayName}
       memberNo={`#${user.id.slice(0, 8).toUpperCase()}`}
     >
-      {children}
+      <ErrorBoundary resetKeys={[user.id, user.role]}>
+        {children}
+      </ErrorBoundary>
     </AppSidebar>
   )
 }

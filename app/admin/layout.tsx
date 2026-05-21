@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { useAuth, isAdmin } from "@/lib/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -37,7 +38,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AppSidebar userType="admin" userName={displayName} userRole={user.role}>
-      {children}
+      <ErrorBoundary resetKeys={[user.id, user.role]}>
+        {children}
+      </ErrorBoundary>
     </AppSidebar>
   )
 }

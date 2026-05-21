@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { GlobalErrorListener } from '@/components/global-error-listener'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -43,6 +44,7 @@ export default function RootLayout({
         >
           <QueryProvider>
             <AuthProvider>
+              <GlobalErrorListener />
               {children}
               <Toaster richColors position="top-right" />
             </AuthProvider>

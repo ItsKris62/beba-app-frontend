@@ -8,6 +8,8 @@
  * - Retries on 5xx (max 2 attempts)
  */
 
+import { sanitizeHttpError, sanitizeThrownError, type SanitizedApiError } from './error-sanitizer';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 const AUTH_BASE = `${API_BASE}/auth`;
 
@@ -60,7 +62,7 @@ export interface ApiResponse<T = unknown> {
   success: boolean;
   data: T;
   meta?: ApiMeta;
-  error: { code: string; message: string; details?: unknown } | null;
+  error: SanitizedApiError | null;
 }
 
 interface ProblemDetails {
@@ -626,7 +628,7 @@ async function doRefresh(): Promise<string | null> {
  */
 export const refreshAccessToken = doRefresh;
 
-async function apiFetch<T>(
+async function rawApiFetch<T>(
   path: string,
   options: RequestInit = {},
   retries = 2,
@@ -651,7 +653,7 @@ async function apiFetch<T>(
   } catch {
     if (retries > 0) {
       await new Promise((r) => setTimeout(r, 500));
-      return apiFetch<T>(path, options, retries - 1);
+      return rawApiFetch<T>(path, options, retries - 1);
     }
     throw new Error('Network error – please check your connection');
   }
@@ -662,12 +664,17 @@ async function apiFetch<T>(
     const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
     if (retries > 0) {
       await new Promise((r) => setTimeout(r, Math.min(delayMs, 8000)));
-      return apiFetch<T>(path, options, retries - 1);
+      return rawApiFetch<T>(path, options, retries - 1);
     }
     return {
       success: false,
       data: null as T,
-      error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
+      error: sanitizeHttpError({
+        response,
+        body: { errorCode: 'HTTP_429' },
+        endpoint: path,
+        method: options.method ?? 'GET',
+      }),
     };
   }
 
@@ -676,7 +683,12 @@ async function apiFetch<T>(
     return {
       success: false,
       data: null as T,
-      error: { code: 'FORBIDDEN', message: "You don't have permission to perform this action" },
+      error: sanitizeHttpError({
+        response,
+        body: { errorCode: 'HTTP_403' },
+        endpoint: path,
+        method: options.method ?? 'GET',
+      }),
     };
   }
 
@@ -690,23 +702,41 @@ async function apiFetch<T>(
       refreshQueue = [];
 
       if (newToken) {
-        return apiFetch<T>(path, options, 0);
+        return rawApiFetch<T>(path, options, 0);
       }
       // Redirect to login
       if (typeof window !== 'undefined') {
         tokenStore.clear();
         window.location.href = '/login';
       }
-      return { success: false, data: null as T, error: { code: 'UNAUTHORIZED', message: 'Session expired' } };
+      return {
+        success: false,
+        data: null as T,
+        error: sanitizeHttpError({
+          response,
+          body: { errorCode: 'AUTH_401_EXPIRED' },
+          endpoint: path,
+          method: options.method ?? 'GET',
+        }),
+      };
     }
 
     // Queue concurrent requests while refresh is in progress
     return new Promise((resolve) => {
       refreshQueue.push((token) => {
         if (token) {
-          resolve(apiFetch<T>(path, options, 0));
+          resolve(rawApiFetch<T>(path, options, 0));
         } else {
-          resolve({ success: false, data: null as T, error: { code: 'UNAUTHORIZED', message: 'Session expired' } });
+          resolve({
+            success: false,
+            data: null as T,
+            error: sanitizeHttpError({
+              response,
+              body: { errorCode: 'AUTH_401_EXPIRED' },
+              endpoint: path,
+              method: options.method ?? 'GET',
+            }),
+          });
         }
       });
     });
@@ -715,7 +745,7 @@ async function apiFetch<T>(
   // Retry on 5xx
   if (response.status >= 500 && retries > 0) {
     await new Promise((r) => setTimeout(r, 1000));
-    return apiFetch<T>(path, options, retries - 1);
+    return rawApiFetch<T>(path, options, retries - 1);
   }
 
   // F3: Defence-in-depth guard for 204 No Content responses
@@ -730,23 +760,15 @@ async function apiFetch<T>(
   }));
 
   if (!response.ok) {
-    const problem = json as ProblemDetails;
-    const topLevelMessage = (json as { message?: string | string[] }).message;
-    const message =
-      problem.detail ??
-      problem.title ??
-      (Array.isArray(topLevelMessage) ? topLevelMessage.join(', ') : topLevelMessage) ??
-      (json as { error?: { message?: string } }).error?.message ??
-      `Request failed with status ${response.status}`;
-
     return {
       success: false,
       data: null as T,
-      error: {
-        code: problem.errorCode ?? problem.title ?? `HTTP_${response.status}`,
-        message,
-        details: json,
-      },
+      error: sanitizeHttpError({
+        response,
+        body: json,
+        endpoint: path,
+        method: options.method ?? 'GET',
+      }),
     };
   }
 
@@ -768,6 +790,25 @@ async function apiFetch<T>(
   }
 
   return json as ApiResponse<T>;
+}
+
+async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+  retries = 2,
+): Promise<ApiResponse<T>> {
+  try {
+    return await rawApiFetch<T>(path, options, retries);
+  } catch (error) {
+    const sanitized = sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: options.method ?? 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+    return { success: false, data: null as T, error: sanitized };
+  }
 }
 
 // ─── Auth endpoints ───────────────────────────────────────────────────────────
@@ -1400,10 +1441,26 @@ async function downloadAuthenticatedFile(path: string): Promise<void> {
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const response = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+  } catch (error) {
+    throw sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+  }
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error((err as { message?: string }).message ?? 'Download failed');
+    const body = await response.json().catch(() => ({ errorCode: `HTTP_${response.status}` }));
+    throw sanitizeHttpError({
+      response,
+      body,
+      endpoint: path,
+      method: 'GET',
+    });
   }
 
   const blob = await response.blob();

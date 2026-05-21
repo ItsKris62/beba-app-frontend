@@ -2,6 +2,7 @@
  * Data Import API client – Sprint 2
  * Wraps all /admin/data-import endpoints
  */
+import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
@@ -17,14 +18,30 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
+    });
+  } catch (error) {
+    throw sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: options.method ?? 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+  }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error((err as { message?: string }).message ?? 'API error');
+    const body = await res.json().catch(() => ({ errorCode: `HTTP_${res.status}` }));
+    throw sanitizeHttpError({
+      response: res,
+      body,
+      endpoint: path,
+      method: options.method ?? 'GET',
+    });
   }
   return res.json() as Promise<T>;
 }

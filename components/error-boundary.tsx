@@ -16,6 +16,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { reportClientError } from '@/lib/error-sanitizer';
 
 interface Props {
   children: ReactNode;
@@ -48,6 +49,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.error('ErrorBoundary caught error:', error, errorInfo);
+    } else {
+      reportClientError(error, {
+        source: 'react-error-boundary',
+        componentStack: errorInfo.componentStack,
+      });
     }
   }
 
@@ -89,11 +95,10 @@ function DefaultErrorFallback({
     <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-destructive/20 bg-destructive/5 p-8 text-center">
       <AlertTriangle className="mb-4 h-12 w-12 text-destructive" />
       <h2 className="mb-2 text-xl font-semibold text-destructive">
-        Something went wrong
+        This section could not load
       </h2>
       <p className="mb-6 max-w-md text-sm text-muted-foreground">
-        We encountered an unexpected error while loading this section.
-        Please try refreshing or contact support if the problem persists.
+        Please refresh this section. If the issue continues, report it to support.
       </p>
 
       {process.env.NODE_ENV === 'development' && error && (

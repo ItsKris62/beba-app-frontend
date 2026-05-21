@@ -6,6 +6,7 @@
  * Uses the same apiFetch pattern as the rest of api-client.ts.
  * All calls automatically attach Authorization + X-Tenant-ID headers.
  */
+import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? '';
@@ -96,11 +97,28 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch (error) {
+    throw sanitizeThrownError({
+      error,
+      endpoint: path,
+      method: options.method ?? 'GET',
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
+  }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ message: res.statusText })) as { message?: string };
-    throw Object.assign(new Error(body.message ?? res.statusText), {
+    const body = await res.json().catch(() => ({ errorCode: `HTTP_${res.status}` }));
+    const sanitized = sanitizeHttpError({
+      response: res,
+      body,
+      endpoint: path,
+      method: options.method ?? 'GET',
+    });
+    throw Object.assign(sanitized, {
       response: { status: res.status, data: body },
     });
   }

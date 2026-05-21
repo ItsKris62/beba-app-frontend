@@ -2,7 +2,7 @@
  * RFC 7807 Problem Detail Parser
  *
  * Parses `application/problem+json` responses from the Beba SACCO backend
- * into a typed, user-friendly error structure.
+ * into a typed, sanitized error structure.
  *
  * Usage:
  *   const problem = parseProblemDetail(response);
@@ -51,29 +51,8 @@ function parseRetryAfter(header: string | null): number | null {
   return null;
 }
 
-/**
- * Map backend error codes to user-friendly Swahili/English messages.
- */
 function userMessageFor(problem: ProblemDetail): string {
-  const map: Record<string, string> = {
-    ConflictException: 'Ombi limeshatumwa. Tafadhali subiri. / Request already submitted. Please wait.',
-    BadRequestException: 'Taarifa zilizotolewa sio sahihi. / The information provided is incorrect.',
-    UnauthorizedException: 'Muda wako umeisha. Tafadhali ingia tena. / Your session has expired. Please log in again.',
-    ForbiddenException: 'Huna ruhusa kufanya hivi. / You do not have permission to perform this action.',
-    NotFoundException: 'Taarifa hizi hazipatikani. / These records were not found.',
-    UnprocessableEntityException: 'Ombi lako halikubaliki. / Your request could not be processed.',
-    InternalServerError: 'Tatizo la mfumo. Tafadhali jaribu tena baadaye. / System error. Please try again later.',
-    ServiceUnavailableException: 'Mfumo haupatikani kwa sasa. / The system is temporarily unavailable.',
-  };
-
-  return (
-    map[problem.errorCode] ??
-    (typeof problem.detail === 'string'
-      ? problem.detail
-      : Array.isArray(problem.detail)
-        ? problem.detail.join('; ')
-        : problem.title)
-  );
+  return getUserErrorMessage(problem.errorCode || problem.title, problem.status);
 }
 
 /**
@@ -165,3 +144,4 @@ export function useApiError() {
     },
   };
 }
+import { getUserErrorMessage } from './error-message-registry';

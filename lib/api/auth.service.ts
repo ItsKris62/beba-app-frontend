@@ -1,9 +1,13 @@
+import type { Method } from "@/store/usePasswordResetStore"
+
 export interface PasswordResetRequestPayload {
-  lastFiveDigits: string
+  method: Method
+  identifier: string
 }
 
 export interface PasswordResetVerifyPayload {
-  lastFiveDigits: string
+  method: Method
+  identifier: string
   otp: string
   newPassword: string
 }
@@ -61,26 +65,18 @@ async function parseErrorBody(response: Response): Promise<BackendErrorBody> {
 
 function mapHttpError(status: number, body: BackendErrorBody): ApiError {
   if (status === 429) {
-    return new ApiError("Too many attempts. Please try again in 5 minutes.", status, body.details)
+    return new ApiError("Too many attempts. Please wait 15 minutes.", status, body.details)
   }
 
   if (status === 400) {
-    return new ApiError(
-      body.error ?? body.message ?? "Invalid request. Please check your details and try again.",
-      status,
-      body.details,
-    )
+    return new ApiError("Invalid or expired OTP.", status, body.details)
   }
 
   if (status >= 500) {
     return new ApiError("Service temporarily unavailable.", status, body.details)
   }
 
-  return new ApiError(
-    body.error ?? body.message ?? "Unable to complete request. Please try again.",
-    status,
-    body.details,
-  )
+  return new ApiError("Unable to complete request. Please try again.", status, body.details)
 }
 
 async function postPasswordReset<TPayload>(

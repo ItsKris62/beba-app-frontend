@@ -28,11 +28,11 @@ function usePasswordResetTimer() {
 function StepContent() {
   const step = usePasswordResetStore((state) => state.step)
 
-  if (step === "verify") {
+  if (step === "verify-otp") {
     return <StepVerify />
   }
 
-  if (step === "reset") {
+  if (step === "set-password") {
     return <StepReset />
   }
 
@@ -57,14 +57,17 @@ export function PasswordResetWizard() {
               <span className="text-2xl font-bold text-primary">KC Boda</span>
               <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
             </Link>
-            <p className="mt-2 text-sm text-muted-foreground">Reset your password by SMS OTP</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Reset your password by email or SMS OTP
+            </p>
           </div>
 
           <Card>
             <CardHeader className="pb-4">
               <CardTitle>Forgot Password</CardTitle>
               <CardDescription>
-                Use the last five digits of your registered phone number to receive a secure OTP.
+                Choose where to receive your one-time password. For your security, we always show
+                the same confirmation message.
               </CardDescription>
             </CardHeader>
             <StepContent />

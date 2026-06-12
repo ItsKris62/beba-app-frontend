@@ -90,13 +90,15 @@ export function StepReset() {
   const [showNewPassword, setShowNewPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
   const newPasswordInputRef = React.useRef<HTMLInputElement | null>(null)
-  const lastFiveDigits = usePasswordResetStore((state) => state.lastFiveDigits)
+  const method = usePasswordResetStore((state) => state.method)
+  const identifier = usePasswordResetStore((state) => state.identifier)
   const otp = usePasswordResetStore((state) => state.otp)
   const newPassword = usePasswordResetStore((state) => state.newPassword)
   const confirmPassword = usePasswordResetStore((state) => state.confirmPassword)
   const isLoading = usePasswordResetStore((state) => state.isLoading)
   const error = usePasswordResetStore((state) => state.error)
-  const setField = usePasswordResetStore((state) => state.setField)
+  const setNewPassword = usePasswordResetStore((state) => state.setNewPassword)
+  const setConfirmPassword = usePasswordResetStore((state) => state.setConfirmPassword)
   const setStep = usePasswordResetStore((state) => state.setStep)
   const setLoading = usePasswordResetStore((state) => state.setLoading)
   const setError = usePasswordResetStore((state) => state.setError)
@@ -118,8 +120,15 @@ export function StepReset() {
     setError(null)
 
     try {
+      if (!method || !identifier || !otp) {
+        setStep("verify-otp")
+        setError("Invalid or expired OTP.")
+        return
+      }
+
       await verifyAndResetPassword({
-        lastFiveDigits,
+        method,
+        identifier,
         otp,
         newPassword: values.newPassword,
       })
@@ -132,7 +141,7 @@ export function StepReset() {
 
       if (caughtError instanceof ApiError && caughtError.status === 400) {
         clearOtp()
-        setStep("verify")
+        setStep("verify-otp")
       }
 
       setError(message)
@@ -174,7 +183,7 @@ export function StepReset() {
                       placeholder="Enter new password"
                       onChange={(event) => {
                         field.onChange(event)
-                        setField("newPassword", event.target.value)
+                        setNewPassword(event.target.value)
                       }}
                     />
                   </FormControl>
@@ -215,7 +224,7 @@ export function StepReset() {
                       placeholder="Confirm new password"
                       onChange={(event) => {
                         field.onChange(event)
-                        setField("confirmPassword", event.target.value)
+                        setConfirmPassword(event.target.value)
                       }}
                     />
                   </FormControl>

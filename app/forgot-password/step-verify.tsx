@@ -41,12 +41,13 @@ function formatTime(totalSeconds: number): string {
 }
 
 export function StepVerify() {
-  const lastFiveDigits = usePasswordResetStore((state) => state.lastFiveDigits)
+  const method = usePasswordResetStore((state) => state.method)
+  const identifier = usePasswordResetStore((state) => state.identifier)
   const otp = usePasswordResetStore((state) => state.otp)
   const timeRemaining = usePasswordResetStore((state) => state.timeRemaining)
   const isLoading = usePasswordResetStore((state) => state.isLoading)
   const error = usePasswordResetStore((state) => state.error)
-  const setField = usePasswordResetStore((state) => state.setField)
+  const setOtp = usePasswordResetStore((state) => state.setOtp)
   const setStep = usePasswordResetStore((state) => state.setStep)
   const startTimer = usePasswordResetStore((state) => state.startTimer)
   const setLoading = usePasswordResetStore((state) => state.setLoading)
@@ -67,8 +68,13 @@ export function StepVerify() {
     setError(null)
 
     try {
-      await requestPasswordReset({ lastFiveDigits })
-      setField("otp", "")
+      if (!method || !identifier) {
+        setStep("enter-identifier")
+        return
+      }
+
+      await requestPasswordReset({ method, identifier })
+      setOtp("")
       form.reset({ otp: "" })
       startTimer()
       toast.success("If an account exists, an OTP has been sent.")
@@ -84,9 +90,9 @@ export function StepVerify() {
   }
 
   function onSubmit(values: OtpFormValues) {
-    setField("otp", values.otp)
+    setOtp(values.otp)
     setError(null)
-    setStep("reset")
+    setStep("set-password")
   }
 
   return (
@@ -119,7 +125,7 @@ export function StepVerify() {
                     onChange={(value) => {
                       const digits = value.replace(/\D/g, "").slice(0, 6)
                       field.onChange(digits)
-                      setField("otp", digits)
+                      setOtp(digits)
                     }}
                     disabled={isLoading}
                     autoFocus

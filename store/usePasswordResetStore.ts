@@ -3,23 +3,30 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 
-export type Step = "request" | "verify" | "reset" | "success"
+export type Method = "EMAIL" | "SMS"
+export type Step = "select-method" | "enter-identifier" | "verify-otp" | "set-password" | "success"
 
-type ResetField = "lastFiveDigits" | "otp" | "newPassword" | "confirmPassword"
+const TIMER_SECONDS = 30 * 60
 
 export interface PasswordResetState {
+  method: Method | null
   step: Step
-  lastFiveDigits: string
+  identifier: string
   otp: string
   newPassword: string
   confirmPassword: string
-  expiresAt: Date | null
+  expiresAt: number | null
   timeRemaining: number
   isLoading: boolean
   error: string | null
+  setMethod: (method: Method) => void
   setStep: (step: Step) => void
-  setField: (field: ResetField, value: string) => void
+  setIdentifier: (identifier: string) => void
+  setOtp: (otp: string) => void
+  setNewPassword: (newPassword: string) => void
+  setConfirmPassword: (confirmPassword: string) => void
   startTimer: () => void
+  getTimeRemaining: () => number
   resetFlow: () => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -27,11 +34,10 @@ export interface PasswordResetState {
   clearOtp: () => void
 }
 
-const TIMER_SECONDS = 30 * 60
-
 const initialState = {
-  step: "request" as Step,
-  lastFiveDigits: "",
+  method: null,
+  step: "select-method" as Step,
+  identifier: "",
   otp: "",
   newPassword: "",
   confirmPassword: "",
@@ -41,24 +47,40 @@ const initialState = {
   error: null,
 }
 
-function getRemainingSeconds(expiresAt: Date | null): number {
+function getRemainingSeconds(expiresAt: number | null): number {
   if (!expiresAt) {
     return 0
   }
 
-  return Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000))
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
 }
 
 export const usePasswordResetStore = create<PasswordResetState>()(
   persist(
     (set, get) => ({
       ...initialState,
+      setMethod: (method) =>
+        set({
+          method,
+          step: "enter-identifier",
+          identifier: "",
+          otp: "",
+          newPassword: "",
+          confirmPassword: "",
+          error: null,
+        }),
       setStep: (step) => set({ step, error: null }),
-      setField: (field, value) => set({ [field]: value }),
+      setIdentifier: (identifier) => set({ identifier }),
+      setOtp: (otp) => set({ otp }),
+      setNewPassword: (newPassword) => set({ newPassword }),
+      setConfirmPassword: (confirmPassword) => set({ confirmPassword }),
       startTimer: () => {
-        const expiresAt = new Date(Date.now() + TIMER_SECONDS * 1000)
-        set({ expiresAt, timeRemaining: TIMER_SECONDS })
+        set({
+          expiresAt: Date.now() + TIMER_SECONDS * 1000,
+          timeRemaining: TIMER_SECONDS,
+        })
       },
+      getTimeRemaining: () => getRemainingSeconds(get().expiresAt),
       resetFlow: () => set(initialState),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
@@ -66,9 +88,15 @@ export const usePasswordResetStore = create<PasswordResetState>()(
         const { expiresAt, step } = get()
         const timeRemaining = getRemainingSeconds(expiresAt)
 
-        if (expiresAt && timeRemaining === 0 && step !== "request" && step !== "success") {
+        if (
+          expiresAt &&
+          timeRemaining === 0 &&
+          step !== "select-method" &&
+          step !== "enter-identifier" &&
+          step !== "success"
+        ) {
           set({
-            step: "request",
+            step: "enter-identifier",
             otp: "",
             newPassword: "",
             confirmPassword: "",
@@ -86,23 +114,11 @@ export const usePasswordResetStore = create<PasswordResetState>()(
     }),
     {
       name: "beba-password-reset-flow",
-      storage: createJSONStorage(() => localStorage, {
-        replacer: (key, value) => {
-          if (key === "expiresAt" && value instanceof Date) {
-            return value.toISOString()
-          }
-          return value
-        },
-        reviver: (key, value) => {
-          if (key === "expiresAt" && typeof value === "string") {
-            return new Date(value)
-          }
-          return value
-        },
-      }),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        method: state.method,
         step: state.step,
-        lastFiveDigits: state.lastFiveDigits,
+        identifier: state.identifier,
         otp: state.otp,
         newPassword: state.newPassword,
         confirmPassword: state.confirmPassword,

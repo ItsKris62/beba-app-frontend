@@ -112,6 +112,13 @@ export interface StatementTransaction {
   reference: string;
 }
 
+export interface StatementMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface FosaStatement {
   memberId: string;
   memberNumber: string;
@@ -124,6 +131,7 @@ export interface FosaStatement {
   totalDisbursed: number;
   totalRepaid: number;
   transactions: StatementTransaction[];
+  meta?: StatementMeta;
   auditHash: string;
 }
 
@@ -139,6 +147,7 @@ export interface BosaStatement {
   totalSavings: number;
   welfareContributions: number;
   transactions: StatementTransaction[];
+  meta?: StatementMeta;
   auditHash: string;
 }
 
@@ -262,16 +271,20 @@ export const financialImportApi = {
 // ─── Statement API ────────────────────────────────────────────────────────────
 
 export const statementApi = {
-  getFosa: (params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+  getFosa: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
     const qs = new URLSearchParams(
-      Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
+      Object.entries(params ?? {})
+        .filter(([, v]) => v != null && v !== '')
+        .map(([key, value]) => [key, String(value)]) as [string, string][],
     ).toString();
     return apiFetch<FosaStatement>(`/members/statement/fosa${qs ? `?${qs}` : ''}`);
   },
 
-  getBosa: (params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+  getBosa: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
     const qs = new URLSearchParams(
-      Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
+      Object.entries(params ?? {})
+        .filter(([, v]) => v != null && v !== '')
+        .map(([key, value]) => [key, String(value)]) as [string, string][],
     ).toString();
     return apiFetch<BosaStatement>(`/members/statement/bosa${qs ? `?${qs}` : ''}`);
   },

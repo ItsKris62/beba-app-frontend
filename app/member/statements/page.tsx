@@ -147,6 +147,8 @@ export default function MemberStatementsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<'pdf' | 'csv' | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 20;
   const initialLoadRef = useRef(false);
 
   // Check consent on mount
@@ -173,6 +175,8 @@ export default function MemberStatementsPage() {
       const params = {
         ...(periodFrom ? { periodFrom } : {}),
         ...(periodTo ? { periodTo } : {}),
+        page,
+        limit,
       };
       if (statementType === 'FOSA') {
         setStatement(await statementApi.getFosa(params));
@@ -184,13 +188,26 @@ export default function MemberStatementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statementType, periodFrom, periodTo]);
+  }, [statementType, periodFrom, periodTo, page]);
 
   useEffect(() => {
     if (!hasConsent || initialLoadRef.current) return;
     initialLoadRef.current = true;
     void loadStatement();
   }, [hasConsent, loadStatement]);
+
+  useEffect(() => {
+    if (!hasConsent || !statement || loading) return;
+    void loadStatement();
+  }, [page]);
+
+  const handleViewStatement = () => {
+    if (page !== 1) {
+      setPage(1);
+      return;
+    }
+    void loadStatement();
+  };
 
   const handleDownload = async (format: 'pdf' | 'csv') => {
     if (periodFrom > TODAY || periodTo > TODAY || periodFrom > periodTo) {
@@ -249,7 +266,7 @@ export default function MemberStatementsPage() {
                 {(['FOSA', 'BOSA'] as const).map((t) => (
                   <button
                     key={t}
-                    onClick={() => { setStatementType(t); setStatement(null); }}
+                    onClick={() => { setStatementType(t); setStatement(null); setPage(1); }}
                     className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
                       statementType === t
                         ? 'bg-primary text-primary-foreground border-primary'
@@ -269,7 +286,7 @@ export default function MemberStatementsPage() {
                 type="date"
                 value={periodFrom}
                 max={periodTo || TODAY}
-                onChange={(e) => setPeriodFrom(e.target.value > TODAY ? TODAY : e.target.value)}
+                onChange={(e) => { setPeriodFrom(e.target.value > TODAY ? TODAY : e.target.value); setPage(1); }}
                 className="border rounded px-3 py-2 text-sm"
               />
             </div>
@@ -280,12 +297,12 @@ export default function MemberStatementsPage() {
                 value={periodTo}
                 min={periodFrom || undefined}
                 max={TODAY}
-                onChange={(e) => setPeriodTo(e.target.value > TODAY ? TODAY : e.target.value)}
+                onChange={(e) => { setPeriodTo(e.target.value > TODAY ? TODAY : e.target.value); setPage(1); }}
                 className="border rounded px-3 py-2 text-sm"
               />
             </div>
 
-            <Button onClick={() => void loadStatement()} disabled={loading}>
+            <Button onClick={handleViewStatement} disabled={loading}>
               {loading ? 'Loading…' : 'View Statement'}
             </Button>
           </div>
@@ -360,6 +377,32 @@ export default function MemberStatementsPage() {
 
             {/* Transactions */}
             <TransactionTable transactions={statement.transactions} />
+
+            {statement.meta && statement.meta.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t pt-3">
+                <p className="text-sm text-muted-foreground">
+                  Page {statement.meta.page} of {statement.meta.totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading || statement.meta.page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading || statement.meta.page >= statement.meta.totalPages}
+                    onClick={() => setPage((current) => current + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* ODPC Footer */}
             <p className="text-xs text-muted-foreground border-t pt-3">

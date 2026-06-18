@@ -109,6 +109,7 @@ export interface MemberDashboard {
   activeLoans: {
     id: string;
     loanNumber: string;
+    status?: string;
     principalAmount: number;
     outstandingBalance: number;
     monthlyInstalment: number;
@@ -499,6 +500,74 @@ export interface LoanProductPayload {
   minActiveMonths?: number;
   gracePeriodMonths?: number;
   isActive?: boolean;
+}
+
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_MEMBER' | 'RESOLVED' | 'CLOSED';
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TicketCategory =
+  | 'LOAN_QUERY'
+  | 'MPESA_ISSUE'
+  | 'ACCOUNT_ACCESS'
+  | 'KYC_UPDATE'
+  | 'GUARANTOR_DISPUTE'
+  | 'GENERAL';
+
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  attachments: string[];
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  tenantId: string;
+  memberId: string;
+  subject: string;
+  description: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: TicketCategory;
+  relatedLoanId: string | null;
+  relatedTxId: string | null;
+  assignedTo: string | null;
+  createdAt: string;
+  updatedAt: string;
+  member?: {
+    id?: string;
+    memberNumber: string;
+    userId?: string;
+    user?: {
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phoneNumber?: string | null;
+    };
+  };
+  messages?: TicketMessage[];
+}
+
+export interface CreateSupportTicketPayload {
+  subject: string;
+  description: string;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+  relatedLoanId?: string;
+  relatedTxId?: string;
+}
+
+export interface AddTicketMessagePayload {
+  content: string;
+  attachments?: string[];
+}
+
+export interface SupportTicketFilters {
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  search?: string;
 }
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
@@ -992,6 +1061,24 @@ export const memberApi = {
         body: JSON.stringify({ fileName, contentType }),
       },
     ),
+
+  createTicket: (data: CreateSupportTicketPayload) =>
+    apiFetch<SupportTicket>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMyTickets: () =>
+    apiFetch<SupportTicket[]>('/support/tickets'),
+
+  getTicketById: (id: string) =>
+    apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`),
+
+  addMessageToTicket: (id: string, message: AddTicketMessagePayload) =>
+    apiFetch<TicketMessage>(`/support/tickets/${encodeURIComponent(id)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(message),
+    }),
 };
 
 // ─── Loan products (public-ish) ───────────────────────────────────────────────
@@ -1181,6 +1268,30 @@ export const adminApi = {
     if (params?.limit) q.set('limit', String(params.limit));
     return apiFetch<{ data: AdminTransaction[]; meta: ApiMeta }>(`/admin/transactions?${q}`);
   },
+
+  getAllTickets: (filters?: SupportTicketFilters) => {
+    const q = new URLSearchParams();
+    if (filters?.status) q.set('status', filters.status);
+    return apiFetch<SupportTicket[]>(`/support/tickets${q.size ? `?${q}` : ''}`);
+  },
+
+  getTicketById: (id: string) =>
+    apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`),
+
+  addMessageToTicket: (id: string, message: AddTicketMessagePayload) =>
+    apiFetch<TicketMessage>(`/support/tickets/${encodeURIComponent(id)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(message),
+    }),
+
+  updateTicketStatus: (
+    id: string,
+    data: { status?: TicketStatus; priority?: TicketPriority; assignedTo?: string; note?: string },
+  ) =>
+    apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 
   reviewMember: (memberId: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string }) =>
     apiFetch<{ success: boolean; action: string }>(`/admin/members/${memberId}/review`, {

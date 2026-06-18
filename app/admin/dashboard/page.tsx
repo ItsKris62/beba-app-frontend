@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { dashboardApi, type DashboardStats } from '@/lib/sprint3-api';
+import { adminApi } from '@/lib/api-client';
 
 function KpiCard({
   title,
@@ -66,6 +67,7 @@ function RepaymentHeatmap({
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [openTickets, setOpenTickets] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +77,8 @@ export default function AdminDashboardPage() {
     try {
       const data = await dashboardApi.getStats();
       setStats(data);
+      const tickets = await adminApi.getAllTickets({ status: 'OPEN' });
+      if (tickets.success) setOpenTickets(tickets.data.length);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     } finally {
@@ -133,6 +137,7 @@ export default function AdminDashboardPage() {
           <KpiCard title="Total Savings" value={fmt(stats.totalSavings ?? 0)} colorClass="text-blue-600" />
           <KpiCard title="Welfare Collected" value={fmt(stats.welfareCollected ?? 0)} colorClass="text-green-600" />
           <KpiCard title="Welfare Deficit" value={fmt(stats.welfareDeficit ?? 0)} colorClass={(stats.welfareDeficit ?? 0) > 0 ? 'text-red-600' : 'text-green-600'} />
+          <KpiCard title="Open Support Tickets" value={(openTickets ?? 0).toLocaleString()} subtitle="Awaiting support action" colorClass={(openTickets ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
         </div>
       )}
 

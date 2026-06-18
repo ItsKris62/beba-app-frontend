@@ -27,6 +27,7 @@ import {
   Upload,
   MapPin,
   Package,
+  MessageSquare,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -65,6 +66,7 @@ const memberNavItems = [
   { href: "/member/guarantors", label: "Guarantors", icon: UserCheck },
   { href: "/member/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/member/statements", label: "Statements", icon: FileText },
+  { href: "/member/support", label: "Support", icon: MessageSquare },
   { href: "/member/profile", label: "Profile", icon: User },
 ]
 
@@ -78,6 +80,7 @@ const ALL_ADMIN_NAV = [
   { href: "/admin/products",          label: "Loan Products",  icon: Package,         roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
   { href: "/admin/transactions",      label: "Transactions",   icon: ArrowLeftRight,  roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
+  { href: "/admin/support",           label: "Support",        icon: MessageSquare,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
   { href: "/admin/import/upload",     label: "Import Members", icon: Upload,          roles: ["SUPER_ADMIN","TENANT_ADMIN"] },
   { href: "/admin/audit-log",         label: "Audit Trail",    icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },
   { href: "/admin/reports",           label: "Reports",        icon: BarChart3,       roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },

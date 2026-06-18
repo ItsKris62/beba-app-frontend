@@ -98,6 +98,8 @@ export default function MemberDashboardPage() {
   const fosaBalance = dashboard?.balances.fosa ?? 0;
   const kycStatus = dashboard?.member.kycStatus ?? 'UNKNOWN';
   const isKycApproved = isKycVerified(kycStatus);
+  const currentLoans = dashboard?.activeLoans.filter((loan) => loan.status !== 'FULLY_PAID') ?? [];
+  const completedLoans = dashboard?.activeLoans.filter((loan) => loan.status === 'FULLY_PAID') ?? [];
 
   if (error) {
     return (
@@ -138,7 +140,7 @@ export default function MemberDashboardPage() {
           <SummaryCard
             title="Loan Balance"
             value={formatCurrency(loanBalance)}
-            sub={loanBalance > 0 ? `${dashboard?.activeLoans.length} active loan(s)` : 'No outstanding loans'}
+            sub={loanBalance > 0 ? `${currentLoans.length} active loan(s)` : 'No outstanding loans'}
             variant={loanBalance > 0 ? 'red' : 'green'}
           />
           <SummaryCard
@@ -228,7 +230,7 @@ export default function MemberDashboardPage() {
         <CardContent>
           {loading ? (
             <Skeleton className="h-24" />
-          ) : dashboard?.activeLoans.length === 0 ? (
+          ) : currentLoans.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
               <CreditCard className="mx-auto h-8 w-8 mb-2 opacity-40" />
               No active loans.{' '}
@@ -236,11 +238,13 @@ export default function MemberDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {dashboard?.activeLoans.map((loan) => (
+              {currentLoans.map((loan) => (
                 <div key={loan.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold text-sm">{loan.loanNumber}</p>
-                    <Badge className="bg-green-100 text-green-700 text-xs">ACTIVE</Badge>
+                    <Badge className={`${LOAN_STATUS_COLORS[loan.status ?? 'ACTIVE'] ?? 'bg-green-100 text-green-700'} text-xs`}>
+                      {loan.status ?? 'ACTIVE'}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div>
@@ -265,6 +269,26 @@ export default function MemberDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && completedLoans.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Completed Loans</CardTitle>
+            <CardDescription>Loans fully cleared through repayment</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {completedLoans.map((loan) => (
+              <div key={loan.id} className="flex items-center justify-between rounded border p-3">
+                <div>
+                  <p className="text-sm font-medium">{loan.loanNumber}</p>
+                  <p className="text-xs text-muted-foreground">Principal {formatCurrency(loan.principalAmount)}</p>
+                </div>
+                <Badge className="bg-gray-100 text-gray-700">FULLY PAID</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Transactions */}
       <Card>

@@ -946,6 +946,12 @@ export const memberApi = {
   getDashboard: () =>
     apiFetch<MemberDashboard>('/members/dashboard'),
 
+  withdrawMpesa: (data: { phoneNumber: string; amount: number }) =>
+    apiFetch<{ message: string; transactionId: string }>('/members/withdraw/mpesa', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   getFosaStatement: (params: { page?: number; limit?: number; from?: string; to?: string }) => {
     const q = new URLSearchParams();
     if (params.page) q.set('page', String(params.page));

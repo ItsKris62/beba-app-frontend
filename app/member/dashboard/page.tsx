@@ -2,12 +2,24 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CreditCard, TrendingUp, Users, ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CreditCard, TrendingUp, Users, ArrowRight, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import {
   memberApi,
   formatCurrency,
@@ -25,6 +37,7 @@ const LOAN_STATUS_COLORS: Record<string, string> = {
   PENDING_REVIEW: 'bg-blue-100 text-blue-700',
   APPROVED: 'bg-teal-100 text-teal-700',
   REJECTED: 'bg-red-100 text-red-700',
+  DISBURSED_TO_FOSA: 'bg-indigo-100 text-indigo-700',
   FULLY_PAID: 'bg-gray-100 text-gray-600',
   DEFAULTED: 'bg-red-100 text-red-700',
 };
@@ -70,6 +83,12 @@ export default function MemberDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Withdraw state
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawPhone, setWithdrawPhone] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -77,6 +96,9 @@ export default function MemberDashboardPage() {
       const res = await memberApi.getDashboard();
       if (res.success && res.data) {
         setDashboard(res.data);
+        if (res.data.member.phone && !withdrawPhone) {
+          setWithdrawPhone(res.data.member.phone);
+        }
       } else {
         setError(res.error?.message ?? 'Failed to load dashboard');
       }
@@ -88,6 +110,40 @@ export default function MemberDashboardPage() {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+  const handleWithdraw = async () => {
+    const amountNum = Number(withdrawAmount);
+    if (!withdrawAmount || isNaN(amountNum) || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    const maxAmount = dashboard?.balances.fosa ?? 0;
+    if (amountNum > maxAmount) {
+      toast.error('Insufficient FOSA balance for this withdrawal');
+      return;
+    }
+    if (!withdrawPhone) {
+      toast.error('Phone number is required');
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const res = await memberApi.withdrawMpesa({ amount: amountNum, phoneNumber: withdrawPhone });
+      if (res.success) {
+        toast.success(res.data?.message || 'Withdrawal initiated successfully');
+        setWithdrawOpen(false);
+        setWithdrawAmount('');
+        loadDashboard();
+      } else {
+        toast.error(res.error?.message || 'Withdrawal failed');
+      }
+    } catch {
+      toast.error('Network error while processing withdrawal');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   // Derived values
   const loanBalance = dashboard?.activeLoans.reduce(
@@ -364,6 +420,62 @@ export default function MemberDashboardPage() {
                 KYC Pending
               </Button>
             )}
+
+            <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  Withdraw to M-Pesa
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Withdraw to M-Pesa</DialogTitle>
+                  <DialogDescription>
+                    Withdraw funds directly from your FOSA account to M-Pesa.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="flex justify-between items-center bg-muted/50 p-3 rounded-md">
+                    <span className="text-sm text-muted-foreground">Available FOSA Balance:</span>
+                    <span className="font-semibold text-lg">{formatCurrency(dashboard?.balances.fosa ?? 0)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Amount to Withdraw</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="e.g. 5000"
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">M-Pesa Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="text"
+                      placeholder="e.g. 254700000000"
+                      value={withdrawPhone}
+                      onChange={(e) => setWithdrawPhone(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Start with 254</p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setWithdrawOpen(false)} disabled={withdrawing}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleWithdraw} disabled={withdrawing}>
+                    {withdrawing ? (
+                      <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+                    ) : (
+                      'Withdraw Funds'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>

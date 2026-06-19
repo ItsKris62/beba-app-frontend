@@ -46,6 +46,7 @@ type ProductFormState = {
   requiresPayslip: boolean
   minActiveMonths: string
   gracePeriodMonths: string
+  gracePeriodDays: string
   isActive: boolean
 }
 
@@ -66,6 +67,7 @@ const emptyForm: ProductFormState = {
   requiresPayslip: false,
   minActiveMonths: "0",
   gracePeriodMonths: "0",
+  gracePeriodDays: "14",
   isActive: true,
 }
 
@@ -93,6 +95,7 @@ function productToForm(product: LoanProduct): ProductFormState {
     requiresPayslip: Boolean(product.requiresPayslip),
     minActiveMonths: String(product.minActiveMonths ?? 0),
     gracePeriodMonths: String(product.gracePeriodMonths ?? 0),
+    gracePeriodDays: String(product.gracePeriodDays ?? 14),
     isActive: product.isActive,
   }
 }
@@ -115,6 +118,7 @@ function toPayload(form: ProductFormState): LoanProductPayload {
     requiresPayslip: form.requiresPayslip,
     minActiveMonths: Number(form.minActiveMonths || 0),
     gracePeriodMonths: Number(form.gracePeriodMonths || 0),
+    gracePeriodDays: Number(form.gracePeriodDays || 14),
     isActive: form.isActive,
   }
 }
@@ -439,6 +443,13 @@ export default function AdminProductsPage() {
               <div className="space-y-2">
                 <Label htmlFor="gracePeriod">Grace Period Months</Label>
                 <Input id="gracePeriod" type="number" min="0" max="12" value={form.gracePeriodMonths} onChange={(event) => updateForm("gracePeriodMonths", event.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="gracePeriodDays">Grace Period Days (Recovery)</Label>
+                <Input id="gracePeriodDays" type="number" min="0" max="365" value={form.gracePeriodDays} onChange={(event) => updateForm("gracePeriodDays", event.target.value)} />
               </div>
             </div>
 

@@ -10,7 +10,7 @@
 
 import { sanitizeHttpError, sanitizeThrownError, type SanitizedApiError } from './error-sanitizer';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 const AUTH_BASE = `${API_BASE}/auth`;
 
 export const authClient = {
@@ -97,6 +97,7 @@ export interface MemberDashboard {
     memberNumber: string;
     name: string;
     email: string;
+    phone?: string | null;
     kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | string;
     kycRejectionReason?: string | null;
   };
@@ -170,6 +171,7 @@ export interface LoanProduct {
   requiresPayslip?: boolean;
   minActiveMonths?: number;
   gracePeriodMonths: number;
+  gracePeriodDays: number;
   isActive: boolean;
 }
 
@@ -388,6 +390,112 @@ export interface AdminTransaction {
   };
 }
 
+export interface TransactionStats {
+  pageVolume: number;
+  inflows: number;
+  outflows: number;
+  netFlow: number;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+export type JournalEntryStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'POSTED';
+export type JournalEntryType =
+  | 'MANUAL'
+  | 'LOAN_DISBURSEMENT'
+  | 'LOAN_REPAYMENT'
+  | 'FEE_CHARGE'
+  | 'FEE_REVERSAL'
+  | 'MPESA_DEPOSIT'
+  | 'INTEREST_ACCRUAL';
+
+export interface GLAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+  parentId: string | null;
+  isSystemAccount: boolean;
+  isActive: boolean;
+}
+
+export interface AccountingDashboardStats {
+  pendingApprovalCount: number;
+  unmatchedMpesaCount: number;
+  postedJournalCount: number;
+  totalGLAccounts: number;
+}
+
+export interface PendingApproval {
+  id: string;
+  entryNumber: string;
+  type: JournalEntryType;
+  description: string;
+  amount: number;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  referenceType: string | null;
+  referenceId: string | null;
+}
+
+export interface UnmatchedMpesaTransaction {
+  id: string;
+  mpesaReference: string;
+  type: string;
+  amount: number;
+  phoneNumber: string;
+  accountReference: string | null;
+  mpesaReceipt: string | null;
+  createdAt: string;
+  flagReason: string;
+  reconciliationStatus: string;
+  member: {
+    id: string;
+    memberNumber: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNumber: string;
+  type: JournalEntryType;
+  status: JournalEntryStatus;
+  description: string;
+  totalAmount: number;
+  referenceType: string | null;
+  referenceId: string | null;
+  approvalNotes?: string | null;
+  postedAt?: string | null;
+  createdAt: string;
+  createdBy?: { id: string; firstName: string; lastName: string; email: string };
+  approvedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  rejectedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  postings: {
+    id: string;
+    amount: number;
+    description?: string | null;
+    postingDate: string;
+    debitAccount: Pick<GLAccount, 'id' | 'code' | 'name' | 'type'>;
+    creditAccount: Pick<GLAccount, 'id' | 'code' | 'name' | 'type'>;
+  }[];
+}
+
+export interface CreateJournalEntryPayload {
+  description: string;
+  type: JournalEntryType;
+  postings: {
+    debitAccountId: string;
+    creditAccountId: string;
+    amount: number;
+    description?: string;
+  }[];
+  referenceType?: string;
+  referenceId?: string;
+}
+
 export interface StaffUser {
   id: string;
   email: string;
@@ -499,6 +607,7 @@ export interface LoanProductPayload {
   requiresPayslip?: boolean;
   minActiveMonths?: number;
   gracePeriodMonths?: number;
+  gracePeriodDays?: number;
   isActive?: boolean;
 }
 
@@ -712,6 +821,15 @@ async function rawApiFetch<T>(
 
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.debug('[api-request]', {
+      endpoint: path.split('?')[0],
+      hasAuthorization: Boolean(headers.Authorization),
+      hasTenantId: Boolean(headers['X-Tenant-ID']),
+    });
   }
 
   const url = `${API_BASE}${path}`;
@@ -1153,6 +1271,91 @@ export const loansApi = {
 
 // ─── Admin endpoints ──────────────────────────────────────────────────────────
 
+export const accountingApi = {
+  getDashboardStats: () =>
+    apiFetch<AccountingDashboardStats>('/admin/accounting/dashboard-stats'),
+
+  getPendingApprovals: () =>
+    apiFetch<{ items: PendingApproval[]; total: number }>('/admin/accounting/pending-approvals'),
+
+  getGLAccounts: () =>
+    apiFetch<{ data: GLAccount[] }>('/admin/accounting/gl-accounts'),
+
+  getJournalEntries: (params?: {
+    page?: number;
+    limit?: number;
+    status?: JournalEntryStatus;
+    type?: JournalEntryType;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.type) q.set('type', params.type);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.search) q.set('search', params.search);
+    return apiFetch<{ data: JournalEntry[]; meta: ApiMeta }>(`/admin/accounting/journal-entries?${q}`);
+  },
+
+  createJournalEntry: (data: CreateJournalEntryPayload) =>
+    apiFetch<JournalEntry>('/admin/accounting/journal-entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  approveJournalEntry: (id: string, notes?: string) =>
+    apiFetch<JournalEntry>(`/admin/accounting/journal-entries/${encodeURIComponent(id)}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ notes }),
+    }),
+
+  rejectJournalEntry: (id: string, notes?: string) =>
+    apiFetch<JournalEntry>(`/admin/accounting/journal-entries/${encodeURIComponent(id)}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ notes }),
+    }),
+
+  getUnmatchedMpesa: (params?: {
+    page?: number;
+    limit?: number;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    if (params?.search) q.set('search', params.search);
+    return apiFetch<{ data: UnmatchedMpesaTransaction[]; meta: ApiMeta }>(`/admin/accounting/mpesa/unmatched?${q}`);
+  },
+
+  matchMpesa: (id: string, data: { accountId: string; note?: string }) =>
+    apiFetch<{
+      success: boolean;
+      transactionId: string;
+      amount: number;
+      balanceBefore: number;
+      balanceAfter: number;
+      accountNumber: string;
+      memberName: string;
+    }>(`/admin/accounting/mpesa/${encodeURIComponent(id)}/match`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  exportGL: (params?: { startDate?: string; endDate?: string }) =>
+    downloadAuthenticatedFile('/admin/accounting/export-gl', {
+      method: 'POST',
+      body: JSON.stringify(params ?? {}),
+    }),
+};
+
 export const adminApi = {
   getDashboardStats: () =>
     apiFetch<AdminStats>('/admin/dashboard/stats'),
@@ -1273,6 +1476,18 @@ export const adminApi = {
     if (params?.page) q.set('page', String(params.page));
     if (params?.limit) q.set('limit', String(params.limit));
     return apiFetch<{ data: AdminTransaction[]; meta: ApiMeta }>(`/admin/transactions?${q}`);
+  },
+
+  getTransactionStats: (params?: {
+    from?: string;
+    to?: string;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.search) q.set('search', params.search);
+    return apiFetch<TransactionStats>(`/admin/transactions/stats?${q}`);
   },
 
   getAllTickets: (filters?: SupportTicketFilters) => {
@@ -1551,21 +1766,27 @@ export function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function downloadAuthenticatedFile(path: string): Promise<void> {
+async function downloadAuthenticatedFile(path: string, options: RequestInit = {}): Promise<void> {
   const accessToken = tokenStore.getAccess();
   const headers: Record<string, string> = {
     'X-Tenant-ID': getTenantId(),
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(options.headers as Record<string, string> | undefined),
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
   } catch (error) {
     throw sanitizeThrownError({
       error,
       endpoint: path,
-      method: 'GET',
+      method: options.method ?? 'GET',
       code: 'NETWORK_ERROR',
       status: 0,
     });
@@ -1576,7 +1797,7 @@ async function downloadAuthenticatedFile(path: string): Promise<void> {
       response,
       body,
       endpoint: path,
-      method: 'GET',
+      method: options.method ?? 'GET',
     });
   }
 

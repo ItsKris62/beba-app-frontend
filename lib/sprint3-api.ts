@@ -9,7 +9,7 @@ import { tokenStore } from './api-client';
 import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
 
 // Must match api-client.ts exactly so all requests go to the same backend
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 function getTenantId(): string {
   if (process.env.NEXT_PUBLIC_TENANT_ID) return process.env.NEXT_PUBLIC_TENANT_ID;
   if (typeof window !== 'undefined') return localStorage.getItem('beba_tenant_id') ?? '';

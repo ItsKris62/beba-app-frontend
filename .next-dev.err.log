@@ -1,0 +1,3273 @@
+⚠ Slow filesystem detected. The benchmark took 211ms. If C:\Users\USER\Videos\Beba-App\beba-app-frontend\.next/dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+Error: Can't resolve 'tailwindcss' in 'C:\Users\USER\Videos\Beba-App'
+    [2m[at finishWithoutResolve (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:586:18)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:678:14][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:27:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\DescriptionFilePlugin.js:89:43][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m {
+  details: "resolve 'tailwindcss' in 'C:\\Users\\USER\\Videos\\Beba-App'\n" +
+    '  Parsed request is a module\n' +
+    '  using description file: C:\\Users\\USER\\package.json (relative path: ./Videos/Beba-App)\n' +
+    '    resolve as module\n' +
+    "      C:\\Users\\USER\\Videos\\Beba-App\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\Users\\USER\\Videos\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\package.json (relative path: ./node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    "      C:\\Users\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\package.json (relative path: ./dist/bin/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/dist/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist"
+}
+Error: Can't resolve 'tailwindcss' in 'C:\Users\USER\Videos\Beba-App'
+    [2m[at finishWithoutResolve (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:586:18)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:678:14][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:27:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\DescriptionFilePlugin.js:89:43][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m {
+  details: "resolve 'tailwindcss' in 'C:\\Users\\USER\\Videos\\Beba-App'\n" +
+    '  Parsed request is a module\n' +
+    '  using description file: C:\\Users\\USER\\package.json (relative path: ./Videos/Beba-App)\n' +
+    '    resolve as module\n' +
+    "      C:\\Users\\USER\\Videos\\Beba-App\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\Users\\USER\\Videos\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\package.json (relative path: ./node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    "      C:\\Users\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\package.json (relative path: ./dist/bin/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/dist/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist"
+}
+Error: Can't resolve 'tailwindcss' in 'C:\Users\USER\Videos\Beba-App'
+    [2m[at finishWithoutResolve (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:586:18)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:678:14][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:27:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\DescriptionFilePlugin.js:89:43][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m
+    [2m[at eval (eval at create (C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\tapable@2.3.0\node_modules\tapable\lib\HookCodeFactory.js:31:10), <anonymous>:15:1)][0m
+    [2m[at C:\Users\USER\Videos\Beba-App\beba-app-frontend\node_modules\.pnpm\enhanced-resolve@5.19.0\node_modules\enhanced-resolve\lib\Resolver.js:739:5][0m {
+  details: "resolve 'tailwindcss' in 'C:\\Users\\USER\\Videos\\Beba-App'\n" +
+    '  Parsed request is a module\n' +
+    '  using description file: C:\\Users\\USER\\package.json (relative path: ./Videos/Beba-App)\n' +
+    '    resolve as module\n' +
+    "      C:\\Users\\USER\\Videos\\Beba-App\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\Users\\USER\\Videos\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\package.json (relative path: ./node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\node_modules\\tailwindcss doesn't exist\n" +
+    "      C:\\Users\\node_modules doesn't exist or is not a directory\n" +
+    "      C:\\node_modules doesn't exist or is not a directory\n" +
+    '      looking for modules in C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\n' +
+    '        single file module\n' +
+    '          using description file: C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\package.json (relative path: ./dist/bin/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/dist/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules/next/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c/node_modules;C:/Users/USER/Videos/Beba-App/beba-app-frontend/node_modules/.pnpm/node_modules/tailwindcss)\n' +
+    '            no extension\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist\n" +
+    '            .css\n' +
+    "              C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss.css doesn't exist\n" +
+    "        C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\bin\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\dist\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules\\next\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\next@16.2.0_@babel+core@7.2_986bb549a4772abf4ec7370f29926c9c\\node_modules;C:\\Users\\USER\\Videos\\Beba-App\\beba-app-frontend\\node_modules\\.pnpm\\node_modules\\tailwindcss doesn't exist"
+}
+
+
+#
+# Fatal error in , line 0
+
+
+
+
+
+
+<--- Last few GCs --->
+<--- Last few GCs --->
+
+
+
+#
+#
+
+#
+
+
+
+
+
+# Fatal process out of memory: Zone
+[51080:0000021D28142BA0]     3871 ms: Scavenge 6.0 (7.2) -> 6.0 (9.9) MB, 2.67 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[54912:000001C7BA872510]     8686 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 2.17 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+# Fatal error in , line 0
+# Fatal error in , line 0
+# Fatal error in , line 0
+#
+
+#
+<--- Last few GCs --->
+#
+#
+[51080:0000021D28142BA0]     6557 ms: Scavenge 8.3 (10.5) -> 7.4 (11.0) MB, 3.11 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[54912:000001C7BA872510]    10138 ms: Scavenge 9.0 (11.2) -> 8.1 (16.0) MB, 22.68 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+# Fatal process out of memory: Zone
+# Fatal process out of memory: Zone
+[54912:000001C7BA872510]    17951 ms: Scavenge 12.4 (16.9) -> 9.9 (11.4) MB, 6.70 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+# Fatal process out of memory: Zone
+
+# Fatal process OOM in Re-embedded builtins: set permissions
+#
+[51080:0000021D28142BA0]     9299 ms: Scavenge 9.8 (12.0) -> 8.9 (16.7) MB, 3.51 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+# Fatal process OOM in Re-embedded builtins: set permissions
+#
+#
+#
+
+#
+#
+#
+#
+# Fatal error in , line 0
+
+#
+#
+
+#
+
+
+#FailureMessage Object: 000000AB6F5F5AB0
+#
+#
+
+
+#
+----- Native stack trace -----
+#FailureMessage Object: 000000B5FB9F5D10
+#FailureMessage Object: 0000009B057F57A0
+<--- JS stacktrace --->
+<--- JS stacktrace --->
+#FailureMessage Object: 00000076995F57D0
+
+----- Native stack trace -----
+----- Native stack trace -----
+
+
+----- Native stack trace -----
+ 1: 00007FF6310EBFDB 
+
+
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+FATAL ERROR: Zone Allocation failed - process out of memory
+
+ 2: 00007FF630FDD7AF 
+ 1: 00007FF6310EBFDB 
+<--- JS stacktrace --->
+ 1: 00007FF6310EBFDB 
+----- Native stack trace -----
+----- Native stack trace -----
+ 1: 00007FF6310EBFDB 
+ 3: 00007FF631EF47D2 
+ 2: 00007FF630FDD7AF 
+
+ 2: 00007FF630FDD7AF 
+
+
+ 2: 00007FF630FDD7AF 
+ 4: 00007FF631ABDCF3 
+ 3: 00007FF631EF47D2 
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+ 1: 00007FF6310EBFDB 
+ 5: 00007FF6315A0724 
+ 4: 00007FF631ABDCF3 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 3: 00007FF631EF47D2 
+ 2: 00007FF63105AF98 
+ 6: 00007FF6313C7480 
+ 5: 00007FF6315A0724 
+
+ 5: 00007FF6315A0724 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDCF3 
+ 7: 00007FF632019582 
+ 6: 00007FF6320126CE 
+ 1: 00007FF6310EBFDB 
+ 6: 00007FF632032555 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 8: 00007FF63200C56E 
+ 7: 00007FF63200C452 
+ 2: 00007FF63105AF98 
+ 7: 00007FF632032AF9 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F35034 
+ 9: 00007FF631FB4A2F 
+ 8: 00007FF631FB4972 
+ 3: 00007FF631AD4851 
+ 8: 00007FF6320319EB 
+ 6: 00007FF63168F6EA 
+ 9: 00007FF6320316A0 
+10: 00007FF631FC0F01 
+ 9: 00007FF631FC0F01 
+ 4: 00007FF631ABDEE8 
+ 7: 00007FF63168F623 
+ 7: 00007FF631F8516A 
+ 8: 00007FF6320370F8 
+11: 00007FF631FBB38F 
+10: 00007FF631FBB38F 
+ 5: 00007FF63191F8D0 
+10: 00007FF632007597 
+ 8: 00007FF631699B05 
+ 9: 00007FF632038F62 
+12: 00007FF631FB631A 
+11: 00007FF631FB631A 
+ 6: 00007FF6318D76D3 
+11: 00007FF631FBC5E1 
+ 9: 00007FF6316AD4C8 
+10: 00007FF632035749 
+13: 00007FF631A2C501 
+12: 00007FF631A2C501 
+ 7: 00007FF631928F80 
+12: 00007FF6320071A4 
+10: 00007FF6316AD9A2 
+11: 00007FF63203E498 
+14: 00007FF6319F9421 
+13: 00007FF6319F9421 
+ 8: 00007FF63191C5F0 
+13: 00007FF632007916 
+11: 00007FF6316A2A6A 
+12: 00007FF632037549 
+15: 00007FF630FE028D 
+14: 00007FF630FE028D 
+ 9: 00007FF631931C5A 
+14: 00007FF632007622 
+12: 00007FF6316A1AE3 
+13: 00007FF6320355C3 
+16: 00007FF63113FD1D 
+15: 00007FF63113FD1D 
+10: 00007FF6319324D7 
+15: 00007FF631FBE3BD 
+13: 00007FF6316A32F4 
+14: 00007FF6321E4F7F 
+17: 00007FF632317DE0 
+16: 00007FF632317DE0 
+11: 00007FF63193B10E 
+16: 00007FF631FBA875 
+14: 00007FF631694229 
+15: 00007FF6320C23DD 
+18: 00007FFD118853E0 
+17: 00007FFD118853E0 
+12: 00007FF63194F394 
+17: 00007FF631FB631A 
+15: 00007FF6316A85AF 
+16: 00007FF6320C2325 
+19: 00007FFD1250485B 
+18: 00007FFD1250485B 
+13: 00007FF6316EE337 
+18: 00007FF631A2C501 
+16: 00007FF63168DCD2 
+17: 00007FF63200769F 
+14: 00007FF6316EE2BE 
+19: 00007FF6319F9421 
+17: 00007FF631A2A8AB 
+18: 00007FF631FBDAA4 
+15: 00007FF631708F7D 
+20: 00007FF630FE028D 
+18: 00007FF631A2FEDB 
+19: 00007FF631FB579F 
+16: 00007FF63170BE1A 
+21: 00007FF63113FD1D 
+19: 00007FF631AB7E8C 
+20: 00007FF631FB62F5 
+17: 00007FF631707D69 
+22: 00007FF632317DE0 
+20: 00007FF631AB7994 
+21: 00007FF631A2C501 
+18: 00007FF631708A44 
+23: 00007FFD118853E0 
+21: 00007FF63106868C 
+22: 00007FF6319F9421 
+19: 00007FF63170CA0F 
+24: 00007FFD1250485B 
+22: 00007FF631068C04 
+23: 00007FF630FE028D 
+20: 00007FF631715582 
+23: 00007FF631A8AC7E 
+24: 00007FF63113FD1D 
+21: 00007FF6316EAE50 
+24: 00007FF631A8A87A 
+25: 00007FF632317DE0 
+22: 00007FF6316FF9E4 
+25: 00007FF631A8AB3F 
+26: 00007FFD118853E0 
+23: 00007FF6318A82D3 
+26: 00007FF631A8A9B0 
+27: 00007FFD1250485B 
+27: 00007FF631B7F68E 
+24: 00007FF6318A6869 
+25: 00007FF631B7F78E 
+28: 00007FF5B1CFAAB3 
+26: 00007FF631C2FD56 
+27: 00007FF631AF0D30 
+28: 00007FF631AF0D30 
+29: 00007FF631AF0D30 
+30: 00007FF631AF0D30 
+31: 00007FF631AF0D30 
+32: 00007FF631AEF0F0 
+33: 00007FF631AEECEB 
+34: 00007FF63199FBF8 
+35: 00007FF63199F4F3 
+36: 00007FF631AB3A1B 
+37: 00007FF63107A81A 
+38: 00007FF630FCEC6E 
+39: 00007FF630FD2AF3 
+40: 00007FF63111E637 
+41: 00007FF630F46DCE 
+42: 00007FF630F42018 
+43: 00007FF63113FD1D 
+44: 00007FF632317DE0 
+45: 00007FFD118853E0 BaseThreadInitThunk+16
+46: 00007FFD1250485B RtlUserThreadStart+43
+# Fatal process out of memory: Zone
+#
+ 1: 00007FF6310EBFDB 
+#
+#
+#FailureMessage Object: 000000AF197F5ED0
+ 2: 00007FF63105AF98 
+----- Native stack trace -----
+ 3: 00007FF631AD4851 
+
+ 4: 00007FF631ABDEE8 
+
+
+ 1: 00007FF6310EBFDB 
+ 5: 00007FF63191F8D0 
+
+
+ 2: 00007FF630FDD7AF 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+#
+ 3: 00007FF631EF47D2 
+#
+
+# Fatal error in , line 0
+# Fatal error in , line 0
+ 4: 00007FF631ABDCF3 
+ 8: 00007FF63191C5F0 
+
+ 5: 00007FF6315A0724 
+ 9: 00007FF631931C5A 
+#
+# Fatal process out of memory: Zone
+ 6: 00007FF6320E323D 
+10: 00007FF6319324D7 
+# Fatal error in , line 0
+#
+ 7: 00007FF6320E813E 
+#
+# Fatal process out of memory: Zone
+ 8: 00007FF6320E7738 
+11: 00007FF631940DCF 
+12: 00007FF6316014B5 
+#
+#
+ 9: 00007FF632007597 
+13: 00007FF631B7F78E 
+#
+#FailureMessage Object: 00000015C19F5A10
+10: 00007FF631FBC5E1 
+14: 00007FF631B7FEE3 
+#
+----- Native stack trace -----
+11: 00007FF6320071A4 
+15: 00007FF5B1D0FB77 
+#FailureMessage Object: 000000BC9AFF6160
+
+12: 00007FF632007916 
+----- Native stack trace -----
+ 1: 00007FF6310EBFDB 
+13: 00007FF632007622 
+
+ 2: 00007FF630FDD7AF 
+14: 00007FF631FBE786 
+ 3: 00007FF631EF47D2 
+15: 00007FF631FBA1CA 
+ 4: 00007FF631ABDCF3 
+16: 00007FF631FB631A 
+ 5: 00007FF6315A0724 
+17: 00007FF631A2C501 
+ 6: 00007FF6313C7480 
+18: 00007FF6319F9421 
+ 7: 00007FF632019582 
+19: 00007FF630FE028D 
+ 8: 00007FF63200C56E 
+20: 00007FF63113FD1D 
+ 9: 00007FF631FB4A2F 
+21: 00007FF632317DE0 
+10: 00007FF631FC0F01 
+22: 00007FFD118853E0 
+11: 00007FF631FBB38F 
+23: 00007FFD1250485B 
+12: 00007FF631FB631A 
+13: 00007FF631A2C501 
+14: 00007FF6319F9421 
+15: 00007FF630FE028D 
+16: 00007FF63113FD1D 
+17: 00007FF632317DE0 
+18: 00007FFD118853E0 
+19: 00007FFD1250485B 
+
+<--- Last few GCs --->
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+# Fatal process out of memory: Zone
+#
+#
+#
+
+#FailureMessage Object: 000000B58E3F6200
+
+----- Native stack trace -----
+#
+
+<--- Last few GCs --->
+# Fatal process OOM in Re-embedded builtins: set permissions
+ 1: 00007FF6310EBFDB 
+
+#
+ 2: 00007FF630FDD7AF 
+[29476:00000214032D16E0]     3326 ms: Scavenge 6.1 (7.2) -> 6.0 (10.2) MB, 443.30 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+ 3: 00007FF631EF47D2 
+
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F341B7 
+ 7: 00007FF631F34BE9 
+ 8: 00007FF6321DDD02 
+ 9: 00007FF63208068E 
+10: 00007FF63200769F 
+11: 00007FF631FBD0A6 
+12: 00007FF631FBA299 
+13: 00007FF631FB631A 
+14: 00007FF631A2C501 
+15: 00007FF6319F9421 
+16: 00007FF630FE028D 
+17: 00007FF63113FD1D 
+18: 00007FF632317DE0 
+19: 00007FFD118853E0 
+20: 00007FFD1250485B 
+
+#
+# Fatal process OOM in Re-embedded builtins: set permissions
+#
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+
+ 1: 00007FF6310EBFDB node::SetCppgcReference+19883
+<--- Last few GCs --->
+ 2: 00007FF63105AF98 v8::base::CPU::num_virtual_address_bits+93448
+
+ 3: 00007FF631AD4851 v8::Isolate::ReportExternalAllocationLimitReached+65
+ 4: 00007FF631ABDEE8 v8::Function::Experimental_IsNopFunction+1336
+ 5: 00007FF6315A0724 v8::SnapshotCreator::GetIsolate+53284
+ 6: 00007FF631AA0086 v8::SharedValueConveyor::SharedValueConveyor+503318
+ 7: 00007FF631A9CF0B v8::SharedValueConveyor::SharedValueConveyor+490651
+ 8: 00007FF631687A47 v8::base::Thread::StartSynchronously+110759
+ 9: 00007FF6316875E3 v8::base::Thread::StartSynchronously+109635
+10: 00007FF631683786 v8::base::Thread::StartSynchronously+93670
+11: 00007FF631687A89 v8::base::Thread::StartSynchronously+110825
+12: 00007FF6316889E7 v8::base::Thread::StartSynchronously+114759
+13: 00007FF63167D9C0 v8::base::Thread::StartSynchronously+69664
+14: 00007FF631687CC7 v8::base::Thread::StartSynchronously+111399
+15: 00007FF6316889E7 v8::base::Thread::StartSynchronously+114759
+16: 00007FF63167D9C0 v8::base::Thread::StartSynchronously+69664
+17: 00007FF631687CC7 v8::base::Thread::StartSynchronously+111399
+18: 00007FF6316889E7 v8::base::Thread::StartSynchronously+114759
+19: 00007FF63168280D v8::base::Thread::StartSynchronously+89709
+20: 00007FF6316830E4 v8::base::Thread::StartSynchronously+91972
+21: 00007FF6316853F3 v8::base::Thread::StartSynchronously+100947
+22: 00007FF631684B87 v8::base::Thread::StartSynchronously+98791
+23: 00007FF63168610A v8::base::Thread::StartSynchronously+104298
+24: 00007FF631684386 v8::base::Thread::StartSynchronously+96742
+25: 00007FF63167CA60 v8::base::Thread::StartSynchronously+65728
+26: 00007FF6316854C4 v8::base::Thread::StartSynchronously+101156
+27: 00007FF63167C515 v8::base::Thread::StartSynchronously+64373
+28: 00007FF6316860FA v8::base::Thread::StartSynchronously+104282
+29: 00007FF631684386 v8::base::Thread::StartSynchronously+96742
+30: 00007FF63167CA60 v8::base::Thread::StartSynchronously+65728
+31: 00007FF6316854C4 v8::base::Thread::StartSynchronously+101156
+32: 00007FF631684F45 v8::base::Thread::StartSynchronously+99749
+33: 00007FF631684B87 v8::base::Thread::StartSynchronously+98791
+34: 00007FF63168610A v8::base::Thread::StartSynchronously+104298
+35: 00007FF631684386 v8::base::Thread::StartSynchronously+96742
+36: 00007FF63167CA60 v8::base::Thread::StartSynchronously+65728
+37: 00007FF63167F9A3 v8::base::Thread::StartSynchronously+77827
+38: 00007FF63168735A v8::base::Thread::StartSynchronously+108986
+39: 00007FF631687B2A v8::base::Thread::StartSynchronously+110986
+40: 00007FF6316889E7 v8::base::Thread::StartSynchronously+114759
+41: 00007FF63168878D v8::base::Thread::StartSynchronously+114157
+42: 00007FF63168A7C1 v8::base::Thread::StartSynchronously+122401
+43: 00007FF6316AFA94 v8::base::Thread::StartSynchronously+274676
+44: 00007FF6316A327F v8::base::Thread::StartSynchronously+223455
+45: 00007FF6316A37F8 v8::base::Thread::StartSynchronously+224856
+46: 00007FF6316A39A3 v8::base::Thread::StartSynchronously+225283
+47: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+48: 00007FF6316A1AE3 v8::base::Thread::StartSynchronously+217411
+49: 00007FF6316A32F4 v8::base::Thread::StartSynchronously+223572
+50: 00007FF631694229 v8::base::Thread::StartSynchronously+161929
+51: 00007FF6316A85AF v8::base::Thread::StartSynchronously+244751
+52: 00007FF63168DCD2 v8::base::Thread::StartSynchronously+135986
+53: 00007FF631A2A8AB v8::SharedValueConveyor::SharedValueConveyor+22075
+54: 00007FF631A2FEDB v8::SharedValueConveyor::SharedValueConveyor+44139
+55: 00007FF631AB7E8C v8::ScriptCompiler::CompileFunctionInternal+1260
+56: 00007FF631AB7994 v8::ScriptCompiler::CompileFunction+84
+57: 00007FF63106868C node::OnFatalError+54972
+58: 00007FF631068C04 node::OnFatalError+56372
+59: 00007FF631A8AC7E v8::SharedValueConveyor::SharedValueConveyor+416270
+60: 00007FF631A8A87A v8::SharedValueConveyor::SharedValueConveyor+415242
+61: 00007FF631A8AB3F v8::SharedValueConveyor::SharedValueConveyor+415951
+62: 00007FF631A8A9B0 v8::SharedValueConveyor::SharedValueConveyor+415552
+63: 00007FF631B7F68E v8::PropertyDescriptor::writable+650622
+ 1: 00007FF6310EBFDB 
+64: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+65: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 2: 00007FF63105AF98 
+66: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 3: 00007FF631AD4851 
+67: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 4: 00007FF631ABDEE8 
+68: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+69: 00007FF5B1CD700D 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+10: 00007FF6319324D7 
+11: 00007FF63193B10E 
+12: 00007FF63194F394 
+13: 00007FF6316EE337 
+14: 00007FF6316EE2BE 
+15: 00007FF631708F7D 
+16: 00007FF63170BE1A 
+17: 00007FF631707D69 
+
+18: 00007FF631708A44 
+<--- JS stacktrace --->
+19: 00007FF63170CA0F 
+
+20: 00007FF631715582 
+
+21: 00007FF6316EAE50 
+#
+22: 00007FF6316FF9E4 
+# Fatal process OOM in AlignedAlloc
+23: 00007FF6318A82D3 
+#
+24: 00007FF6318A6869 
+
+25: 00007FF631B7F78E 
+26: 00007FF631C2FD56 
+27: 00007FF631AF0D30 
+28: 00007FF631AF0D30 
+29: 00007FF631AF0D30 
+30: 00007FF631AF0D30 
+31: 00007FF631AF0D30 
+32: 00007FF631AEF0F0 
+33: 00007FF631AEECEB 
+34: 00007FF63199FBF8 
+35: 00007FF63199F4F3 
+36: 00007FF631AB3A1B 
+37: 00007FF63107A81A 
+38: 00007FF630FCEC6E 
+39: 00007FF630FD2AF3 
+40: 00007FF63111E637 
+41: 00007FF630F46DCE 
+42: 00007FF630F42018 
+43: 00007FF63113FD1D 
+44: 00007FF632317DE0 
+45: 00007FFD118853E0 BaseThreadInitThunk+16
+46: 00007FFD1250485B RtlUserThreadStart+43
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+
+#
+
+
+
+#
+<--- Last few GCs --->
+# Fatal error in , line 0
+
+# Fatal process out of memory: Zone
+
+#
+<--- JS stacktrace --->
+
+
+
+<--- Last few GCs --->
+
+<--- Last few GCs --->
+
+
+#
+
+
+
+<--- Last few GCs --->
+<--- Last few GCs --->
+
+
+#
+#FailureMessage Object: 000000091F9F6580
+
+
+#
+
+[34908:000001A7000A7CC0]      285 ms: Scavenge 3.2 (3.2) -> 2.7 (4.2) MB, 1.97 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+#
+#
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+# Fatal error in , line 0
+[40832:0000020CADF62BB0]     1164 ms: Scavenge 6.1 (7.2) -> 6.1 (10.2) MB, 2.18 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+----- Native stack trace -----
+
+
+[56808:000001AD70762040]     7608 ms: Scavenge 9.5 (11.7) -> 8.3 (15.9) MB, 2.95 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+# Fatal error in , line 0
+# Fatal error in , line 0
+
+
+[56808:000001AD70762040]    10199 ms: Scavenge 12.4 (16.6) -> 10.0 (17.9) MB, 39.21 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+<--- JS stacktrace --->
+
+# Fatal process out of memory: Zone
+
+# Fatal process out of memory: Zone
+# Fatal process out of memory: Zone
+ 1: 00007FF6310EBFDB 
+[56808:000001AD70762040]    17323 ms: Scavenge 13.6 (17.9) -> 11.6 (13.4) MB, 171.71 / 0.01 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+ 1: 00007FF6310EBFDB 
+
+#
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+#
+#
+ 2: 00007FF63105AF98 
+
+<--- JS stacktrace --->
+ 2: 00007FF630FDD7AF 
+<--- JS stacktrace --->
+
+#
+
+#
+ 3: 00007FF631AD4851 
+----- Native stack trace -----
+ 3: 00007FF631EF47D2 
+
+#
+FATAL ERROR: NewSpace::EnsureCurrentCapacity Allocation failed - JavaScript heap out of memory
+#
+#
+#
+ 4: 00007FF631ABDEE8 
+FATAL ERROR: Zone Allocation failed - process out of memory
+
+ 4: 00007FF631ABDCF3 
+<--- JS stacktrace --->
+
+#FailureMessage Object: 000000C0D2FF5DE0
+----- Native stack trace -----
+#FailureMessage Object: 000000FD7A3F55C0
+
+ 5: 00007FF63191F8D0 
+----- Native stack trace -----
+ 1: 00007FF6310EBFDB 
+ 5: 00007FF6315A0724 
+----- Native stack trace -----
+#FailureMessage Object: 0000006F745F5E30
+----- Native stack trace -----
+----- Native stack trace -----
+ 6: 00007FF6318D76D3 
+ 6: 00007FF632139FD8 
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+
+ 2: 00007FF63105AF98 
+
+ 1: 00007FF6310EBFDB 
+
+
+ 7: 00007FF631928F80 
+ 1: 00007FF6310EBFDB 
+ 3: 00007FF631AD4851 
+ 7: 00007FF631F8510D 
+----- Native stack trace -----
+ 2: 00007FF63105AF98 
+ 1: 00007FF6310EBFDB 
+ 1: 00007FF6310EBFDB 
+ 8: 00007FF63191C5F0 
+ 2: 00007FF63105AF98 
+ 4: 00007FF631ABDEE8 
+ 8: 00007FF6320EE38E 
+
+ 3: 00007FF631AD4851 
+ 2: 00007FF630FDD7AF 
+ 2: 00007FF630FDD7AF 
+ 9: 00007FF63191CA7C 
+ 3: 00007FF631AD4851 
+ 5: 00007FF63191F8D0 
+ 4: 00007FF631ABDEE8 
+
+ 3: 00007FF631EF47D2 
+ 3: 00007FF631EF47D2 
+10: 00007FF63190DFC1 
+ 4: 00007FF631ABDEE8 
+ 9: 00007FF6320EEF5D 
+ 6: 00007FF6318D76D3 
+10: 00007FF6320EF608 
+
+ 5: 00007FF63191F8D0 
+ 4: 00007FF631ABDCF3 
+ 6: 00007FF6318F8DD0 
+ 5: 00007FF6315A0724 
+11: 00007FF63190EDA7 
+ 7: 00007FF631928F80 
+11: 00007FF6320EF64E 
+#
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 5: 00007FF6315A0724 
+12: 00007FF63194D733 
+ 6: 00007FF6316A4DB8 
+ 8: 00007FF63191C5F0 
+12: 00007FF631FBE9AF 
+ 7: 00007FF63192650A 
+# Fatal error in , line 0
+ 6: 00007FF632032555 
+ 6: 00007FF632030CED 
+13: 00007FF631A8E9FB 
+ 7: 00007FF6316A5240 
+ 9: 00007FF63191CA7C 
+13: 00007FF631FBA0D2 
+# Fatal process out of memory: Zone
+ 8: 00007FF631928FCC 
+ 7: 00007FF632032AF9 
+10: 00007FF63190DFC1 
+14: 00007FF631A8E239 
+ 8: 00007FF6316999A0 
+ 7: 00007FF632030E0E 
+14: 00007FF631FB631A 
+#
+ 9: 00007FF63191C5F0 
+ 8: 00007FF6320319EB 
+ 8: 00007FF631FBE1B5 
+15: 00007FF631A2A4B2 
+ 9: 00007FF63169EEEE 
+11: 00007FF63190EDA7 
+15: 00007FF631A2C501 
+#
+10: 00007FF631931C5A 
+ 9: 00007FF6320316A0 
+ 9: 00007FF631FBA875 
+16: 00007FF631A298CE 
+10: 00007FF63169F317 
+12: 00007FF63194D733 
+16: 00007FF6319F9421 
+#
+13: 00007FF631A8E9FB 
+17: 00007FF630FE028D 
+#FailureMessage Object: 00000064891F5E50
+17: 00007FF631A98A78 
+11: 00007FF6316AB6E4 
+11: 00007FF6319324D7 
+10: 00007FF632007597 
+10: 00007FF631FB631A 
+12: 00007FF63193B10E 
+11: 00007FF631FBC5E1 
+11: 00007FF631A2C501 
+12: 00007FF6319F9421 
+12: 00007FF63169B228 
+18: 00007FF63113FD1D 
+----- Native stack trace -----
+14: 00007FF631A8E239 
+13: 00007FF63194D0E1 
+12: 00007FF6320071A4 
+18: 00007FF631974F04 
+19: 00007FF631600D67 
+13: 00007FF6316AA64A 
+15: 00007FF631A2A4B2 
+
+14: 00007FF631AA5B48 
+19: 00007FF632317DE0 
+13: 00007FF632007916 
+13: 00007FF630FE028D 
+20: 00007FF6316018D9 
+14: 00007FF6316A3BD2 
+16: 00007FF631A298CE 
+20: 00007FFD118853E0 
+ 1: 00007FF6310EBFDB 
+15: 00007FF631AA59D2 
+14: 00007FF632007622 
+14: 00007FF63113FD1D 
+21: 00007FF631B7F78E 
+15: 00007FF6316AA66B 
+17: 00007FF631A98A78 
+16: 00007FF63169B228 
+21: 00007FFD1250485B 
+16: 00007FF631853BA1 
+15: 00007FF631FBE3BD 
+15: 00007FF632317DE0 
+22: 00007FF631C42FF8 
+18: 00007FF631974F04 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+17: 00007FF631854920 
+16: 00007FF631FBA875 
+18: 00007FF63184CE9F 
+17: 00007FF631FB631A 
+17: 00007FF6316AA64A 
+19: 00007FF631600D67 
+16: 00007FFD118853E0 
+23: 00007FF631AF0D30 
+17: 00007FFD1250485B 
+20: 00007FF6316018D9 
+18: 00007FF6316A3BA1 
+ 5: 00007FF6315A0724 
+19: 00007FF63184D93E 
+18: 00007FF631A2C501 
+24: 00007FF631AF0D30 
+25: 00007FF631AF0D30 
+19: 00007FF6316AA66B 
+21: 00007FF631B7F78E 
+ 6: 00007FF631FE9753 
+20: 00007FF631A2CC3E 
+19: 00007FF6319F9421 
+26: 00007FF631AF0D30 
+20: 00007FF63169B228 
+22: 00007FF631C42FF8 
+ 7: 00007FF631FF749D 
+21: 00007FF631A25342 
+20: 00007FF630FE028D 
+27: 00007FF631AF0D30 
+21: 00007FF6316AA64A 
+23: 00007FF631AF0D30 
+ 8: 00007FF631FBDC8C 
+22: 00007FF631A25F32 
+21: 00007FF63113FD1D 
+28: 00007FF631AF0D30 
+22: 00007FF6316A3BA1 
+24: 00007FF631AF0D30 
+ 9: 00007FF631FC0B7B 
+23: 00007FF631A2ABBF 
+22: 00007FF632317DE0 
+29: 00007FF631AF0D30 
+23: 00007FF6316AA66B 
+25: 00007FF631AF0D30 
+10: 00007FF631FBB38F 
+30: 00007FF631AEF0F0 
+23: 00007FFD118853E0 
+24: 00007FF6316A2A6A 
+24: 00007FF631A2FEDB 
+26: 00007FF631AF0D30 
+24: 00007FFD1250485B 
+25: 00007FF6316995BE 
+27: 00007FF631AF0D30 
+31: 00007FF631AEECEB 
+25: 00007FF631AB7E8C 
+11: 00007FF631FB631A 
+12: 00007FF631A2C501 
+26: 00007FF631AB7994 
+32: 00007FF63199FBF8 
+26: 00007FF631699C02 
+28: 00007FF631AF0D30 
+13: 00007FF6319F9421 
+27: 00007FF63107CF32 
+33: 00007FF63199F4F3 
+27: 00007FF6316988ED 
+29: 00007FF631AF0D30 
+14: 00007FF630FE028D 
+28: 00007FF63107C797 
+34: 00007FF631AB3A1B 
+28: 00007FF6316A4D31 
+30: 00007FF631AEF0F0 
+15: 00007FF63113FD1D 
+29: 00007FF63107A9B1 
+35: 00007FF63107A81A 
+29: 00007FF6316A5240 
+31: 00007FF631AEECEB 
+16: 00007FF632317DE0 
+30: 00007FF631A8AC7E 
+36: 00007FF630FD2A9E 
+30: 00007FF6316999A0 
+32: 00007FF63199FBF8 
+33: 00007FF63199F4F3 
+17: 00007FFD118853E0 
+31: 00007FF631A8A87A 
+37: 00007FF63111E637 
+31: 00007FF63169EEEE 
+18: 00007FFD1250485B 
+32: 00007FF631A8AB3F 
+38: 00007FF630F46DCE 
+32: 00007FF63169F317 
+34: 00007FF631AB3A1B 
+33: 00007FF631A8A9B0 
+39: 00007FF630F42018 
+33: 00007FF6316AB6E4 
+35: 00007FF63107A81A 
+34: 00007FF631B7F68E 
+40: 00007FF63113FD1D 
+34: 00007FF6316A2A6A 
+36: 00007FF630FD2A9E 
+35: 00007FF5D1CC5D26 
+41: 00007FF632317DE0 
+35: 00007FF6316A1AE3 
+37: 00007FF63111E637 
+42: 00007FFD118853E0 
+36: 00007FF6316A32F4 
+38: 00007FF630F46DCE 
+43: 00007FFD1250485B 
+37: 00007FF63169CE7E 
+39: 00007FF630F42018 
+38: 00007FF63169C455 
+40: 00007FF63113FD1D 
+39: 00007FF63169B845 
+41: 00007FF632317DE0 
+40: 00007FF6316A2A6A 
+42: 00007FFD118853E0 
+43: 00007FFD1250485B 
+41: 00007FF6316995BE 
+42: 00007FF631693916 
+43: 00007FF6316930C1 
+44: 00007FF6316A20E8 
+45: 00007FF63168DBA3 
+46: 00007FF631A292CD 
+47: 00007FF631A28C54 
+48: 00007FF63160B08E 
+49: 00007FF631B7F78E 
+50: 00007FF631AF2138 
+51: 00007FF5B1CD5D37 
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000BCC45F5B80
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000988BFF57A0
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6313C7480 
+ 7: 00007FF632019582 
+ 8: 00007FF63200C56E 
+ 9: 00007FF631FB4A2F 
+10: 00007FF631FC0F01 
+11: 00007FF631FBB38F 
+12: 00007FF631FB631A 
+13: 00007FF631A2C501 
+14: 00007FF6319F9421 
+15: 00007FF630FE028D 
+16: 00007FF63113FD1D 
+17: 00007FF632317DE0 
+18: 00007FFD118853E0 
+19: 00007FFD1250485B 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6313C7480 
+ 7: 00007FF632019582 
+ 8: 00007FF63200C56E 
+ 9: 00007FF631FB4A2F 
+10: 00007FF631FC0F01 
+11: 00007FF631FBB38F 
+12: 00007FF631FB631A 
+13: 00007FF631A2C501 
+14: 00007FF6319F9421 
+15: 00007FF630FE028D 
+16: 00007FF63113FD1D 
+17: 00007FF632317DE0 
+18: 00007FFD118853E0 BaseThreadInitThunk+16
+19: 00007FFD1250485B 
+
+<--- Last few GCs --->
+
+[58036:0000020C3FBA2BC0]     3080 ms: Scavenge 6.1 (7.2) -> 5.3 (9.4) MB, 1.77 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[58036:0000020C3FBA2BC0]     3392 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 3.01 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[58036:0000020C3FBA2BC0]     4086 ms: Scavenge 9.0 (11.2) -> 8.1 (16.5) MB, 84.96 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631A9E41E 
+ 7: 00007FF631A9EBBA 
+ 8: 00007FF631A9F20D 
+ 9: 00007FF63169117F 
+10: 00007FF6316979EB 
+11: 00007FF6316AD38E 
+12: 00007FF6316AD9A2 
+13: 00007FF6316A2A6A 
+14: 00007FF6316A1AE3 
+15: 00007FF6316A32F4 
+16: 00007FF631694229 
+17: 00007FF6316A85AF 
+18: 00007FF63168DCD2 
+19: 00007FF631A2A8AB 
+20: 00007FF631A2FEDB 
+21: 00007FF631AB7E8C 
+22: 00007FF631AB7994 
+23: 00007FF63106868C 
+24: 00007FF631068C04 
+25: 00007FF631A8AC7E 
+26: 00007FF631A8A87A 
+27: 00007FF631A8AB3F 
+28: 00007FF631A8A9B0 
+29: 00007FF631B7F68E 
+30: 00007FF631AF0D30 
+31: 00007FF5B1CF801F 
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000C0817F5660
+----- Native stack trace -----
+
+
+#
+
+
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+#
+#
+
+# Fatal process OOM in Re-embedded builtins: set permissions
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF632032555 
+ 7: 00007FF632032AF9 
+ 8: 00007FF6320319EB 
+ 9: 00007FF6320316A0 
+10: 00007FF632007597 
+11: 00007FF631FBC5E1 
+12: 00007FF6320071A4 
+13: 00007FF632007916 
+14: 00007FF632007622 
+15: 00007FF631FBE3BD 
+16: 00007FF631FBA875 
+17: 00007FF631FB631A 
+18: 00007FF631A2C501 
+19: 00007FF6319F9421 
+20: 00007FF630FE028D 
+21: 00007FF63113FD1D 
+22: 00007FF632317DE0 
+23: 00007FFD118853E0 
+24: 00007FFD1250485B RtlUserThreadStart+43
+
+<--- Last few GCs --->
+
+[52580:00000246706D2FA0]     2917 ms: Scavenge 8.3 (10.5) -> 7.3 (11.0) MB, 3.11 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[52580:00000246706D2FA0]     3833 ms: Scavenge 9.8 (12.0) -> 9.0 (17.0) MB, 2.61 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[52580:00000246706D2FA0]    11019 ms: Scavenge 13.1 (17.4) -> 10.5 (12.4) MB, 266.48 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+10: 00007FF6319324D7 
+11: 00007FF63193B412 
+12: 00007FF63194341A 
+13: 00007FF6315FDDE7 
+14: 00007FF6315FD83F 
+15: 00007FF6315FD3DE 
+16: 00007FF6315FE7C3 
+17: 00007FF631B7F78E 
+18: 00007FF631C404E6 
+19: 00007FF631AF0D30 
+20: 00007FF631AF0D30 
+21: 00007FF631AF0D30 
+22: 00007FF631AF0D30 
+23: 00007FF631AEF0F0 
+24: 00007FF631AEECEB 
+25: 00007FF63199FBF8 
+26: 00007FF63199F4F3 
+27: 00007FF631AB3A1B 
+28: 00007FF631122ED9 
+29: 00007FF631122C8E 
+30: 00007FF63109E69D 
+31: 00007FF63111FA15 
+32: 00007FF6310057EA 
+33: 00007FF63109F1BD 
+34: 00007FF63109DE90 
+35: 00007FF630E4D93C 
+36: 00007FF6322F6F5C 
+37: 00007FFD118853E0 BaseThreadInitThunk+16
+38: 00007FFD1250485B RtlUserThreadStart+43
+
+<--- Last few GCs --->
+
+
+
+
+#
+<--- JS stacktrace --->
+# Fatal error in , line 0
+
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+<--- Last few GCs --->
+
+[37320:00000276EF784570]     3098 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 5.88 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[37320:00000276EF784570]     3620 ms: Scavenge 9.0 (11.2) -> 8.1 (16.2) MB, 2.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[37320:00000276EF784570]    12902 ms: Scavenge 12.3 (16.6) -> 9.7 (11.1) MB, 429.42 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+10: 00007FF6319324D7 
+11: 00007FF63193B10E 
+12: 00007FF63194BA56 
+13: 00007FF631950628 
+14: 00007FF6316C77AA 
+15: 00007FF6315E5685 
+16: 00007FF631B7F78E 
+17: 00007FF631BC0DAD 
+18: 00007FF5B1CC9865 
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000A8A4DF5620
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF632032555 
+ 7: 00007FF632032AF9 
+ 8: 00007FF6320319EB 
+ 9: 00007FF6320316A0 
+10: 00007FF632007597 
+11: 00007FF631FBC5E1 
+12: 00007FF6320071A4 
+13: 00007FF632007916 
+14: 00007FF632007622 
+15: 00007FF631FBE3BD 
+16: 00007FF631FBA875 
+17: 00007FF631FB631A 
+18: 00007FF631A2C501 
+19: 00007FF6319F9421 
+20: 00007FF630FE028D 
+21: 00007FF63113FD1D 
+22: 00007FF632317DE0 
+23: 00007FFD118853E0 
+24: 00007FFD1250485B 
+
+<--- Last few GCs --->
+
+[36780:000002002B8545F0]     3195 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 2.56 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[36780:000002002B8545F0]     3906 ms: Scavenge 9.0 (11.2) -> 8.1 (16.2) MB, 2.92 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[36780:000002002B8545F0]    11364 ms: Scavenge 12.3 (16.6) -> 9.9 (12.1) MB, 283.13 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+
+
+#
+
+
+
+
+
+# Fatal error in , line 0
+
+<--- Last few GCs --->
+<--- Last few GCs --->
+<--- Last few GCs --->
+<--- Last few GCs --->
+#
+
+
+
+# Fatal process out of memory: Zone
+
+
+# Fatal error in , line 0
+[43616:00000293A0FFBDC0]     2375 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 3.50 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+#
+# Fatal process out of memory: Zone
+<--- Last few GCs --->
+[38612:0000020BBD252BD0]     3076 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 2.14 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+[40892:00000232BD6227B0]    10531 ms: Scavenge 8.3 (10.5) -> 7.4 (8.2) MB, 1.93 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[40892:00000232BD6227B0]    12108 ms: Scavenge 8.6 (8.7) -> 8.1 (10.7) MB, 3.97 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[43616:00000293A0FFBDC0]     3344 ms: Scavenge 9.0 (11.2) -> 8.1 (16.4) MB, 3.59 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+#
+[38612:0000020BBD252BD0]     5209 ms: Scavenge 9.0 (11.2) -> 8.1 (15.9) MB, 2.57 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+<--- JS stacktrace --->
+#
+[43616:00000293A0FFBDC0]    13115 ms: Scavenge 12.1 (16.7) -> 9.5 (11.2) MB, 4.66 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+[40892:00000232BD6227B0]    13823 ms: Scavenge 9.6 (11.0) -> 9.0 (10.0) MB, 1.62 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+#
+
+#
+
+
+#FailureMessage Object: 00000091B55F5880
+
+[38612:0000020BBD252BD0]    13138 ms: Scavenge 12.2 (16.7) -> 9.6 (11.4) MB, 2.77 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+<--- JS stacktrace --->
+#
+
+
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+----- Native stack trace -----
+#FailureMessage Object: 0000003104FF59C0
+<--- JS stacktrace --->
+<--- JS stacktrace --->
+
+
+
+
+<--- Last few GCs --->
+
+----- Native stack trace -----
+
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+
+ 1: 00007FF6310EBFDB 
+<--- JS stacktrace --->
+<--- Last few GCs --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 2: 00007FF63105AF98 
+
+
+ 1: 00007FF6310EBFDB 
+----- Native stack trace -----
+----- Native stack trace -----
+
+
+ 2: 00007FF630FDD7AF 
+
+ 3: 00007FF631AD4851 
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+
+ 4: 00007FF631ABDEE8 
+<--- JS stacktrace --->
+----- Native stack trace -----
+<--- JS stacktrace --->
+ 3: 00007FF631EF47D2 
+ 1: 00007FF6310EBFDB 
+ 5: 00007FF63191F8D0 
+
+
+ 4: 00007FF631ABDCF3 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 6: 00007FF6318D76D3 
+
+ 1: 00007FF6310EBFDB 
+
+ 5: 00007FF6315A0724 
+ 3: 00007FF631AD4851 
+ 7: 00007FF631928F80 
+#
+ 2: 00007FF63105AF98 
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+ 6: 00007FF632030A8D 
+ 2: 00007FF63105AF98 
+ 4: 00007FF631ABDEE8 
+ 8: 00007FF63191C5F0 
+# Fatal process OOM in AlignedAlloc
+ 3: 00007FF631AD4851 
+----- Native stack trace -----
+ 7: 00007FF632032F9A 
+ 3: 00007FF631AD4851 
+ 5: 00007FF63191F8D0 
+ 9: 00007FF631931C5A 
+#
+ 4: 00007FF631ABDEE8 
+
+ 8: 00007FF632031EA2 
+ 4: 00007FF631ABDEE8 
+ 6: 00007FF6318D76D3 
+10: 00007FF6319324D7 
+
+ 5: 00007FF63191F8D0 
+ 1: 00007FF6310EBFDB node::SetCppgcReference+19883
+ 9: 00007FF6320316C6 
+ 5: 00007FF63191F8D0 
+ 7: 00007FF631928F80 
+11: 00007FF63193B10E 
+ 6: 00007FF6318D76D3 
+ 2: 00007FF63105AF98 v8::base::CPU::num_virtual_address_bits+93448
+10: 00007FF632007597 
+ 6: 00007FF6318D76D3 
+ 8: 00007FF63191C5F0 
+12: 00007FF63194F394 
+ 7: 00007FF631928F80 
+ 3: 00007FF631AD4851 v8::Isolate::ReportExternalAllocationLimitReached+65
+11: 00007FF631FBC5E1 
+ 7: 00007FF631928F80 
+ 9: 00007FF631931C5A 
+13: 00007FF6316EE337 
+ 8: 00007FF63191C5F0 
+ 4: 00007FF631ABDEE8 v8::Function::Experimental_IsNopFunction+1336
+12: 00007FF6320071A4 
+ 8: 00007FF63191C5F0 
+10: 00007FF6319324D7 
+14: 00007FF6316EE2BE 
+ 9: 00007FF631931C5A 
+ 5: 00007FF63191F8D0 v8::Platform::SystemClockTimeMillis+659328
+13: 00007FF632007916 
+ 9: 00007FF631931C5A 
+11: 00007FF631940DCF 
+15: 00007FF631708F7D 
+10: 00007FF6319324D7 
+ 6: 00007FF6318D76D3 v8::Platform::SystemClockTimeMillis+363907
+14: 00007FF632007622 
+10: 00007FF6319324D7 
+12: 00007FF6316014B5 
+16: 00007FF63170BE1A 
+11: 00007FF631940DCF 
+ 7: 00007FF631928F80 v8::Platform::SystemClockTimeMillis+697904
+15: 00007FF631FBE786 
+11: 00007FF63193B10E 
+13: 00007FF631B7F78E 
+17: 00007FF631707D69 
+12: 00007FF6316014B5 
+ 8: 00007FF63191C5F0 v8::Platform::SystemClockTimeMillis+646304
+16: 00007FF631FBA1CA 
+12: 00007FF63194F394 
+14: 00007FF631B80007 
+18: 00007FF631708A44 
+13: 00007FF631B7F78E 
+ 9: 00007FF631931C5A v8::Platform::SystemClockTimeMillis+733962
+17: 00007FF631FB631A 
+13: 00007FF6316EE337 
+15: 00007FF5B1D0FB85 
+19: 00007FF63170CA0F 
+14: 00007FF631B80007 
+20: 00007FF631715582 
+18: 00007FF631A2C501 
+14: 00007FF6316EE2BE 
+10: 00007FF6319324D7 v8::Platform::SystemClockTimeMillis+736135
+15: 00007FF5B1D0FB85 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+19: 00007FF6319F9421 
+15: 00007FF631708F7D 
+21: 00007FF6316EAE50 
+11: 00007FF63193B10E v8::Platform::SystemClockTimeMillis+772030
+12: 00007FF63194F394 v8::Platform::SystemClockTimeMillis+854596
+20: 00007FF630FE028D 
+16: 00007FF63170BE1A 
+22: 00007FF6316FF9E4 
+ 3: 00007FF631AD4851 
+13: 00007FF6316EE337 v8::base::Thread::StartSynchronously+530839
+21: 00007FF63113FD1D 
+17: 00007FF631707D69 
+23: 00007FF6318A82D3 
+ 4: 00007FF631ABDEE8 
+14: 00007FF6316EE2BE v8::base::Thread::StartSynchronously+530718
+22: 00007FF632317DE0 
+18: 00007FF631708A44 
+24: 00007FF6318A6869 
+ 5: 00007FF63191F8D0 
+15: 00007FF631708F7D v8::base::Thread::StartSynchronously+640477
+23: 00007FFD118853E0 
+19: 00007FF63170CA0F 
+25: 00007FF631B7F78E 
+ 6: 00007FF6318D76D3 
+16: 00007FF63170BE1A v8::base::Thread::StartSynchronously+652410
+24: 00007FFD1250485B 
+20: 00007FF631715582 
+26: 00007FF631C2FD56 
+ 7: 00007FF631928F80 
+17: 00007FF631707D69 v8::base::Thread::StartSynchronously+635849
+21: 00007FF6316EAE50 
+27: 00007FF631AF0D30 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+22: 00007FF6316FF9E4 
+28: 00007FF631AF0D30 
+18: 00007FF631708A44 v8::base::Thread::StartSynchronously+639140
+19: 00007FF63170CA0F v8::base::Thread::StartSynchronously+655471
+23: 00007FF6318A82D3 
+29: 00007FF631AF0D30 
+10: 00007FF6319324D7 
+20: 00007FF631715582 v8::base::Thread::StartSynchronously+691170
+21: 00007FF6316EAE50 v8::base::Thread::StartSynchronously+517296
+30: 00007FF631AF0D30 
+11: 00007FF631940DCF 
+24: 00007FF6318A6869 
+25: 00007FF631B7F78E 
+31: 00007FF631AF0D30 
+12: 00007FF6316014B5 
+22: 00007FF6316FF9E4 v8::base::Thread::StartSynchronously+602180
+32: 00007FF631AEF0F0 
+26: 00007FF631C2FD56 
+13: 00007FF631B7F78E 
+23: 00007FF6318A82D3 v8::Platform::SystemClockTimeMillis+170371
+33: 00007FF631AEECEB 
+27: 00007FF631AF0D30 
+14: 00007FF631B7FEE3 
+24: 00007FF6318A6869 v8::Platform::SystemClockTimeMillis+163609
+34: 00007FF63199FBF8 
+ 1: 00007FF6310EBFDB 
+ 1: 00007FF6310EBFDB 
+28: 00007FF631AF0D30 
+15: 00007FF5B1D0FB85 
+25: 00007FF631B7F78E v8::PropertyDescriptor::writable+650878
+35: 00007FF63199F4F3 
+ 2: 00007FF630FDD7AF 
+ 2: 00007FF63105AF98 
+29: 00007FF631AF0D30 
+26: 00007FF631C2FD56 v8::PropertyDescriptor::writable+1373254
+27: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 3: 00007FF631EF47D2 
+ 3: 00007FF631AD4851 
+30: 00007FF631AF0D30 
+36: 00007FF631AB3A1B 
+37: 00007FF63107A81A 
+28: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 4: 00007FF631ABDEE8 
+31: 00007FF631AF0D30 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+29: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+38: 00007FF630FCEC6E 
+32: 00007FF631AEF0F0 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF631F35034 
+ 6: 00007FF6318D76D3 
+39: 00007FF630FD2AF3 
+33: 00007FF631AEECEB 
+30: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+ 7: 00007FF631F8516A 
+ 7: 00007FF631928F80 
+40: 00007FF63111E637 
+34: 00007FF63199FBF8 
+35: 00007FF63199F4F3 
+ 8: 00007FF632004092 
+ 8: 00007FF63191C5F0 
+41: 00007FF630F46DCE 
+31: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+32: 00007FF631AEF0F0 v8::PropertyDescriptor::writable+59360
+ 9: 00007FF632003B81 
+ 9: 00007FF631931C5A 
+42: 00007FF630F42018 
+36: 00007FF631AB3A1B 
+33: 00007FF631AEECEB v8::PropertyDescriptor::writable+58331
+10: 00007FF6320B94EB 
+10: 00007FF6319324D7 
+43: 00007FF63113FD1D 
+37: 00007FF63107A81A 
+34: 00007FF63199FBF8 v8::PrimitiveArray::Length+3928
+11: 00007FF6320B1554 
+11: 00007FF631940DCF 
+44: 00007FF632317DE0 
+38: 00007FF630FCEC6E 
+35: 00007FF63199F4F3 v8::PrimitiveArray::Length+2131
+12: 00007FF632007597 
+12: 00007FF6316014B5 
+45: 00007FFD118853E0 
+39: 00007FF630FD2AF3 
+40: 00007FF63111E637 
+13: 00007FF631FBC5E1 
+13: 00007FF631B7F78E 
+46: 00007FFD1250485B 
+36: 00007FF631AB3A1B v8::Function::Call+571
+37: 00007FF63107A81A node::OnFatalError+129098
+14: 00007FF6320071A4 
+14: 00007FF631C15A01 
+41: 00007FF630F46DCE 
+38: 00007FF630FCEC6E node::TriggerNodeReport+13998
+15: 00007FF632007916 
+15: 00007FF5B1CC5C28 
+42: 00007FF630F42018 
+39: 00007FF630FD2AF3 node::TriggerNodeReport+30003
+16: 00007FF632007622 
+43: 00007FF63113FD1D 
+40: 00007FF63111E637 node::CreateEnvironment+599
+17: 00007FF631FBF5F7 
+44: 00007FF632317DE0 
+41: 00007FF630F46DCE RSA_meth_get_flags+209838
+18: 00007FF631FBA02D 
+45: 00007FFD118853E0 
+42: 00007FF630F42018 RSA_meth_get_flags+189944
+19: 00007FF631FB631A 
+46: 00007FFD1250485B 
+43: 00007FF63113FD1D uv_poll_stop+237
+20: 00007FF631A2C501 
+44: 00007FF632317DE0 inflateValidate+153984
+21: 00007FF6319F9421 
+45: 00007FFD118853E0 BaseThreadInitThunk+16
+22: 00007FF630FE028D 
+46: 00007FFD1250485B RtlUserThreadStart+43
+23: 00007FF63113FD1D 
+24: 00007FF632317DE0 
+25: 00007FFD118853E0 
+26: 00007FFD1250485B RtlUserThreadStart+43
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000493B5F5810
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF632084D4E 
+ 7: 00007FF6320D539D 
+ 8: 00007FF6320D6AAA 
+ 9: 00007FF6320CCD4D 
+10: 00007FF632007597 
+11: 00007FF631FBC5E1 
+12: 00007FF6320071A4 
+13: 00007FF632007916 
+14: 00007FF632007622 
+15: 00007FF631FBDAA4 
+16: 00007FF631FB579F 
+17: 00007FF631FB62F5 
+18: 00007FF631A2C501 
+19: 00007FF6319F9421 
+20: 00007FF630FE028D 
+21: 00007FF63113FD1D 
+22: 00007FF632317DE0 
+23: 00007FFD118853E0 
+24: 00007FFD1250485B 
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 0000003B079F5AC0
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6313C7480 
+ 7: 00007FF632019582 
+ 8: 00007FF63200C56E 
+ 9: 00007FF631FB4A2F 
+10: 00007FF631FC0F01 
+11: 00007FF631FBB38F 
+12: 00007FF631FB631A 
+13: 00007FF631A2C501 
+14: 00007FF6319F9421 
+15: 00007FF630FE028D 
+16: 00007FF63113FD1D 
+17: 00007FF632317DE0 
+18: 00007FFD118853E0 
+19: 00007FFD1250485B 
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000DAEBBF56B0
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F35034 
+ 7: 00007FF631F8516A 
+ 8: 00007FF631F0E73E 
+ 9: 00007FF63207412C 
+10: 00007FF6320779D5 
+11: 00007FF632071C53 
+12: 00007FF632072D6F 
+13: 00007FF63205CFD4 
+14: 00007FF631FBCD01 
+15: 00007FF631FBA6CC 
+16: 00007FF631FB631A 
+17: 00007FF631A2C501 
+18: 00007FF6319F9421 
+19: 00007FF630FE028D 
+20: 00007FF63113FD1D 
+21: 00007FF632317DE0 
+22: 00007FFD118853E0 
+23: 00007FFD1250485B 
+
+
+#
+# Fatal error in , line 0
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000D7DE5F5B80
+----- Native stack trace -----
+
+
+<--- Last few GCs --->
+
+[15700:000002639E631690]      443 ms: Scavenge 4.5 (5.7) -> 4.2 (8.5) MB, 1.63 / 0.00 ms  (average mu = 1.000, current mu = 1.000) task; 
+[15700:000002639E631690]     8669 ms: Mark-Compact (reduce) 5.0 (8.5) -> 3.6 (5.5) MB, 5.58 / 0.01 ms  (+ 3.2 ms in 3 steps since start of marking, biggest step 1.7 ms, walltime since start of marking 11 ms) (average mu = 1.000, current mu = 1.000) finali
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+# Fatal process out of memory: Zone
+#
+#
+#
+#
+#
+#
+#FailureMessage Object: 000000ADCD1F5A10
+#FailureMessage Object: 0000007B769F5350
+----- Native stack trace -----
+----- Native stack trace -----
+
+
+ 1: 00007FF6310EBFDB 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F35034 
+ 6: 00007FF632002357 
+ 7: 00007FF631F8516A 
+ 7: 00007FF631FFD162 
+ 8: 00007FF631FA335F 
+ 8: 00007FF631FFC7E6 
+ 9: 00007FF6320759B1 
+ 9: 00007FF631FFBCF0 
+10: 00007FF632071C53 
+10: 00007FF631FBDCA1 
+11: 00007FF632072D6F 
+11: 00007FF631FC0B7B 
+12: 00007FF63205CFD4 
+12: 00007FF631FBB38F 
+13: 00007FF631FBCD01 
+13: 00007FF631FB631A 
+14: 00007FF631FBA6CC 
+14: 00007FF631A2C501 
+15: 00007FF631FB631A 
+15: 00007FF6319F9421 
+16: 00007FF631A2C501 
+16: 00007FF630FE028D 
+17: 00007FF6319F9421 
+17: 00007FF63113FD1D 
+18: 00007FF630FE028D 
+18: 00007FF632317DE0 
+19: 00007FF63113FD1D 
+19: 00007FFD118853E0 
+20: 00007FFD1250485B 
+20: 00007FF632317DE0 
+21: 00007FFD118853E0 
+22: 00007FFD1250485B 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF632032555 
+ 7: 00007FF632032AF9 
+ 8: 00007FF6320319EB 
+ 9: 00007FF6320316A0 
+10: 00007FF632007597 
+11: 00007FF631FBC5E1 
+12: 00007FF6320071A4 
+13: 00007FF632007916 
+14: 00007FF632007622 
+15: 00007FF631FBE3BD 
+16: 00007FF631FBA875 
+17: 00007FF631FB631A 
+18: 00007FF631A2C501 
+19: 00007FF6319F9421 
+20: 00007FF630FE028D 
+21: 00007FF63113FD1D 
+22: 00007FF632317DE0 
+23: 00007FFD118853E0 
+24: 00007FFD1250485B 
+
+<--- Last few GCs --->
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+10: 00007FF6319324D7 
+11: 00007FF63193B10E 
+12: 00007FF63194F394 
+13: 00007FF6316EE337 
+14: 00007FF6316EE2BE 
+15: 00007FF631708F7D 
+16: 00007FF63170BE1A 
+17: 00007FF631707D69 
+18: 00007FF631708A44 
+19: 00007FF63170CA0F 
+20: 00007FF631715582 
+21: 00007FF6316EAE50 
+22: 00007FF6316FF9E4 
+23: 00007FF6318A82D3 
+24: 00007FF6318A6869 
+25: 00007FF631B7F78E 
+26: 00007FF631C2FD56 
+27: 00007FF631AF0D30 
+28: 00007FF631AF0D30 
+29: 00007FF631AF0D30 
+30: 00007FF631AF0D30 
+31: 00007FF631AF0D30 
+32: 00007FF631AEF0F0 
+33: 00007FF631AEECEB 
+34: 00007FF63199FBF8 
+35: 00007FF63199F4F3 
+36: 00007FF631AB3A1B 
+37: 00007FF63107A81A 
+38: 00007FF630FCEC6E 
+39: 00007FF630FD2AF3 
+40: 00007FF63111E637 
+41: 00007FF630F46DCE 
+42: 00007FF630F42018 
+43: 00007FF63113FD1D 
+44: 00007FF632317DE0 
+45: 00007FFD118853E0 BaseThreadInitThunk+16
+46: 00007FFD1250485B 
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+
+#
+
+# Fatal error in , line 0
+
+# Fatal process out of memory: Zone
+#
+#
+# Fatal error in , line 0
+#
+#
+# Fatal process out of memory: Zone
+#FailureMessage Object: 000000A0D23F6290
+#
+----- Native stack trace -----
+#
+
+#
+#FailureMessage Object: 0000003D287F6280
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+
+
+# Fatal process out of memory: Zone
+#
+#
+# Fatal error in , line 0
+#
+#
+#FailureMessage Object: 0000009EDCBF5670
+----- Native stack trace -----
+
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000CB285F5820
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F35034 
+ 7: 00007FF631F8516A 
+ 8: 00007FF632162A56 
+ 9: 00007FF6321627B6 
+10: 00007FF6321626F9 
+11: 00007FF632162906 
+12: 00007FF632037032 
+13: 00007FF6320388A5 
+14: 00007FF632034D02 
+15: 00007FF63203D706 
+16: 00007FF632037549 
+17: 00007FF6320355C3 
+18: 00007FF6321E4F7F 
+19: 00007FF6320C23DD 
+20: 00007FF6320C2325 
+21: 00007FF63200769F 
+22: 00007FF631FBDAA4 
+23: 00007FF631FB579F 
+24: 00007FF631FB62F5 
+25: 00007FF631A2C501 
+26: 00007FF6319F9421 
+27: 00007FF630FE028D 
+28: 00007FF63113FD1D 
+29: 00007FF632317DE0 
+30: 00007FFD118853E0 
+31: 00007FFD1250485B 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF632032555 
+ 7: 00007FF632032AF9 
+ 8: 00007FF6320319EB 
+ 9: 00007FF6320316A0 
+10: 00007FF632007597 
+11: 00007FF631FBC5E1 
+12: 00007FF6320071A4 
+13: 00007FF632007916 
+14: 00007FF632007622 
+15: 00007FF631FBE3BD 
+16: 00007FF631FBA875 
+17: 00007FF631FB631A 
+18: 00007FF631A2C501 
+19: 00007FF6319F9421 
+20: 00007FF630FE028D 
+21: 00007FF63113FD1D 
+22: 00007FF632317DE0 
+23: 00007FFD118853E0 
+24: 00007FFD1250485B 
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000A4CE1F6610
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+# Out of memory: HashMap::Initialize
+#
+#
+#
+#FailureMessage Object: 0000004B599FE940
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF6315A41E6 
+ 5: 00007FF6315A407C 
+ 6: 00007FF631A25060 
+ 7: 00007FF6315BC733 
+ 8: 00007FF6315D75D2 
+ 9: 00007FF63107D69A 
+10: 00007FF63107D256 
+11: 00007FF63107C797 
+12: 00007FF63107A7E5 
+13: 00007FF630FD2A9E 
+14: 00007FF63111E637 
+15: 00007FF630F46DCE 
+16: 00007FF630F42018 
+17: 00007FF63113FD1D 
+18: 00007FF632317DE0 
+19: 00007FFD118853E0 BaseThreadInitThunk+16
+20: 00007FFD1250485B 
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+#
+
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 00000038EBFF5DE0
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF63200AA52 
+ 7: 00007FF63200C3E7 
+ 8: 00007FF631FB4972 
+ 9: 00007FF631FC0F01 
+10: 00007FF631FBB38F 
+11: 00007FF631FB631A 
+12: 00007FF631A2C501 
+13: 00007FF6319F9421 
+14: 00007FF630FE028D 
+15: 00007FF63113FD1D 
+16: 00007FF632317DE0 
+17: 00007FFD118853E0 BaseThreadInitThunk+16
+18: 00007FFD1250485B RtlUserThreadStart+43
+
+<--- Last few GCs --->
+
+[57088:00000130DC7A24E0]     3765 ms: Mark-Compact (reduce) 6.8 (11.2) -> 5.4 (7.4) MB, 98.80 / 0.00 ms  (average mu = 1.000, current mu = 1.000) last resort; GC in old space requested
+[57088:00000130DC7A24E0]     3780 ms: Mark-Compact (reduce) 5.4 (7.4) -> 5.4 (6.9) MB, 15.58 / 0.00 ms  (average mu = 0.002, current mu = 0.002) last resort; GC in old space requested
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+
+<--- Last few GCs --->
+
+[57560:00000209139E2C90]     1588 ms: Scavenge 6.0 (7.2) -> 6.1 (9.9) MB, 2.95 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 00000061133F5B00
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631F35034 
+ 7: 00007FF631F8516A 
+ 8: 00007FF631FA335F 
+ 9: 00007FF6320759B1 
+10: 00007FF632071C53 
+11: 00007FF632072D6F 
+12: 00007FF63205CFD4 
+13: 00007FF631FBCD01 
+14: 00007FF631FBA6CC 
+15: 00007FF631FB631A 
+16: 00007FF631A2C501 
+17: 00007FF6319F9421 
+18: 00007FF630FE028D 
+19: 00007FF63113FD1D 
+20: 00007FF632317DE0 
+21: 00007FFD118853E0 
+22: 00007FFD1250485B 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318D76D3 
+ 7: 00007FF631928F80 
+ 8: 00007FF63191C5F0 
+ 9: 00007FF631931C5A 
+10: 00007FF6319324D7 
+11: 00007FF63193B412 
+12: 00007FF63194341A 
+13: 00007FF6315FDDE7 
+14: 00007FF6315FDF48 
+15: 00007FF6315FD83F 
+16: 00007FF6315FD3DE 
+17: 00007FF6315FE7C3 
+18: 00007FF631B7F78E 
+19: 00007FF631C5AB52 
+20: 00007FF631AF0D30 
+21: 00007FF631AF0D30 
+22: 00007FF631AF0D30 
+23: 00007FF5B1CF169D 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631696D75 
+ 7: 00007FF6316A7D45 
+ 8: 00007FF6316A5202 
+ 9: 00007FF6316999A0 
+10: 00007FF6316A724B 
+11: 00007FF631698EED 
+12: 00007FF6316A7E8F 
+13: 00007FF6316A5202 
+14: 00007FF6316999A0 
+15: 00007FF6316AD4C8 
+16: 00007FF6316AD9A2 
+17: 00007FF6316A2A6A 
+18: 00007FF6316995BE 
+19: 00007FF631699C02 
+20: 00007FF63169EEEE 
+21: 00007FF6316A7FB9 
+22: 00007FF6316A5202 
+23: 00007FF6316999A0 
+24: 00007FF63169EEEE 
+25: 00007FF63169F317 
+26: 00007FF6316AB6E4 
+27: 00007FF6316A2A6A 
+28: 00007FF6316995BE 
+29: 00007FF631699C02 
+30: 00007FF63169EEEE 
+31: 00007FF6316A7FB9 
+32: 00007FF6316A5202 
+33: 00007FF6316999A0 
+34: 00007FF63169EEEE 
+35: 00007FF63169F317 
+36: 00007FF6316AB6E4 
+37: 00007FF6316A2A6A 
+38: 00007FF6316A1AE3 
+39: 00007FF6316A32F4 
+40: 00007FF631694229 
+41: 00007FF6316A85AF 
+42: 00007FF63168DCD2 
+43: 00007FF631A2A8AB 
+44: 00007FF631A2FEDB 
+45: 00007FF631AB7E8C 
+46: 00007FF631AB7994 
+47: 00007FF63106868C 
+48: 00007FF631068C04 
+49: 00007FF631A8AC7E 
+50: 00007FF631A8A87A 
+51: 00007FF631A8AB3F 
+52: 00007FF631A8A9B0 
+53: 00007FF631B7F68E 
+54: 00007FF631AF0D30 
+55: 00007FF631AF0D30 
+56: 00007FF631AF0D30 
+57: 00007FF631AF0D30 
+58: 00007FF631AF0D30 
+59: 00007FF5B1CD700D 
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000B003FF5D20
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6320126CE 
+ 7: 00007FF63200C472 
+ 8: 00007FF631FB4A2F 
+ 9: 00007FF631FC0F01 
+10: 00007FF631FBB38F 
+11: 00007FF631FB631A 
+12: 00007FF631A2C501 
+13: 00007FF6319F9421 
+14: 00007FF630FE028D 
+15: 00007FF63113FD1D 
+16: 00007FF632317DE0 
+17: 00007FFD118853E0 
+18: 00007FFD1250485B 
+
+#
+# Fatal javascript OOM in MemoryChunk allocation failed during deserialization.
+#
+
+
+<--- Last few GCs --->
+
+[41368:0000024271DC20C0]     2383 ms: Scavenge 6.1 (7.2) -> 6.1 (10.2) MB, 1.85 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631696B58 
+ 7: 00007FF6316A6892 
+ 8: 00007FF6316A63C3 
+ 9: 00007FF6316A7E9C 
+10: 00007FF6316A5202 
+11: 00007FF6316999A0 
+12: 00007FF63169EEEE 
+13: 00007FF6316A7FB9 
+14: 00007FF6316A5202 
+15: 00007FF6316999A0 
+16: 00007FF6316A2572 
+17: 00007FF63169961B 
+18: 00007FF631699C02 
+19: 00007FF6316A724B 
+20: 00007FF6316A687C 
+21: 00007FF6316A63C3 
+22: 00007FF6316A7E9C 
+23: 00007FF6316A5202 
+24: 00007FF6316999A0 
+25: 00007FF6316AD4C8 
+26: 00007FF6316AD9A2 
+27: 00007FF6316A2A6A 
+28: 00007FF6316A1AE3 
+29: 00007FF6316A32F4 
+30: 00007FF631694229 
+31: 00007FF6316A85AF 
+32: 00007FF63168DCD2 
+33: 00007FF631A2A8AB 
+34: 00007FF631A2FEDB 
+35: 00007FF631AB7E8C 
+36: 00007FF631AB7994 
+37: 00007FF63106868C 
+38: 00007FF631068C04 
+39: 00007FF631A8AC7E 
+40: 00007FF631A8A87A 
+41: 00007FF631A8AB3F 
+42: 00007FF631A8A9B0 
+43: 00007FF631B7F68E 
+44: 00007FF631AF0D30 
+45: 00007FF631AF0D30 
+46: 00007FF631AF0D30 
+47: 00007FF631AF0D30 
+48: 00007FF631AF0D30 
+49: 00007FF5B1CD700D 
+
+
+#
+# Fatal error in , line 0
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 00000088169F5AD0
+----- Native stack trace -----
+
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+<--- Last few GCs --->
+ 3: 00007FF631EF47D2 
+# Fatal process out of memory: Zone
+
+
+ 4: 00007FF631ABDCF3 
+#
+<--- Last few GCs --->
+[44092:0000016191F14430]     2019 ms: Scavenge 6.1 (7.2) -> 5.3 (9.4) MB, 286.94 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+ 5: 00007FF6315A0724 
+#
+
+[44092:0000016191F14430]     3212 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 6.69 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+ 6: 00007FF631F35034 
+#
+[45324:0000021351272200]     1285 ms: Scavenge 6.1 (7.2) -> 6.1 (9.9) MB, 1.80 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+ 7: 00007FF631F8516A 
+#FailureMessage Object: 00000001A8FF5B20
+[45324:0000021351272200]     2435 ms: Scavenge 8.3 (10.5) -> 7.4 (11.0) MB, 1.64 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+ 8: 00007FF6320370F8 
+----- Native stack trace -----
+[45324:0000021351272200]     3284 ms: Mark-Compact 7.7 (11.0) -> 6.2 (10.9) MB, 117.15 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; GC in old space requested
+ 9: 00007FF632038F62 
+
+
+10: 00007FF632035749 
+ 1: 00007FF6310EBFDB 
+11: 00007FF63203E498 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+12: 00007FF632037549 
+13: 00007FF6320355C3 
+ 4: 00007FF631ABDCF3 
+14: 00007FF6321E4F7F 
+ 5: 00007FF6315A0724 
+15: 00007FF6320C23DD 
+ 6: 00007FF631F3DD59 
+16: 00007FF6320C2325 
+ 7: 00007FF631F38E8E 
+17: 00007FF63200769F 
+ 8: 00007FF6321E3DA9 
+18: 00007FF631FBDAA4 
+ 9: 00007FF6321E59E8 
+19: 00007FF631FB579F 
+10: 00007FF6320C23DD 
+20: 00007FF631FB62F5 
+11: 00007FF6320C2325 
+21: 00007FF631A2C501 
+12: 00007FF63200769F 
+22: 00007FF6319F9421 
+13: 00007FF631FBDAA4 
+23: 00007FF630FE028D 
+14: 00007FF631FB579F 
+24: 00007FF63113FD1D 
+15: 00007FF631FB62F5 
+25: 00007FF632317DE0 
+16: 00007FF631A2C501 
+26: 00007FFD118853E0 
+17: 00007FF6319F9421 
+27: 00007FFD1250485B 
+18: 00007FF630FE028D 
+19: 00007FF63113FD1D 
+20: 00007FF632317DE0 
+21: 00007FFD118853E0 
+
+22: 00007FFD1250485B 
+<--- Last few GCs --->
+
+[37556:00000284B06A1670]     1785 ms: Scavenge 6.1 (7.2) -> 5.2 (9.1) MB, 2.89 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[37556:00000284B06A1670]     3872 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 3.97 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6317BFEE9 
+ 7: 00007FF63186CACF 
+ 8: 00007FF63186D108 
+ 9: 00007FF63187BF2B 
+10: 00007FF63185257F 
+11: 00007FF631852B5B 
+12: 00007FF6318776B3 
+13: 00007FF6318669C9 
+14: 00007FF631865893 
+15: 00007FF63185EF4A 
+16: 00007FF63185F0EF 
+17: 00007FF63185FD27 
+18: 00007FF631865A79 
+19: 00007FF63185EF4A 
+20: 00007FF631862259 
+21: 00007FF631865242 
+22: 00007FF63185EF4A 
+23: 00007FF631868366 
+24: 00007FF63185F52B 
+25: 00007FF63185F3C2 
+26: 00007FF631865212 
+27: 00007FF63185EF4A 
+28: 00007FF6318628A7 
+29: 00007FF631865063 
+30: 00007FF63185EF4A 
+31: 00007FF631868366 
+32: 00007FF63185F52B 
+33: 00007FF63185F404 
+34: 00007FF631865212 
+35: 00007FF63185EF4A 
+36: 00007FF6318628A7 
+37: 00007FF631865063 
+38: 00007FF63185EF4A 
+39: 00007FF631868366 
+40: 00007FF63185F52B 
+41: 00007FF63185F404 
+42: 00007FF631865212 
+43: 00007FF63185EF4A 
+44: 00007FF631868366 
+45: 00007FF63185F52B 
+46: 00007FF63185F3C2 
+47: 00007FF631865212 
+48: 00007FF63185EF4A 
+49: 00007FF6318628A7 
+50: 00007FF631865063 
+
+51: 00007FF63185EF4A 
+<--- JS stacktrace --->
+52: 00007FF631868366 
+
+53: 00007FF63185F52B 
+FATAL ERROR: NewSpace::EnsureCurrentCapacity Allocation failed - JavaScript heap out of memory
+54: 00007FF63185F404 
+----- Native stack trace -----
+55: 00007FF631865212 
+
+56: 00007FF63185EF4A 
+57: 00007FF6318628A7 
+58: 00007FF631865063 
+59: 00007FF63185EF4A 
+60: 00007FF631868366 
+61: 00007FF63185F52B 
+62: 00007FF63185F404 
+63: 00007FF631865212 
+64: 00007FF63185EF4A 
+65: 00007FF631868366 
+66: 00007FF63185D8B8 
+67: 00007FF63185D1F1 
+68: 00007FF63184D750 
+69: 00007FF631A25E19 
+70: 00007FF631A2ABBF 
+71: 00007FF631A2FEDB 
+72: 00007FF631AB7E8C 
+73: 00007FF631AB7994 
+74: 00007FF63107CF32 
+75: 00007FF63107C797 
+76: 00007FF63107A9B1 
+
+77: 00007FF631A8AC7E 
+<--- JS stacktrace --->
+78: 00007FF631A8A87A 
+
+79: 00007FF631A8AB3F 
+FATAL ERROR: Zone Allocation failed - process out of memory
+80: 00007FF631A8A9B0 
+----- Native stack trace -----
+81: 00007FF631B7F68E 
+
+82: 00000284B2284126 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631862B67 
+ 7: 00007FF631864D88 
+ 8: 00007FF63185EF4A 
+ 9: 00007FF631861B64 
+10: 00007FF63185D715 
+11: 00007FF63185D1F1 
+12: 00007FF63184D750 
+13: 00007FF631A25E19 
+14: 00007FF631A2ABBF 
+15: 00007FF631A2FEDB 
+16: 00007FF631AB7E8C 
+17: 00007FF631AB7994 
+18: 00007FF63107CF32 
+19: 00007FF63107C797 
+20: 00007FF63107A9B1 
+21: 00007FF631A8AC7E 
+22: 00007FF631A8A87A 
+23: 00007FF631A8AB3F 
+24: 00007FF631A8A9B0 
+25: 00007FF631B7F68E 
+26: 00007FF5B1CC4126 
+
+
+#
+# Fatal error in , line 0
+# Out of memory: HashMap::Initialize
+#
+#
+#
+#FailureMessage Object: 00000006CF3FB190
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF630FDD7AF 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631AACD63 
+ 5: 00007FF631AAC7B6 
+ 6: 00007FF631AACA81 
+ 7: 00007FF631AAC8F7 
+ 8: 00007FF63166ED31 
+ 9: 00007FF6316A3851 
+10: 00007FF6316A39A3 
+11: 00007FF6316A2A6A 
+12: 00007FF6316A1AE3 
+13: 00007FF6316A32F4 
+14: 00007FF631694229 
+15: 00007FF6316A85AF 
+16: 00007FF63168DCD2 
+17: 00007FF631A2A8AB 
+18: 00007FF631A2FEDB 
+19: 00007FF631AB7E8C 
+20: 00007FF631AB7994 
+21: 00007FF63106868C 
+22: 00007FF631068C04 
+23: 00007FF631A8AC7E 
+24: 00007FF631A8A87A 
+25: 00007FF631A8AB3F 
+26: 00007FF631A8A9B0 
+27: 00007FF631B7F68E 
+28: 00007FF631AF0D30 
+29: 00007FF631AF0D30 
+30: 00007FF631AF0D30 
+31: 00007FF5B1CF169D 
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318F8DD0 
+ 7: 00007FF63192650A 
+ 8: 00007FF631928FCC 
+ 9: 00007FF63191C5F0 
+10: 00007FF631931C5A 
+11: 00007FF6319324D7 
+12: 00007FF631944787 
+13: 00007FF63170B698 
+14: 00007FF631708054 
+15: 00007FF63170BD61 
+16: 00007FF631707D69 
+17: 00007FF631708A44 
+18: 00007FF63170CA0F 
+19: 00007FF631715582 
+20: 00007FF6316EAE50 
+21: 00007FF631762AD1 
+22: 00007FF631770D21 
+23: 00007FF6315FDF86 
+24: 00007FF6315FDF48 
+25: 00007FF6315FD83F 
+26: 00007FF6315FD3DE 
+27: 00007FF6315FE7C3 
+28: 00007FF631B7F78E 
+29: 00007FF631C404E6 
+30: 00007FF631AF0D30 
+31: 00007FF5D5F041EB 
+
+
+#
+# Fatal error in , line 0
+# Out of memory: HashMap::Initialize
+#
+#
+#
+#FailureMessage Object: 000000D8A6FF7DB0
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB node::SetCppgcReference+19883
+ 2: 00007FF630FDD7AF node::TriggerNodeReport+74223
+ 3: 00007FF631EF47D2 V8_Fatal+162
+ 4: 00007FF631AACD63 v8::SharedValueConveyor::SharedValueConveyor+555763
+ 5: 00007FF631AAC7B6 v8::SharedValueConveyor::SharedValueConveyor+554310
+ 6: 00007FF631AACA81 v8::SharedValueConveyor::SharedValueConveyor+555025
+ 7: 00007FF631AAC8F7 v8::SharedValueConveyor::SharedValueConveyor+554631
+ 8: 00007FF63166ECE1 v8::base::Thread::StartSynchronously+9025
+ 9: 00007FF6316AC6E6 v8::base::Thread::StartSynchronously+261446
+10: 00007FF6316A82B0 v8::base::Thread::StartSynchronously+243984
+11: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+12: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+13: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+14: 00007FF6316A7FB9 v8::base::Thread::StartSynchronously+243225
+15: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+16: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+17: 00007FF63169D4C2 v8::base::Thread::StartSynchronously+199458
+18: 00007FF6316999C2 v8::base::Thread::StartSynchronously+184354
+19: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+20: 00007FF6316A9AE1 v8::base::Thread::StartSynchronously+250177
+21: 00007FF6316AA6FD v8::base::Thread::StartSynchronously+253277
+22: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+23: 00007FF6316995BE v8::base::Thread::StartSynchronously+183326
+24: 00007FF631699C02 v8::base::Thread::StartSynchronously+184930
+25: 00007FF6316988ED v8::base::Thread::StartSynchronously+180045
+26: 00007FF6316A4D31 v8::base::Thread::StartSynchronously+230289
+27: 00007FF6316A5240 v8::base::Thread::StartSynchronously+231584
+28: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+29: 00007FF631699F2D v8::base::Thread::StartSynchronously+185741
+30: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+31: 00007FF63169F317 v8::base::Thread::StartSynchronously+207223
+32: 00007FF6316AB6E4 v8::base::Thread::StartSynchronously+257348
+33: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+34: 00007FF6316995BE v8::base::Thread::StartSynchronously+183326
+35: 00007FF631699C02 v8::base::Thread::StartSynchronously+184930
+36: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+37: 00007FF6316A7FB9 v8::base::Thread::StartSynchronously+243225
+38: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+39: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+40: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+41: 00007FF63169F317 v8::base::Thread::StartSynchronously+207223
+42: 00007FF6316AB6E4 v8::base::Thread::StartSynchronously+257348
+43: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+44: 00007FF6316995BE v8::base::Thread::StartSynchronously+183326
+45: 00007FF631699C02 v8::base::Thread::StartSynchronously+184930
+46: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+47: 00007FF6316A7FB9 v8::base::Thread::StartSynchronously+243225
+48: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+49: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+50: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+51: 00007FF63169F317 v8::base::Thread::StartSynchronously+207223
+52: 00007FF6316AB6E4 v8::base::Thread::StartSynchronously+257348
+53: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+54: 00007FF6316A1AE3 v8::base::Thread::StartSynchronously+217411
+55: 00007FF6316A32F4 v8::base::Thread::StartSynchronously+223572
+56: 00007FF631694229 v8::base::Thread::StartSynchronously+161929
+57: 00007FF6316A85AF v8::base::Thread::StartSynchronously+244751
+58: 00007FF63168DCD2 v8::base::Thread::StartSynchronously+135986
+59: 00007FF631A2A8AB v8::SharedValueConveyor::SharedValueConveyor+22075
+60: 00007FF631A2FEDB v8::SharedValueConveyor::SharedValueConveyor+44139
+61: 00007FF631AB7E8C v8::ScriptCompiler::CompileFunctionInternal+1260
+62: 00007FF631AB7994 v8::ScriptCompiler::CompileFunction+84
+63: 00007FF63106868C node::OnFatalError+54972
+64: 00007FF631068C04 node::OnFatalError+56372
+65: 00007FF631A8AC7E v8::SharedValueConveyor::SharedValueConveyor+416270
+66: 00007FF631A8A87A v8::SharedValueConveyor::SharedValueConveyor+415242
+67: 00007FF631A8AB3F v8::SharedValueConveyor::SharedValueConveyor+415951
+68: 00007FF631A8A9B0 v8::SharedValueConveyor::SharedValueConveyor+415552
+69: 00007FF631B7F68E v8::PropertyDescriptor::writable+650622
+70: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+71: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+72: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+73: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+74: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+75: 00007FF5B1CD680D 
+
+<--- Last few GCs --->
+
+[59500:00000178610F3A50]     1657 ms: Scavenge 6.0 (7.2) -> 6.0 (9.9) MB, 3.52 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[59500:00000178610F3A50]     2724 ms: Scavenge 8.3 (10.5) -> 7.3 (11.0) MB, 5.07 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[59500:00000178610F3A50]     3434 ms: Scavenge 9.8 (12.0) -> 8.9 (13.0) MB, 296.44 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: NewSpace::EnsureCurrentCapacity Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 6: 00007FF6318F8DD0 
+ 7: 00007FF63192650A 
+ 8: 00007FF631928FCC 
+ 9: 00007FF63191C5F0 
+10: 00007FF631931C5A 
+11: 00007FF63193BA54 
+12: 00007FF63194A131 
+13: 00007FF631A8EC6C 
+14: 00007FF631A8E239 
+15: 00007FF631A2A4B2 
+16: 00007FF631A298CE 
+17: 00007FF631A98A78 
+18: 00007FF631974F04 
+19: 00007FF631600D67 
+20: 00007FF6316018D9 
+21: 00007FF631B7F78E 
+22: 00007FF631C42FF8 
+23: 00007FF631AF0D30 
+24: 00007FF5B1CF4112 
+
+<--- Last few GCs --->
+
+[53428:000002743FD20C10]     1096 ms: Scavenge 6.1 (7.2) -> 6.1 (10.2) MB, 2.16 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- Last few GCs --->
+
+[55280:00000249E48988E0]     3229 ms: Scavenge 5.8 (5.9) -> 5.0 (9.1) MB, 3.40 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[55280:00000249E48988E0]     4385 ms: Scavenge 7.5 (9.7) -> 6.6 (10.2) MB, 1.92 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[55280:00000249E48988E0]     4985 ms: Scavenge 9.0 (11.2) -> 8.2 (16.4) MB, 2.28 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A0724 
+ 6: 00007FF6316D4745 
+ 7: 00007FF631852D2D 
+ 8: 00007FF631853018 
+ 9: 00007FF631879B1F 
+10: 00007FF63185C4B9 
+11: 00007FF6318660CC 
+12: 00007FF63185EF4A 
+13: 00007FF63185EFAD 
+14: 00007FF63185F6A1 
+15: 00007FF631865A79 
+16: 00007FF63185EF4A 
+17: 00007FF631862259 
+18: 00007FF631865242 
+
+
+19: 00007FF63185EF4A 
+
+<--- JS stacktrace --->
+
+20: 00007FF631868366 
+#
+21: 00007FF63185F52B 
+# Fatal error in , line 0
+FATAL ERROR: Zone Allocation failed - process out of memory
+22: 00007FF63185F404 
+----- Native stack trace -----
+# Fatal process out of memory: Zone
+23: 00007FF631865212 
+
+#
+24: 00007FF63185EF4A 
+#
+25: 00007FF6318652DF 
+#
+#FailureMessage Object: 000000D6CF7F5400
+26: 00007FF63185EF4A 
+----- Native stack trace -----
+27: 00007FF631868366 
+
+28: 00007FF63185D8B8 
+ 1: 00007FF6310EBFDB 
+29: 00007FF63185D239 
+ 2: 00007FF630FDD7AF 
+30: 00007FF63184D750 
+ 3: 00007FF631EF47D2 
+31: 00007FF631A25E19 
+ 4: 00007FF631ABDCF3 
+32: 00007FF631A29385 
+ 5: 00007FF6315A0724 
+33: 00007FF631A28C54 
+
+ 6: 00007FF631F35034 
+34: 00007FF63160B08E 
+<--- Last few GCs --->
+ 7: 00007FF631F8516A 
+35: 00007FF631B7F78E 
+
+ 8: 00007FF631FA335F 
+36: 00007FF631AF2138 
+[50568:0000023A4BC24EC0]     2056 ms: Scavenge 6.1 (7.2) -> 5.3 (7.1) MB, 696.03 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+ 9: 00007FF6320759B1 
+37: 00007FF631AF0D30 
+
+10: 00007FF632071C53 
+38: 00007FF631AF0D30 
+11: 00007FF632072D6F 
+39: 00007FF631AF0D30 
+
+12: 00007FF63205CFD4 
+40: 00007FF631AF0D30 
+<--- JS stacktrace --->
+13: 00007FF631FBCD01 
+41: 00007FF631AF0D30 
+
+14: 00007FF631FBA6CC 
+FATAL ERROR: Zone Allocation failed - process out of memory
+42: 00007FF5B1CD700D 
+15: 00007FF631FB631A 
+----- Native stack trace -----
+16: 00007FF631A2C501 
+
+17: 00007FF6319F9421 
+ 1: 00007FF6310EBFDB 
+18: 00007FF630FE028D 
+ 2: 00007FF63105AF98 
+19: 00007FF63113FD1D 
+ 3: 00007FF631AD4851 
+20: 00007FF632317DE0 
+ 4: 00007FF631ABDEE8 
+21: 00007FFD118853E0 
+ 5: 00007FF6315A0724 
+22: 00007FFD1250485B 
+ 6: 00007FF6316967AE 
+ 7: 00007FF6316A7FFA 
+
+
+ 8: 00007FF6316A5202 
+ 9: 00007FF6316999A0 
+#
+# Fatal error in , line 0
+10: 00007FF6316988ED 
+11: 00007FF6316A4D31 
+# Fatal process out of memory: Zone
+12: 00007FF6316A5240 
+#
+13: 00007FF6316999A0 
+#
+14: 00007FF63169EEEE 
+#
+15: 00007FF63169F317 
+#FailureMessage Object: 000000631F3F56F0
+16: 00007FF6316AB6E4 
+17: 00007FF6316A2A6A 
+----- Native stack trace -----
+
+18: 00007FF6316A1AE3 
+ 1: 00007FF6310EBFDB 
+19: 00007FF6316A32F4 
+ 2: 00007FF630FDD7AF 
+20: 00007FF63169CE7E 
+ 3: 00007FF631EF47D2 
+21: 00007FF63169C455 
+22: 00007FF63169B845 
+ 4: 00007FF631ABDCF3 
+ 5: 00007FF6315A0724 
+23: 00007FF6316A2A6A 
+ 6: 00007FF6313C7480 
+24: 00007FF6316995BE 
+ 7: 00007FF632019582 
+25: 00007FF631693916 
+ 8: 00007FF63200C56E 
+26: 00007FF6316930C1 
+ 9: 00007FF631FB4A2F 
+27: 00007FF6316A20E8 
+10: 00007FF631FC0F01 
+28: 00007FF63168DBA3 
+11: 00007FF631FBB38F 
+12: 00007FF631FB631A 
+29: 00007FF631A292CD 
+30: 00007FF631A28C54 
+13: 00007FF631A2C501 
+31: 00007FF63160B08E 
+
+thread 'tokio-runtime-worker' (39256) panicked at C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tokio-1.43.0\src\io\blocking.rs:124:46:
+OS can't spawn worker thread: The paging file is too small for this operation to complete. (os error 1455)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+14: 00007FF6319F9421 
+32: 00007FF631B7F78E 
+33: 00007FF631AF2138 
+
+
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+
+
+<--- Last few GCs --->
+
+ 3: 00007FF631AD4851 
+34: 00007FF5B1CD5D37 
+#
+#
+# Fatal error in , line 0
+# Fatal error in , line 0
+[52568:00000183BC1A2A00]     2787 ms: Scavenge 6.0 (7.2) -> 6.0 (9.9) MB, 2.48 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+ 4: 00007FF631ABDEE8 
+# Fatal process out of memory: Zone
+
+#
+ 5: 00007FF6315A0724 
+#
+
+#
+<--- JS stacktrace --->
+ 6: 00007FF631643638 
+#FailureMessage Object: 0000007D3F5F5F30
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+ 7: 00007FF631641490 
+ 8: 00007FF63164302D 
+
+----- Native stack trace -----
+ 9: 00007FF631645805 
+ 1: 00007FF6310EBFDB 
+
+10: 00007FF63162FAAE 
+ 2: 00007FF630FDD7AF 
+ 1: 00007FF6310EBFDB node::SetCppgcReference+19883
+11: 00007FF6316132C6 
+ 3: 00007FF631EF47D2 
+ 2: 00007FF63105AF98 v8::base::CPU::num_virtual_address_bits+93448
+12: 00007FF631613799 
+ 4: 00007FF631ABDCF3 
+ 3: 00007FF631AD4851 v8::Isolate::ReportExternalAllocationLimitReached+65
+13: 00007FF631613E48 
+ 5: 00007FF6315A0724 
+ 4: 00007FF631ABDEE8 v8::Function::Experimental_IsNopFunction+1336
+ 5: 00007FF6315A0724 v8::SnapshotCreator::GetIsolate+53284
+ 6: 00007FF632030CED 
+14: 00007FF631614DDB 
+15: 00007FF63161490D 
+ 7: 00007FF632030E0E 
+ 6: 00007FF631696D75 v8::base::Thread::StartSynchronously+173013
+16: 00007FF631614307 
+ 8: 00007FF631FBE1B5 
+ 7: 00007FF6316A7D45 v8::base::Thread::StartSynchronously+242597
+17: 00007FF6315F0422 
+ 9: 00007FF631FBA875 
+ 8: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+10: 00007FF631FB631A 
+18: 00007FF631B7F78E 
+ 9: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+11: 00007FF631A2C501 
+19: 00007FF631BEAEE1 
+10: 00007FF6316A724B v8::base::Thread::StartSynchronously+239787
+20: 00007FF631AF0D30 
+11: 00007FF631698EED v8::base::Thread::StartSynchronously+181581
+12: 00007FF6319F9421 
+21: 00007FF631AF0D30 
+12: 00007FF6316A7E8F v8::base::Thread::StartSynchronously+242927
+13: 00007FF630FE028D 
+22: 00007FF631AF0D30 
+13: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+14: 00007FF63113FD1D 
+23: 00007FF631AF0D30 
+14: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+15: 00007FF632317DE0 
+24: 00007FF631AF0D30 
+15: 00007FF6316AD4C8 v8::base::Thread::StartSynchronously+265000
+16: 00007FFD118853E0 
+25: 00007FF631AF0D30 
+16: 00007FF6316AD9A2 v8::base::Thread::StartSynchronously+266242
+17: 00007FFD1250485B 
+26: 00007FF631AF0D30 
+17: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+27: 00007FF631AF0D30 
+18: 00007FF6316995BE v8::base::Thread::StartSynchronously+183326
+28: 00007FF5B1CD700D 
+19: 00007FF631699C02 v8::base::Thread::StartSynchronously+184930
+20: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+21: 00007FF6316A7FB9 v8::base::Thread::StartSynchronously+243225
+22: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+23: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+24: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+25: 00007FF63169F317 v8::base::Thread::StartSynchronously+207223
+26: 00007FF6316AB6E4 v8::base::Thread::StartSynchronously+257348
+27: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+28: 00007FF6316995BE v8::base::Thread::StartSynchronously+183326
+29: 00007FF631699C02 v8::base::Thread::StartSynchronously+184930
+30: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+31: 00007FF6316A7FB9 v8::base::Thread::StartSynchronously+243225
+32: 00007FF6316A5202 v8::base::Thread::StartSynchronously+231522
+33: 00007FF6316999A0 v8::base::Thread::StartSynchronously+184320
+34: 00007FF63169EEEE v8::base::Thread::StartSynchronously+206158
+35: 00007FF63169F317 v8::base::Thread::StartSynchronously+207223
+36: 00007FF6316AB6E4 v8::base::Thread::StartSynchronously+257348
+37: 00007FF6316A2A6A v8::base::Thread::StartSynchronously+221386
+38: 00007FF6316A1AE3 v8::base::Thread::StartSynchronously+217411
+39: 00007FF6316A32F4 v8::base::Thread::StartSynchronously+223572
+40: 00007FF631694229 v8::base::Thread::StartSynchronously+161929
+41: 00007FF6316A85AF v8::base::Thread::StartSynchronously+244751
+42: 00007FF63168DCD2 v8::base::Thread::StartSynchronously+135986
+43: 00007FF631A2A8AB v8::SharedValueConveyor::SharedValueConveyor+22075
+44: 00007FF631A2FEDB v8::SharedValueConveyor::SharedValueConveyor+44139
+45: 00007FF631AB7E8C v8::ScriptCompiler::CompileFunctionInternal+1260
+46: 00007FF631AB7994 v8::ScriptCompiler::CompileFunction+84
+47: 00007FF63106868C node::OnFatalError+54972
+48: 00007FF631068C04 node::OnFatalError+56372
+49: 00007FF631A8AC7E v8::SharedValueConveyor::SharedValueConveyor+416270
+50: 00007FF631A8A87A v8::SharedValueConveyor::SharedValueConveyor+415242
+51: 00007FF631A8AB3F v8::SharedValueConveyor::SharedValueConveyor+415951
+52: 00007FF631A8A9B0 v8::SharedValueConveyor::SharedValueConveyor+415552
+53: 00007FF631B7F68E v8::PropertyDescriptor::writable+650622
+54: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+55: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+56: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+57: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+58: 00007FF631AF0D30 v8::PropertyDescriptor::writable+66592
+59: 00007FF5B1CD700D 
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 0000005C54DF5AF0
+----- Native stack trace -----
+
+
+<--- Last few GCs --->
+
+[54364:000001C4B7032BD0]     2783 ms: Scavenge 6.1 (7.2) -> 5.3 (9.4) MB, 201.99 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: AlignedAlloc Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF6315A340C 
+ 6: 00007FF6316CBF25 
+ 7: 00007FF6316CBB11 
+ 8: 00007FF6316CA16F 
+ 9: 00007FF63194B6CB 
+10: 00007FF631AA9942 
+11: 00007FF6316945A4 
+12: 00007FF6316A85AF 
+13: 00007FF63168DCD2 
+14: 00007FF631A2A8AB 
+15: 00007FF631A2FEDB 
+16: 00007FF631AB7E8C 
+17: 00007FF631AB7994 
+18: 00007FF63106868C 
+19: 00007FF631068C04 
+20: 00007FF631A8AC7E 
+21: 00007FF631A8A87A 
+22: 00007FF631A8AB3F 
+23: 00007FF631A8A9B0 
+24: 00007FF631B7F68E 
+25: 00007FF631AF0D30 
+26: 00007FF631AF0D30 
+27: 00007FF631AF0D30 
+28: 00007FF631AF0D30 
+29: 00007FF631AF0D30 
+30: 000001C4B8BD62CD 
+
+
+#
+# Fatal error in , line 0
+
+
+#
+# Fatal process out of memory: Zone
+# Fatal error in , line 0
+#
+#
+# Out of memory: HashMap::Initialize
+#
+#
+#FailureMessage Object: 000000E014FF61B0
+#
+----- Native stack trace -----
+#
+
+#FailureMessage Object: 000000C4079FACB0
+ 1: 00007FF6310EBFDB 
+----- Native stack trace -----
+ 2: 00007FF630FDD7AF 
+
+ 3: 00007FF631EF47D2 
+
+ 4: 00007FF631ABDCF3 
+<--- Last few GCs --->
+ 5: 00007FF6315A0724 
+
+ 6: 00007FF632139FD8 
+ 7: 00007FF631F8510D 
+ 8: 00007FF6320EE38E 
+ 9: 00007FF6320EEF5D 
+10: 00007FF6320EF608 
+11: 00007FF6320EF64E 
+12: 00007FF631FBE9AF 
+13: 00007FF631FBA0D2 
+14: 00007FF631FB631A 
+15: 00007FF631A2C501 
+16: 00007FF6319F9421 
+17: 00007FF630FE028D 
+18: 00007FF63113FD1D 
+19: 00007FF632317DE0 
+20: 00007FFD118853E0 
+21: 00007FFD1250485B 
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+
+
+#
+# Fatal error in , line 0
+# Fatal process out of memory: Zone
+#
+#
+#
+#FailureMessage Object: 000000F842FF5460
+----- Native stack trace -----
+
+
+#
+# Fatal process OOM in Failed to reserve virtual memory for CodeRange
+#
+
+ 1: 00007FF6310EBFDB 
+ 2: 00007FF63105AF98 
+ 3: 00007FF631AD4851 
+ 4: 00007FF631ABDEE8 
+ 5: 00007FF63191F8D0 
+ 1: 00007FF6310EBFDB 
+ 1: 00007FF6310EBFDB 
+ 6: 00007FF6318D76D3 
+ 2: 00007FF630FDD7AF 
+ 2: 00007FF630FDD7AF 
+ 7: 00007FF631928F80 
+ 3: 00007FF631EF47D2 
+ 3: 00007FF631EF47D2 
+ 4: 00007FF631AACD63 
+ 8: 00007FF63191C5F0 
+ 4: 00007FF631ABDCF3 
+ 9: 00007FF631931C5A 
+ 5: 00007FF631AAC7B6 
+10: 00007FF6319324D7 
+ 5: 00007FF6315A0724 
+ 6: 00007FF631AACA81 
+ 6: 00007FF631F34086 
+11: 00007FF63193B10E 
+ 7: 00007FF631AAC8F7 
+ 7: 00007FF631F34712 
+12: 00007FF63194F394 
+ 8: 00007FF63166ED31 
+ 8: 00007FF6321DDF31 
+13: 00007FF6316EE337 
+ 9: 00007FF6316A3851 
+ 9: 00007FF6321DEC58 
+14: 00007FF6316EE2BE 
+10: 00007FF6316A39A3 
+10: 00007FF6321E1DE7 
+15: 00007FF631708F7D 
+11: 00007FF6316A2A6A 
+16: 00007FF63170BE1A 
+11: 00007FF6321427D7 
+12: 00007FF6316A1AE3 
+12: 00007FF63214017F 
+17: 00007FF631707D69 
+13: 00007FF6316A32F4 
+13: 00007FF63213A00C 
+18: 00007FF631708A44 
+14: 00007FF631694229 
+14: 00007FF631F8510D 
+19: 00007FF63170CA0F 
+15: 00007FF6316A85AF 
+15: 00007FF6320EE38E 
+20: 00007FF631715582 
+16: 00007FF63168DCD2 
+16: 00007FF6320EEF5D 
+21: 00007FF6316EAE50 
+17: 00007FF631A2A8AB 
+17: 00007FF6320EF608 
+22: 00007FF6316FF9E4 
+18: 00007FF631A2FEDB 
+18: 00007FF6320EF64E 
+23: 00007FF6318A82D3 
+19: 00007FF631AB7E8C 
+24: 00007FF6318A6869 
+19: 00007FF631FBE9AF 
+20: 00007FF631AB7994 
+20: 00007FF631FBA0D2 
+25: 00007FF631B7F78E 
+21: 00007FF63106868C 
+21: 00007FF631FB631A 
+26: 00007FF631C2FD56 
+22: 00007FF631068C04 
+22: 00007FF631A2C501 
+27: 00007FF631AF0D30 
+23: 00007FF631A8AC7E 
+23: 00007FF6319F9421 
+28: 00007FF631AF0D30 
+24: 00007FF631A8A87A 
+24: 00007FF630FE028D 
+29: 00007FF631AF0D30 
+25: 00007FF631A8AB3F 
+25: 00007FF63113FD1D 
+30: 00007FF631AF0D30 
+26: 00007FF631A8A9B0 
+26: 00007FF632317DE0 
+27: 00007FF631B7F68E 
+31: 00007FF631AF0D30 
+27: 00007FFD118853E0 BaseThreadInitThunk+16
+32: 00007FF631AEF0F0 
+28: 00007FF631AF0D30 
+28: 00007FFD1250485B RtlUserThreadStart+43
+33: 00007FF631AEECEB 
+29: 00007FF631AF0D30 
+34: 00007FF63199FBF8 
+30: 00007FF631AF0D30 
+35: 00007FF63199F4F3 
+36: 00007FF631AB3A1B 
+31: 00007FF5B1CF169D 
+37: 00007FF63107A81A 
+38: 00007FF630FCEC6E 
+39: 00007FF630FD2AF3 
+40: 00007FF63111E637 
+41: 00007FF630F46DCE 
+42: 00007FF630F42018 
+43: 00007FF63113FD1D 
+44: 00007FF632317DE0 
+45: 00007FFD118853E0 BaseThreadInitThunk+16
+46: 00007FFD1250485B RtlUserThreadStart+43
+
+#

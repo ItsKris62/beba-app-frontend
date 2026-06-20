@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export type DocumentType =

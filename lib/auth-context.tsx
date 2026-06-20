@@ -2,7 +2,16 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { jwtDecode } from "jwt-decode";
 import { authApi, tokenStore, refreshAccessToken, type LoginResponse } from "./api-client";
+import {
+  canApproveLoans as canApproveLoansForRole,
+  canWriteAdminRecords,
+  isAdminRole,
+  isMemberRole,
+  isSuperAdminRole,
+} from "./permissions";
+import { normalizeRole } from "@/types/roles";
 
 interface AuthContextValue {
   user: LoginResponse["user"] | null;
@@ -23,6 +32,56 @@ const AuthContext = createContext<AuthContextValue>({
   updateUser: () => {},
 });
 
+interface JwtUserPayload {
+  sub?: string;
+  email?: string;
+  role?: string;
+  tenantId?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+function normalizeUser(user: LoginResponse["user"]): LoginResponse["user"] {
+  return { ...user, role: normalizeRole(user.role) ?? user.role };
+}
+
+function userFromToken(token: string): LoginResponse["user"] | null {
+  try {
+    const payload = jwtDecode<JwtUserPayload>(token);
+    if (!payload.sub || !payload.email || !payload.role || !payload.tenantId) return null;
+    const normalizedRole = normalizeRole(payload.role);
+    if (!normalizedRole) return null;
+    const [fallbackFirstName = "User"] = payload.email.split("@");
+    return {
+      id: payload.sub,
+      email: payload.email,
+      firstName: payload.firstName ?? fallbackFirstName,
+      lastName: payload.lastName ?? "",
+      role: normalizedRole,
+      tenantId: payload.tenantId,
+      mustChangePassword: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function reconcileUserWithToken(
+  stored: LoginResponse["user"] | null,
+  token: string,
+): LoginResponse["user"] | null {
+  const decoded = userFromToken(token);
+  if (!stored) return decoded;
+  if (!decoded) return normalizeUser(stored);
+  return {
+    ...normalizeUser(stored),
+    id: decoded.id,
+    email: decoded.email,
+    role: decoded.role,
+    tenantId: decoded.tenantId,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<LoginResponse["user"] | null>(null);
@@ -35,13 +94,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const stored = tokenStore.getUser();
     if (!stored) {
+      const decoded = tokenStore.getAccess() ? userFromToken(tokenStore.getAccess()!) : null;
+      if (decoded) setUser(decoded);
       setIsLoading(false);
       return;
     }
 
     refreshAccessToken().then((token) => {
       if (token) {
-        setUser(stored);
+        setUser(reconcileUserWithToken(stored, token));
       } else {
         // Refresh failed (expired / rotated) — force re-login
         tokenStore.clear();
@@ -62,11 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: false, error: message };
     }
-    tokenStore.set(res.data.accessToken, res.data.refreshToken, res.data.user, {
+    const normalizedUser = normalizeUser(res.data.user);
+    tokenStore.set(res.data.accessToken, res.data.refreshToken, normalizedUser, {
       persistRefresh: !res.data.migrateRefreshToken,
     });
-    setUser(res.data.user);
-    return { success: true, user: res.data.user };
+    setUser(normalizedUser);
+    return { success: true, user: normalizedUser };
   }, []);
 
   const logout = useCallback(async () => {
@@ -83,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUser = useCallback((patch: Partial<LoginResponse["user"]>) => {
     setUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, ...patch };
+      const updated = normalizeUser({ ...prev, ...patch });
       // Persist updated user data to localStorage (access token stays in memory)
       const refresh = tokenStore.getRefresh();
       const access = tokenStore.getAccess();
@@ -118,24 +180,24 @@ export function useAuth() {
 
 /** Role-based helpers */
 export function isAdmin(role?: string) {
-  return ["SUPER_ADMIN", "TENANT_ADMIN", "MANAGER", "TELLER", "AUDITOR", "CHAIRMAN"].includes(role ?? "")
+  return isAdminRole(role)
 }
 
 export function isMember(role?: string) {
-  return role === "MEMBER"
+  return isMemberRole(role)
 }
 
 /** TELLER and above can create/edit records (not approve/disburse loans) */
 export function canWrite(role?: string) {
-  return ["SUPER_ADMIN", "TENANT_ADMIN", "MANAGER", "TELLER"].includes(role ?? "")
+  return canWriteAdminRecords(role)
 }
 
 /** Only MANAGER and above can approve, reject, or disburse loans */
 export function canApproveLoans(role?: string) {
-  return ["SUPER_ADMIN", "TENANT_ADMIN", "MANAGER"].includes(role ?? "")
+  return canApproveLoansForRole(role)
 }
 
 /** Only SUPER_ADMIN can manage tenants */
 export function isSuperAdmin(role?: string) {
-  return role === "SUPER_ADMIN"
+  return isSuperAdminRole(role)
 }

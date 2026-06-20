@@ -19,6 +19,7 @@ export default function MemberSupportPage() {
       return res.data;
     },
   });
+  const ticketList = tickets.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -55,7 +56,7 @@ export default function MemberSupportPage() {
             <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {tickets.error.message}
             </div>
-          ) : tickets.data.length === 0 ? (
+          ) : ticketList.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
               <p>No support tickets yet.</p>
               <Link href="/member/support/new" className="mt-2 inline-block underline">Create your first ticket</Link>
@@ -73,7 +74,7 @@ export default function MemberSupportPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tickets.data.map((ticket) => (
+                    {ticketList.map((ticket) => (
                       <TableRow key={ticket.id}>
                         <TableCell>
                           <Link href={`/member/support/${ticket.id}`} className="font-medium hover:underline">
@@ -89,7 +90,7 @@ export default function MemberSupportPage() {
                 </Table>
               </div>
               <div className="space-y-3 md:hidden">
-                {tickets.data.map((ticket) => (
+                {ticketList.map((ticket) => (
                   <Link key={ticket.id} href={`/member/support/${ticket.id}`} className="block rounded border p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium">{ticket.subject}</p>

@@ -34,7 +34,7 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1"
 
 function getPasswordResetUrl(path: "/request" | "/verify"): string {
   const base = API_BASE.replace(/\/$/, "")

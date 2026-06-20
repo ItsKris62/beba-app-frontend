@@ -4,7 +4,7 @@
  */
 import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';

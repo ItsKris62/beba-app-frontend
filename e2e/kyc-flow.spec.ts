@@ -16,7 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
-const API_BASE   = 'http://localhost:3001/api';
+const API_BASE   = 'http://localhost:3001/api/v1';
 
 const MEMBER_CREDENTIALS = {
   email: 'member@test.beba.co.ke',

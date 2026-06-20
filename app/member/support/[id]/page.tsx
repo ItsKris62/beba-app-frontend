@@ -49,6 +49,8 @@ export default function MemberSupportDetailPage() {
     reply.mutate();
   }
 
+  const supportTicket = ticket.data ?? null;
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
@@ -65,30 +67,32 @@ export default function MemberSupportDetailPage() {
         <Skeleton className="h-96" />
       ) : ticket.isError ? (
         <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{ticket.error.message}</div>
+      ) : !supportTicket ? (
+        <div className="rounded border p-4 text-sm text-muted-foreground">Ticket not found.</div>
       ) : (
         <>
           <Card>
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">{ticket.data.subject}</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{formatTicketLabel(ticket.data.category)} · Created {formatDateTime(ticket.data.createdAt)}</p>
+                  <CardTitle className="text-lg">{supportTicket.subject}</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">{formatTicketLabel(supportTicket.category)} · Created {formatDateTime(supportTicket.createdAt)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <TicketStatusBadge status={ticket.data.status} />
-                  <TicketPriorityBadge priority={ticket.data.priority} />
+                  <TicketStatusBadge status={supportTicket.status} />
+                  <TicketPriorityBadge priority={supportTicket.priority} />
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{ticket.data.description}</p>
+              <p className="text-sm text-muted-foreground">{supportTicket.description}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle className="text-base">Conversation</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              {(ticket.data.messages ?? []).map((message) => {
+              {(supportTicket.messages ?? []).map((message) => {
                 const isMember = message.senderRole === 'MEMBER';
                 return (
                   <div key={message.id} className={cn('flex', isMember ? 'justify-end' : 'justify-start')}>

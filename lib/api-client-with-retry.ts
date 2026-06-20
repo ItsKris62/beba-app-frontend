@@ -11,7 +11,7 @@
 
 import { parseProblemDetailAsync, type ParsedError } from './rfc7807-parser';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 
 /** Tenant ID resolved at runtime */
 function getTenantId(): string {

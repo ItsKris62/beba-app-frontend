@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { ForbiddenPage } from "@/components/forbidden-page"
 import { useAuth, isAdmin } from "@/lib/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -14,9 +15,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login")
-    }
-    if (!isLoading && isAuthenticated && user && !isAdmin(user.role)) {
-      router.replace("/member/dashboard")
     }
   }, [isLoading, isAuthenticated, user, router])
 
@@ -32,7 +30,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  if (!isAuthenticated || !user || !isAdmin(user.role)) return null
+  if (!isAuthenticated || !user) return null
+
+  if (!isAdmin(user.role)) return <ForbiddenPage />
 
   const displayName = `${user.firstName} ${user.lastName}`
 

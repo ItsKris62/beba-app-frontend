@@ -70,6 +70,8 @@ export default function AdminSupportDetailPage() {
     reply.mutate();
   }
 
+  const supportTicket = ticket.data ?? null;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex items-center gap-3">
@@ -86,6 +88,8 @@ export default function AdminSupportDetailPage() {
         <Skeleton className="h-96" />
       ) : ticket.isError ? (
         <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{ticket.error.message}</div>
+      ) : !supportTicket ? (
+        <div className="rounded border p-4 text-sm text-muted-foreground">Ticket not found.</div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6">
@@ -93,22 +97,22 @@ export default function AdminSupportDetailPage() {
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <CardTitle className="text-lg">{ticket.data.subject}</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">{formatMemberName(ticket.data)} · {formatTicketLabel(ticket.data.category)}</p>
+                    <CardTitle className="text-lg">{supportTicket.subject}</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">{formatMemberName(supportTicket)} · {formatTicketLabel(supportTicket.category)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <TicketStatusBadge status={ticket.data.status} />
-                    <TicketPriorityBadge priority={ticket.data.priority} />
+                    <TicketStatusBadge status={supportTicket.status} />
+                    <TicketPriorityBadge priority={supportTicket.priority} />
                   </div>
                 </div>
               </CardHeader>
-              <CardContent><p className="text-sm text-muted-foreground">{ticket.data.description}</p></CardContent>
+              <CardContent><p className="text-sm text-muted-foreground">{supportTicket.description}</p></CardContent>
             </Card>
 
             <Card>
               <CardHeader><CardTitle className="text-base">Conversation</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                {(ticket.data.messages ?? []).map((message) => {
+                {(supportTicket.messages ?? []).map((message) => {
                   const isAdmin = message.senderRole !== 'MEMBER';
                   return (
                     <div key={message.id} className={cn('flex', isAdmin ? 'justify-end' : 'justify-start')}>
@@ -140,7 +144,7 @@ export default function AdminSupportDetailPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Status</p>
-                <Select value={ticket.data.status} onValueChange={(value) => updateStatus.mutate(value as TicketStatus)}>
+                <Select value={supportTicket.status} onValueChange={(value) => updateStatus.mutate(value as TicketStatus)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {statuses.map((status) => <SelectItem key={status} value={status}>{formatTicketLabel(status)}</SelectItem>)}
@@ -149,11 +153,11 @@ export default function AdminSupportDetailPage() {
               </div>
               <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional status note" />
               <div className="space-y-2 text-sm">
-                {ticket.data.member?.id && <Link className="block underline" href={`/admin/members/${ticket.data.member.id}`}>Member profile</Link>}
-                {ticket.data.relatedLoanId && <Link className="block underline" href={`/admin/loans/${ticket.data.relatedLoanId}`}>Related loan</Link>}
-                {ticket.data.relatedTxId && <Link className="block underline" href={`/admin/transactions?search=${ticket.data.relatedTxId}`}>Related transaction</Link>}
+                {supportTicket.member?.id && <Link className="block underline" href={`/admin/members/${supportTicket.member.id}`}>Member profile</Link>}
+                {supportTicket.relatedLoanId && <Link className="block underline" href={`/admin/loans/${supportTicket.relatedLoanId}`}>Related loan</Link>}
+                {supportTicket.relatedTxId && <Link className="block underline" href={`/admin/transactions?search=${supportTicket.relatedTxId}`}>Related transaction</Link>}
               </div>
-              <p className="text-xs text-muted-foreground">Updated {formatDateTime(ticket.data.updatedAt)}</p>
+              <p className="text-xs text-muted-foreground">Updated {formatDateTime(supportTicket.updatedAt)}</p>
             </CardContent>
           </Card>
         </div>

@@ -78,7 +78,7 @@ export function AdminTicketSidebar({ ticket }: SidebarProps) {
               <SelectContent>
                 <SelectItem value="OPEN">Open</SelectItem>
                 <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="PENDING_MEMBER">Pending Member</SelectItem>
+                <SelectItem value="WAITING_ON_MEMBER">Waiting Member</SelectItem>
                 <SelectItem value="RESOLVED">Resolved</SelectItem>
                 <SelectItem value="CLOSED">Closed</SelectItem>
               </SelectContent>
@@ -144,3 +144,5 @@ export function AdminTicketSidebar({ ticket }: SidebarProps) {
     </div>
   );
 }
+
+

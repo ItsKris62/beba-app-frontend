@@ -1,17 +1,13 @@
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING_MEMBER' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_MEMBER' | 'RESOLVED' | 'CLOSED';
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export type TicketCategory =
+  | 'LOAN_QUERY'
+  | 'MPESA_ISSUE'
   | 'ACCOUNT_ACCESS'
-  | 'LOANS'
-  | 'DEPOSITS'
-  | 'WITHDRAWALS'
-  | 'MPESA'
-  | 'STATEMENTS'
-  | 'KYC'
+  | 'KYC_UPDATE'
   | 'GUARANTOR_DISPUTE'
-  | 'TECHNICAL'
   | 'GENERAL';
 
 export type SupportSenderType = 'MEMBER' | 'ADMIN' | 'SYSTEM';

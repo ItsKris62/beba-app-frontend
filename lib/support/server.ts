@@ -33,6 +33,47 @@ export type SupportServerSession = {
 function apiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 }
+type RawAdminSupportTicket = AdminSupportTicket & {
+  member?: AdminSupportTicket['member'] & {
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+      phoneNumber?: string | null;
+      phone?: string | null;
+    };
+  };
+};
+
+function normalizeAdminTicket(ticket: RawAdminSupportTicket): AdminSupportTicket {
+  const memberUser = ticket.member?.user;
+  const createdAt = ticket.createdAt ?? new Date().toISOString();
+  const updatedAt = ticket.updatedAt ?? createdAt;
+
+  return {
+    ...ticket,
+    firstResponseDueAt: ticket.firstResponseDueAt ?? createdAt,
+    resolutionDueAt: ticket.resolutionDueAt ?? updatedAt,
+    member: {
+      firstName: ticket.member?.firstName ?? memberUser?.firstName ?? '',
+      lastName: ticket.member?.lastName ?? memberUser?.lastName ?? '',
+      email: ticket.member?.email ?? memberUser?.email ?? '',
+      phoneNumber: ticket.member?.phoneNumber ?? memberUser?.phoneNumber ?? memberUser?.phone ?? '',
+      memberNumber: ticket.member?.memberNumber ?? '',
+    },
+  };
+}
+
+function normalizeAdminTickets(data: PaginatedAdminSupportTickets | RawAdminSupportTicket[]): PaginatedAdminSupportTickets | AdminSupportTicket[] {
+  if (Array.isArray(data)) {
+    return data.map(normalizeAdminTicket);
+  }
+
+  return {
+    ...data,
+    items: data.items.map(normalizeAdminTicket),
+  };
+}
 
 export async function getSupportServerSession(): Promise<SupportServerSession> {
   const cookieStore = await cookies();
@@ -134,25 +175,28 @@ export async function getAdminTickets(
   if (priority) params.append('priority', priority);
   if (category) params.append('category', category);
 
-  const data = await supportFetch<PaginatedAdminSupportTickets | AdminSupportTicket[]>(
-    `/admin/support/tickets?${params.toString()}`,
+  const data = await supportFetch<PaginatedAdminSupportTickets | RawAdminSupportTicket[]>(
+    `/support/tickets?${params.toString()}`,
     session,
   );
 
-  if (Array.isArray(data)) {
+  const normalized = normalizeAdminTickets(data);
+
+  if (Array.isArray(normalized)) {
     return {
-      items: data,
+      items: normalized,
       page,
-      limit: data.length,
-      total: data.length,
+      limit: normalized.length,
+      total: normalized.length,
       pages: 1,
     };
   }
 
-  return data;
+  return normalized;
 }
 
 export async function getSupportMetrics(): Promise<SupportMetrics> {
   const session = await getSupportServerSession();
-  return supportFetch<SupportMetrics>('/admin/support/metrics', session);
+  return supportFetch<SupportMetrics>('/support/metrics', session);
 }
+

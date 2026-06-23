@@ -18,15 +18,11 @@ import { formatSupportLabel } from '@/components/support/StatusBadge';
 import type { TicketCategory, TicketPriority } from '@/lib/support/types';
 
 const categories = [
+  'LOAN_QUERY',
+  'MPESA_ISSUE',
   'ACCOUNT_ACCESS',
-  'LOANS',
-  'DEPOSITS',
-  'WITHDRAWALS',
-  'MPESA',
-  'STATEMENTS',
-  'KYC',
+  'KYC_UPDATE',
   'GUARANTOR_DISPUTE',
-  'TECHNICAL',
   'GENERAL',
 ] as const satisfies readonly TicketCategory[];
 

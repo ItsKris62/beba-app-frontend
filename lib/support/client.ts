@@ -57,13 +57,13 @@ export function createSupportTicket(payload: CreateTicketPayload) {
 }
 
 export function assignTicket(ticketId: string) {
-  return supportFetch<SupportTicket>(`/admin/support/tickets/${ticketId}/assign`, {
+  return supportFetch<SupportTicket>(`/support/tickets/${ticketId}/assign`, {
     method: 'POST',
   });
 }
 
 export function updateTicketStatus(ticketId: string, status: string) {
-  return supportFetch<SupportTicket>(`/admin/support/tickets/${ticketId}/status`, {
+  return supportFetch<SupportTicket>(`/support/tickets/${ticketId}`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
@@ -77,7 +77,7 @@ export function searchActiveTickets(query: string) {
     search: query,
   });
   // Note: Depending on backend, multiple statuses might need to be sent differently
-  return supportFetch<any>(`/admin/support/tickets?${params.toString()}`, {
+  return supportFetch<any>(`/support/tickets?${params.toString()}`, {
     method: 'GET',
   });
 }

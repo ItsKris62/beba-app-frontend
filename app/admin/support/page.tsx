@@ -1,122 +1,115 @@
-'use client';
-
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getAdminTickets, getSupportMetrics } from '@/lib/support/server';
+import { TicketsDataTable } from '@/components/support/TicketsDataTable';
+import { columns } from '@/components/support/TicketsTableColumns';
+import { AlertCircle, Clock, TicketIcon } from 'lucide-react';
+import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { adminApi, formatDateTime, type TicketPriority, type TicketStatus } from '@/lib/api-client';
-import { TicketPriorityBadge, TicketStatusBadge, formatMemberName, formatTicketLabel } from '@/components/support-ticket-ui';
 
-const statuses: Array<TicketStatus | 'ALL'> = ['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_ON_MEMBER', 'RESOLVED', 'CLOSED'];
-const priorities: Array<TicketPriority | 'ALL'> = ['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+export const metadata = {
+  title: 'Support Dashboard | Beba Super Admin',
+};
 
-export default function AdminSupportPage() {
-  const [status, setStatus] = useState<TicketStatus | 'ALL'>('ALL');
-  const [priority, setPriority] = useState<TicketPriority | 'ALL'>('ALL');
-  const [search, setSearch] = useState('');
+function MetricsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3 mb-8">
+      {[1, 2, 3].map(i => (
+        <Card key={i}><CardContent className="p-6"><Skeleton className="h-12 w-full"/></CardContent></Card>
+      ))}
+    </div>
+  );
+}
 
-  const tickets = useQuery({
-    queryKey: ['admin-support-tickets', status],
-    queryFn: async () => {
-      const res = await adminApi.getAllTickets({ status: status === 'ALL' ? undefined : status });
-      if (!res.success) throw new Error(res.error?.message ?? 'Failed to load support queue');
-      return res.data;
-    },
-  });
+async function MetricsSection() {
+  try {
+    const metrics = await getSupportMetrics();
+    
+    return (
+      <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+            <TicketIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics.openTickets}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">SLA Breaches</CardTitle>
+            <AlertCircle className={`h-4 w-4 ${metrics.slaBreaches > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${metrics.slaBreaches > 0 ? 'text-red-600' : ''}`}>
+              {metrics.slaBreaches}
+            </div>
+            <p className="text-xs text-muted-foreground">Requiring immediate attention</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Resolution Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics.avgResolutionTimeHours.toFixed(1)}h</div>
+            <p className="text-xs text-muted-foreground">Past 7 days</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  } catch (e) {
+    return null;
+  }
+}
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return (tickets.data ?? []).filter((ticket) => {
-      const matchesPriority = priority === 'ALL' || ticket.priority === priority;
-      const memberName = formatMemberName(ticket).toLowerCase();
-      const matchesSearch = !term || ticket.subject.toLowerCase().includes(term) || memberName.includes(term);
-      return matchesPriority && matchesSearch;
-    });
-  }, [priority, search, tickets.data]);
+async function TableSection({ searchParams }: { searchParams: { [key: string]: string | undefined } }) {
+  const page = Number(searchParams.page) || 1;
+  const search = searchParams.search;
+  const status = searchParams.status;
+  const priority = searchParams.priority;
+  const category = searchParams.category;
+
+  const data = await getAdminTickets(page, search, status, priority, category).catch(() => ({
+    items: [],
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 1,
+  }));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Support Queue</h1>
-          <p className="text-sm text-muted-foreground">Review and resolve member tickets.</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void tickets.refetch()} disabled={tickets.isFetching}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${tickets.isFetching ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+    <TicketsDataTable 
+      columns={columns} 
+      data={data.items} 
+      pageCount={data.pages} 
+      currentPage={data.page} 
+      isLoading={false} 
+    />
+  );
+}
+
+export default function SupportDashboardPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | undefined };
+}) {
+  return (
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2 mb-4">
+        <h2 className="text-3xl font-bold tracking-tight">Support Operations</h2>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">All Tickets</CardTitle>
-          <CardDescription>{filtered.length} visible ticket{filtered.length === 1 ? '' : 's'}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-[1fr_180px_180px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search member or subject" className="pl-9" />
-            </div>
-            <Select value={status} onValueChange={(value) => setStatus(value as TicketStatus | 'ALL')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {statuses.map((item) => <SelectItem key={item} value={item}>{item === 'ALL' ? 'All statuses' : formatTicketLabel(item)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={priority} onValueChange={(value) => setPriority(value as TicketPriority | 'ALL')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {priorities.map((item) => <SelectItem key={item} value={item}>{item === 'ALL' ? 'All priorities' : formatTicketLabel(item)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+      <Suspense fallback={<MetricsSkeleton />}>
+        <MetricsSection />
+      </Suspense>
 
-          {tickets.isLoading ? (
-            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-          ) : tickets.isError ? (
-            <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{tickets.error.message}</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((ticket) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell>{formatMemberName(ticket)}</TableCell>
-                      <TableCell>
-                        <Link href={`/admin/support/${ticket.id}`} className="font-medium hover:underline">{ticket.subject}</Link>
-                      </TableCell>
-                      <TableCell><TicketStatusBadge status={ticket.status} /></TableCell>
-                      <TableCell><TicketPriorityBadge priority={ticket.priority} /></TableCell>
-                      <TableCell>{ticket.assignedTo ?? 'Unassigned'}</TableCell>
-                      <TableCell>{formatDateTime(ticket.updatedAt)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No tickets match the filters</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+        <TableSection searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }

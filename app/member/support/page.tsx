@@ -1,112 +1,103 @@
-'use client';
-
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { MessageSquarePlus, RefreshCw } from 'lucide-react';
+import { MessageSquarePlus, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { memberApi, formatDateTime } from '@/lib/api-client';
-import { TicketPriorityBadge, TicketStatusBadge } from '@/components/support-ticket-ui';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { TicketCard } from '@/components/support/TicketCard';
+import { getMemberTickets } from '@/lib/support/server';
 
-export default function MemberSupportPage() {
-  const tickets = useQuery({
-    queryKey: ['member-support-tickets'],
-    queryFn: async () => {
-      const res = await memberApi.getMyTickets();
-      if (!res.success) throw new Error(res.error?.message ?? 'Failed to load tickets');
-      return res.data;
-    },
-  });
-  const ticketList = tickets.data ?? [];
+export default async function MemberSupportPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Math.max(Number(params?.page ?? '1') || 1, 1);
+  const tickets = await getMemberTickets(page);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Support</h1>
-          <p className="text-sm text-muted-foreground">Track questions and replies from the SACCO team.</p>
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Support Center</h1>
+          <p className="text-sm text-muted-foreground">
+            Raise concerns, track replies, and keep a record of your support conversations.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void tickets.refetch()} disabled={tickets.isFetching}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${tickets.isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Link href="/member/support/new">
-            <Button size="sm">
-              <MessageSquarePlus className="mr-2 h-4 w-4" />
-              New Ticket
-            </Button>
+        <Button asChild>
+          <Link href="/member/support/new" aria-label="Create new support ticket">
+            <MessageSquarePlus data-icon="inline-start" />
+            Create New Ticket
           </Link>
-        </div>
-      </div>
+        </Button>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">My Tickets</CardTitle>
-          <CardDescription>Recent support conversations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tickets.isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14" />)}
-            </div>
-          ) : tickets.isError ? (
-            <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {tickets.error.message}
-            </div>
-          ) : ticketList.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              <p>No support tickets yet.</p>
-              <Link href="/member/support/new" className="mt-2 inline-block underline">Create your first ticket</Link>
-            </div>
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ticketList.map((ticket) => (
-                      <TableRow key={ticket.id}>
-                        <TableCell>
-                          <Link href={`/member/support/${ticket.id}`} className="font-medium hover:underline">
-                            {ticket.subject}
-                          </Link>
-                        </TableCell>
-                        <TableCell><TicketStatusBadge status={ticket.status} /></TableCell>
-                        <TableCell><TicketPriorityBadge priority={ticket.priority} /></TableCell>
-                        <TableCell>{formatDateTime(ticket.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="space-y-3 md:hidden">
-                {ticketList.map((ticket) => (
-                  <Link key={ticket.id} href={`/member/support/${ticket.id}`} className="block rounded border p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="font-medium">{ticket.subject}</p>
-                      <TicketStatusBadge status={ticket.status} />
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <TicketPriorityBadge priority={ticket.priority} />
-                      <span>{formatDateTime(ticket.createdAt)}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
+      {tickets.items.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <MessageSquareText />
+            </EmptyMedia>
+            <EmptyTitle>You have no active support tickets</EmptyTitle>
+            <EmptyDescription>
+              When you need help with deposits, loans, account access, or statements, create a
+              ticket and the support team will respond here.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button asChild>
+              <Link href="/member/support/new">Create your first ticket</Link>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {tickets.items.map((ticket) => (
+              <TicketCard key={ticket.id} ticket={ticket} />
+            ))}
+          </section>
+
+          {tickets.pages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href={`/member/support?page=${Math.max(page - 1, 1)}`}
+                    aria-disabled={page <= 1}
+                    className={page <= 1 ? 'pointer-events-none opacity-50' : undefined}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="px-3 text-sm text-muted-foreground">
+                    Page {tickets.page} of {tickets.pages}
+                  </span>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext
+                    href={`/member/support?page=${Math.min(page + 1, tickets.pages)}`}
+                    aria-disabled={page >= tickets.pages}
+                    className={page >= tickets.pages ? 'pointer-events-none opacity-50' : undefined}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </>
+      )}
+    </main>
   );
 }

@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { useAuth, isAdmin } from "@/lib/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SocketProvider } from "@/components/providers/SocketProvider"
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -43,8 +44,10 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       memberNo={`#${user.id.slice(0, 8).toUpperCase()}`}
     >
       <ErrorBoundary resetKeys={[user.id, user.role]}>
-        {children}
+        <SocketProvider>{children}</SocketProvider>
       </ErrorBoundary>
     </AppSidebar>
   )
 }
+
+

@@ -59,5 +59,6 @@ describe('api client request headers', () => {
     expect(String(url)).toContain('/api/v1/admin/transactions/stats');
     expect(headers.Authorization).toBe('Bearer test-access-token');
     expect(headers['X-Tenant-ID']).toBe('tenant-kc-boda');
+    expect(document.cookie).toContain('beba_access_token=test-access-token');
   });
 });

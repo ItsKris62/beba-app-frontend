@@ -708,16 +708,34 @@ function setMemAccessToken(token: string | null): void {
 // make role-based routing decisions at the edge. We mirror the token into a
 // same-site, short-lived cookie so middleware can decode the role without an
 // extra network hop. The cookie is NOT httpOnly (Edge JS must set it), but it
-// is scoped to SameSite=Strict which blocks cross-origin reads.
-function setCookie(name: string, value: string, days = 7): void {
+// uses SameSite=Lax so top-level portal navigation carries it.
+function getJwtMaxAgeSeconds(token: string): number {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return 15 * 60;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized)) as { exp?: number };
+    if (!decoded.exp) return 15 * 60;
+    return Math.max(0, decoded.exp - Math.floor(Date.now() / 1000));
+  } catch {
+    return 15 * 60;
+  }
+}
+
+function getCookieSecurityAttributes(): string {
+  if (typeof window === 'undefined') return '';
+  return window.location.protocol === 'https:' ? '; Secure' : '';
+}
+
+function setCookie(name: string, value: string, maxAgeSeconds: number): void {
   if (typeof document === 'undefined') return;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict`;
+  const maxAge = Math.max(0, Math.floor(maxAgeSeconds));
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; path=/; SameSite=Lax${getCookieSecurityAttributes()}`;
 }
 
 function clearCookie(name: string): void {
   if (typeof document === 'undefined') return;
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict`;
+  document.cookie = `${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax${getCookieSecurityAttributes()}`;
 }
 
 export const tokenStore = {
@@ -748,7 +766,7 @@ export const tokenStore = {
     }
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem(TENANT_KEY, user.tenantId);
-    setCookie(TOKEN_KEY, access, 7);               // mirror for Edge middleware
+    setCookie(TOKEN_KEY, access, getJwtMaxAgeSeconds(access)); // mirror for Next proxy
   },
   clear: () => {
     setMemAccessToken(null);

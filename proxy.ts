@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtDecode } from 'jwt-decode';
-import { isAdminRole, isMemberRole } from './lib/permissions';
+import { canAccessPortalRoute, getDefaultPortalRoute } from './lib/role-routing';
 import { normalizeRole } from './types/roles';
 
 const ADMIN_ROUTES = ['/admin'];
@@ -76,15 +76,12 @@ export function proxy(request: NextRequest) {
   }
 
   const role = getRoleFromToken(token);
-  const isAdmin = isAdminRole(role);
-  const isMember = isMemberRole(role);
+  const isProtectedPortalRoute =
+    ADMIN_ROUTES.some((p) => pathname.startsWith(p)) ||
+    MEMBER_ROUTES.some((p) => pathname.startsWith(p));
 
-  if (ADMIN_ROUTES.some((p) => pathname.startsWith(p)) && !isAdmin) {
-    return NextResponse.redirect(new URL('/403', request.url));
-  }
-
-  if (MEMBER_ROUTES.some((p) => pathname.startsWith(p)) && !isMember && !isAdmin) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (isProtectedPortalRoute && !canAccessPortalRoute(role, pathname)) {
+    return NextResponse.redirect(new URL(getDefaultPortalRoute(role), request.url));
   }
 
   return NextResponse.next();

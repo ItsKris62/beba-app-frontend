@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
 import { TRANSACTION_ROLES } from "@/lib/permissions"
+import { normalizeRole, type UserRole } from "@/types/roles"
 import {
   Tooltip,
   TooltipContent,
@@ -72,17 +73,17 @@ const memberNavItems = [
   { href: "/member/profile", label: "Profile", icon: User },
 ]
 
-const ALL_ADMIN_NAV: Array<{ href: string; label: string; icon: LucideIcon; roles: string[] }> = [
-  { href: "/admin/dashboard",         label: "Dashboard",      icon: LayoutDashboard, roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
+const ALL_ADMIN_NAV: Array<{ href: string; label: string; icon: LucideIcon; roles: UserRole[] }> = [
+  { href: "/admin/dashboard",         label: "Dashboard",      icon: LayoutDashboard, roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },
   { href: "/admin/members",           label: "Members",        icon: Users,           roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
-  { href: "/admin/members/pending",   label: "KYC Queue",      icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
-  { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
+  { href: "/admin/members/pending",   label: "KYC Queue",      icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
+  { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/users",             label: "Staff Users",    icon: User,            roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
-  { href: "/admin/loans",             label: "Loan Management",icon: CreditCard,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
+  { href: "/admin/loans",             label: "Loan Management",icon: CreditCard,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
   { href: "/admin/products",          label: "Loan Products",  icon: Package,         roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
-  { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
+  { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","ACCOUNTANT"] },
   { href: "/admin/transactions",      label: "Transactions",   icon: ArrowLeftRight,  roles: TRANSACTION_ROLES },
-  { href: "/admin/support",           label: "Support",        icon: MessageSquare,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER"] },
+  { href: "/admin/support",           label: "Support",        icon: MessageSquare,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
   { href: "/admin/import/upload",     label: "Import Members", icon: Upload,          roles: ["SUPER_ADMIN","TENANT_ADMIN"] },
   { href: "/admin/audit-log",         label: "Audit Trail",    icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },
   { href: "/admin/reports",           label: "Reports",        icon: BarChart3,       roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },
@@ -92,9 +93,9 @@ const ALL_ADMIN_NAV: Array<{ href: string; label: string; icon: LucideIcon; role
 ]
 
 function getAdminNavItems(role?: string) {
-  return ALL_ADMIN_NAV.filter(item => item.roles.includes(role ?? ""))
+  const normalized = normalizeRole(role)
+  return normalized ? ALL_ADMIN_NAV.filter(item => item.roles.includes(normalized)) : []
 }
-
 const SidebarContext = React.createContext<{
   collapsed: boolean
   setCollapsed: (value: boolean) => void

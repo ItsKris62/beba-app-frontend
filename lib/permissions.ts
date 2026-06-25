@@ -6,12 +6,11 @@ export const ADMIN_ROLES: UserRole[] = [
   'MANAGER',
   'TELLER',
   'AUDITOR',
-  'CHAIRMAN',
   'LOAN_OFFICER',
   'ACCOUNTANT',
 ];
 
-export const MEMBER_ROLES: UserRole[] = ['MEMBER'];
+export const MEMBER_ROLES: UserRole[] = ['MEMBER', 'CHAIRMAN'];
 
 export const TRANSACTION_ROLES: UserRole[] = [
   'SUPER_ADMIN',

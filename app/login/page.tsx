@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
-import { useAuth, isAdmin } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context"
+import { resolvePostLoginRedirect } from "@/lib/role-routing"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -23,13 +24,18 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = React.useState("")
   const [password, setPassword] = React.useState("")
 
+  const getReturnTo = React.useCallback(() => {
+    if (typeof window === "undefined") return null
+    return new URLSearchParams(window.location.search).get("returnTo")
+  }, [])
+
   // Redirect already-authenticated users who land on this page
   React.useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
       // Check if we were redirected here because of an expired token
       if (typeof window !== "undefined") {
-        const searchParams = new URLSearchParams(window.location.search)
-        if (searchParams.get("reason") === "expired") {
+        const currentParams = new URLSearchParams(window.location.search)
+        if (currentParams.get("reason") === "expired") {
           // Clear local state immediately to avoid race conditions
           // before the async logout finishes
           import("@/lib/api-client").then(({ tokenStore }) => {
@@ -43,15 +49,9 @@ export default function LoginPage() {
         }
       }
 
-      if (user.mustChangePassword) {
-        window.location.href = "/change-password"
-      } else if (isAdmin(user.role)) {
-        window.location.href = "/admin/dashboard"
-      } else {
-        window.location.href = "/member/dashboard"
-      }
+      router.replace(resolvePostLoginRedirect(user, getReturnTo()))
     }
-  }, [isLoading, isAuthenticated, user, logout])
+  }, [isLoading, isAuthenticated, user, logout, router, getReturnTo])
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -67,13 +67,7 @@ export default function LoginPage() {
         return
       }
       toast.success("Welcome back!")
-      if (result.user.mustChangePassword) {
-        window.location.href = "/change-password"
-      } else if (isAdmin(result.user.role)) {
-        window.location.href = "/admin/dashboard"
-      } else {
-        window.location.href = "/member/dashboard"
-      }
+      router.replace(resolvePostLoginRedirect(result.user, getReturnTo()))
     } catch {
       toast.error("Something went wrong. Please try again.")
     } finally {
@@ -164,7 +158,7 @@ export default function LoginPage() {
               </CardContent>
               <CardFooter className="flex flex-col gap-4">
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Signing in…" : "Sign In"}
+                  {isSubmitting ? "Signing in..." : "Sign In"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Not a member yet?{" "}

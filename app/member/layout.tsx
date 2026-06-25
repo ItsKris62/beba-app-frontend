@@ -4,7 +4,9 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { useAuth, isAdmin } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context"
+import { getDefaultPortalRoute } from "@/lib/role-routing"
+import { isMemberRole } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SocketProvider } from "@/components/providers/SocketProvider"
 
@@ -16,8 +18,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     if (!isLoading && !isAuthenticated) {
       router.replace("/login")
     }
-    if (!isLoading && isAuthenticated && user && isAdmin(user.role)) {
-      router.replace("/admin/dashboard")
+    if (!isLoading && isAuthenticated && user && !isMemberRole(user.role)) {
+      router.replace(getDefaultPortalRoute(user.role))
     }
   }, [isLoading, isAuthenticated, user, router])
 
@@ -35,6 +37,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
 
   if (!isAuthenticated || !user) return null
 
+  if (!isMemberRole(user.role)) return null
+
   const displayName = `${user.firstName} ${user.lastName}`
 
   return (
@@ -49,5 +53,3 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     </AppSidebar>
   )
 }
-
-

@@ -60,7 +60,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 export interface DashboardStats {
   totalMembers: number;
-  activeMembers: number;
+  totalActiveAccounts: number;
+  engagedUsers30d: number;
   pendingKyc: number;
   totalLoansCount: number;
   activeLoansCount: number;
@@ -199,7 +200,7 @@ export interface FinancialExecuteResponse {
 
 // Shape returned by the backend /admin/dashboard/stats endpoint
 type BackendDashboardStats = DashboardStats & {
-  members: { total: number; active: number; inactive: number; pendingKyc: number };
+  members: { total: number; totalActiveAccounts: number; engagedUsers30d: number; pendingKyc: number };
   loans: {
     active: number;
     totalOutstandingAmount: number;
@@ -218,7 +219,8 @@ export const dashboardApi = {
     // Map backend shape → frontend DashboardStats shape
     return {
       totalMembers: raw.members?.total ?? 0,
-      activeMembers: raw.members?.active ?? 0,
+      totalActiveAccounts: raw.members?.totalActiveAccounts ?? 0,
+      engagedUsers30d: raw.members?.engagedUsers30d ?? 0,
       pendingKyc: raw.members?.pendingKyc ?? 0,
       totalLoansCount: (raw.loans?.active ?? 0) + (raw.loans?.defaulted ?? 0),
       activeLoansCount: raw.loans?.active ?? 0,

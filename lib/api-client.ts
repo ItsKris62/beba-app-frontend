@@ -241,7 +241,12 @@ export interface GuarantorRequest {
 }
 
 export interface AdminStats {
-  members: { total: number; active: number; inactive: number };
+  members: {
+    total: number;
+    totalActiveAccounts: number;
+    engagedUsers30d: number;
+    pendingKyc: number;
+  };
   loans: {
     active: number;
     totalOutstandingAmount: number;
@@ -272,7 +277,7 @@ export interface AdminMember {
     email: string;
     phone: string | null;
     role: string;
-    isActive: boolean;
+    accountStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
     emailVerified: boolean;
     lastLoginAt: string | null;
   };
@@ -503,8 +508,7 @@ export interface StaffUser {
   lastName: string;
   phone: string | null;
   role: string;
-  status: string;
-  isActive: boolean;
+  accountStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   emailVerified: boolean;

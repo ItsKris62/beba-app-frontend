@@ -128,7 +128,7 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.activeMembers ?? 0} active`} colorClass="text-blue-600" />
+          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.totalActiveAccounts ?? 0} active accounts, ${stats.engagedUsers30d ?? 0} engaged (30d)`} colorClass="text-blue-600" />
           <KpiCard title="KYC Queue" value={(stats.pendingKyc ?? 0).toLocaleString()} subtitle="Awaiting staff review" colorClass={(stats.pendingKyc ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
           <KpiCard title="Total Disbursed" value={fmt(stats.totalDisbursed ?? 0)} subtitle={`${stats.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
           <KpiCard title="Collection Rate" value={`${stats.collectionRate ?? 0}%`} subtitle={`${fmt(stats.totalRepaid ?? 0)} repaid`} colorClass={(stats.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />

@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Check, Link as LinkIcon } from 'lucide-react';
-import { searchActiveTickets, linkTicketsToIncident } from '@/lib/incidents/client';
+import { linkTicketsToIncident } from '@/lib/incidents/client';
 import { searchActiveTickets as searchSupportTickets } from '@/lib/support/client';
 import { AdminSupportTicket } from '@/lib/support/types';
 import { ScrollArea } from '@/components/ui/scroll-area';

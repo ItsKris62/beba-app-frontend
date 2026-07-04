@@ -58,13 +58,6 @@ const ROLE_LABELS: Record<string, string> = {
   CHAIRMAN: "Chairman",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  APPROVED: "bg-green-100 text-green-800",
-  PENDING: "bg-amber-100 text-amber-800",
-  SUSPENDED: "bg-red-100 text-red-800",
-  REJECTED: "bg-gray-100 text-gray-800",
-}
-
 interface CreateForm {
   email: string
   password: string
@@ -366,8 +359,8 @@ export default function AdminUsers() {
   }
 
   const totalPages = Math.ceil(total / 20)
-  const activeCount = users.filter((u) => u.isActive).length
-  const pendingCount = users.filter((u) => u.status === "PENDING").length
+  const activeCount = users.filter((u) => u.accountStatus === 'ACTIVE').length
+  const pendingCount = users.filter((u) => u.accountStatus === 'PENDING').length
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -466,8 +459,7 @@ export default function AdminUsers() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Account</TableHead>
+                    <TableHead>Account Status</TableHead>
                     <TableHead>Must Change PW</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -486,13 +478,8 @@ export default function AdminUsers() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-800"}`}>
-                          {u.status ?? "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={u.isActive ? "default" : "secondary"}>
-                          {u.isActive ? "Active" : "Inactive"}
+                        <Badge variant={u.accountStatus === 'ACTIVE' ? "default" : u.accountStatus === 'PENDING' ? "outline" : "secondary"}>
+                          {u.accountStatus}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -514,7 +501,7 @@ export default function AdminUsers() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {u.status === "PENDING" && (
+                              {u.accountStatus === 'PENDING' && (
                                 <DropdownMenuItem
                                   className="text-green-700"
                                   onClick={() => setConfirmAction({ type: "approve", user: u })}
@@ -523,7 +510,7 @@ export default function AdminUsers() {
                                   Approve Account
                                 </DropdownMenuItem>
                               )}
-                              {u.isActive && (
+                              {u.accountStatus === 'ACTIVE' && (
                                 <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => setConfirmAction({ type: "deactivate", user: u })}

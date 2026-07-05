@@ -356,6 +356,15 @@ export interface TenantSettings {
   contactPhone: string;
   address: string | null;
   logoUrl: string | null;
+  security?: {
+    require2FA?: boolean;
+    sessionTimeoutMinutes?: number;
+    passwordPolicy?: {
+      minLength?: number;
+      requireComplexity?: boolean;
+      expiryDays?: number;
+    };
+  };
 }
 
 export interface TenantPublicInfo {
@@ -373,6 +382,15 @@ export interface UpdateTenantSettingsPayload {
   contactPhone?: string;
   address?: string;
   logoUrl?: string;
+  security?: {
+    require2FA?: boolean;
+    sessionTimeoutMinutes?: number;
+    passwordPolicy?: {
+      minLength?: number;
+      requireComplexity?: boolean;
+      expiryDays?: number;
+    };
+  };
 }
 
 export interface LogoUploadUrlResponse {
@@ -1056,15 +1074,18 @@ async function apiFetch<T>(
 // ─── Auth endpoints ───────────────────────────────────────────────────────────
 
 export const authApi = {
-  login: (identifier: string, password: string) => {
+  login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => {
     const cleaned = identifier.replace(/\s+/g, '');
     // Treat as phone if it's 9–15 digits with an optional leading '+'.
     // Strip the '+' so the backend always receives the '254...' format.
     const isPhone = /^\+?[0-9]{9,15}$/.test(cleaned);
     const normalizedPhone = isPhone ? cleaned.replace(/^\+/, '') : cleaned;
-    const payload = isPhone
-      ? { phone: normalizedPhone, password }
-      : { email: cleaned, password };
+    const payload = {
+      ...(isPhone ? { phone: normalizedPhone } : { email: cleaned }),
+      password,
+      ...(totpToken ? { totpToken } : {}),
+      ...(backupCode ? { backupCode } : {}),
+    };
     return apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -1085,6 +1106,19 @@ export const authApi = {
 
   logout: () =>
     apiFetch<void>('/auth/logout', { method: 'POST' }),
+
+  generate2FA: (setupToken: string) =>
+    apiFetch<{ qrCodeUrl: string; secret: string }>('/auth/2fa/generate', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${setupToken}` },
+    }),
+
+  verify2FA: (setupToken: string, secret: string, token: string) =>
+    apiFetch<LoginResponse & { backupCodes: string[] }>('/auth/2fa/verify', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${setupToken}` },
+      body: JSON.stringify({ secret, token }),
+    }),
 
   // F1 (auth): backend uses PATCH for change-password
   changePassword: (currentPassword: string, newPassword: string) =>

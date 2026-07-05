@@ -23,6 +23,8 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [identifier, setIdentifier] = React.useState("")
   const [password, setPassword] = React.useState("")
+  const [requires2FA, setRequires2FA] = React.useState(false)
+  const [twoFactorCode, setTwoFactorCode] = React.useState("")
 
   const getReturnTo = React.useCallback(() => {
     if (typeof window === "undefined") return null
@@ -61,8 +63,20 @@ export default function LoginPage() {
     }
     setIsSubmitting(true)
     try {
-      const result = await login(identifier, password)
+      const totpToken = requires2FA && twoFactorCode.length === 6 ? twoFactorCode : undefined;
+      const backupCode = requires2FA && twoFactorCode.length !== 6 ? twoFactorCode : undefined;
+      const result = await login(identifier, password, totpToken, backupCode)
+      
       if (!result.success || !result.user) {
+        if (result.setupToken) {
+          router.replace(`/auth/2fa-setup?token=${result.setupToken}`)
+          return
+        }
+        if (result.requires2FA) {
+          setRequires2FA(true)
+          toast.info("Two-factor authentication required.")
+          return
+        }
         toast.error(result.error ?? "Invalid credentials. Please try again.")
         return
       }
@@ -99,73 +113,99 @@ export default function LoginPage() {
             </CardHeader>
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="identifier">Email or Phone (254...)</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="identifier"
-                      type="text"
-                      placeholder="you@example.com or 254712345678"
-                      className="pl-9"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      required
-                      autoComplete="username"
-                    />
+                {!requires2FA ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="identifier">Email or Phone (254...)</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="identifier"
+                          type="text"
+                          placeholder="you@example.com or 254712345678"
+                          className="pl-9"
+                          value={identifier}
+                          onChange={(e) => setIdentifier(e.target.value)}
+                          required
+                          autoComplete="username"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Password</Label>
+                        <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          className="pl-9 pr-9"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          autoComplete="current-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="remember" />
+                      <Label htmlFor="remember" className="text-sm font-normal">
+                        Remember me on this device
+                      </Label>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="twoFactorCode">Two-Factor Authentication Code</Label>
+                    <div className="relative">
+                      <Shield className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="twoFactorCode"
+                        type="text"
+                        placeholder="6-digit code or backup code"
+                        className="pl-9"
+                        value={twoFactorCode}
+                        onChange={(e) => setTwoFactorCode(e.target.value)}
+                        required
+                        autoComplete="one-time-code"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter the 6-digit code from your authenticator app, or an 8-character backup code.
+                    </p>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                      Forgot password?
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      className="pl-9 pr-9"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      autoComplete="current-password"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
-                  <Label htmlFor="remember" className="text-sm font-normal">
-                    Remember me on this device
-                  </Label>
-                </div>
+                )}
               </CardContent>
               <CardFooter className="flex flex-col gap-4">
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Signing in..." : "Sign In"}
+                  {isSubmitting ? "Signing in..." : requires2FA ? "Verify Code" : "Sign In"}
                 </Button>
-                <p className="text-center text-sm text-muted-foreground">
-                  Not a member yet?{" "}
-                  <Link href="/membership" className="text-primary hover:underline">
-                    Register here
-                  </Link>
-                </p>
+                {!requires2FA && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Not a member yet?{" "}
+                    <Link href="/membership" className="text-primary hover:underline">
+                      Register here
+                    </Link>
+                  </p>
+                )}
               </CardFooter>
             </form>
           </Card>

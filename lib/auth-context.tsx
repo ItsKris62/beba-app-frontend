@@ -17,7 +17,7 @@ interface AuthContextValue {
   user: LoginResponse["user"] | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
+  login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string; requires2FA?: boolean; setupToken?: string }>;
   logout: () => Promise<void>;
   /** Update the stored user object (e.g. after mustChangePassword is cleared) */
   updateUser: (patch: Partial<LoginResponse["user"]>) => void;
@@ -111,8 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const login = useCallback(async (identifier: string, password: string) => {
-    const res = await authApi.login(identifier, password);
+  const login = useCallback(async (identifier: string, password: string, totpToken?: string, backupCode?: string) => {
+    const res = await authApi.login(identifier, password, totpToken, backupCode);
     if (!res.success || !res.data) {
       const message = res.error?.message ?? "Login failed";
       if (message.includes("Email not verified")) {
@@ -121,7 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: "Please verify your email before logging in. Use the verification email we sent, or request a new link.",
         };
       }
-      return { success: false, error: message };
+      return { 
+        success: false, 
+        error: message,
+        requires2FA: (res.error?.debug?.rawBody as any)?.requires2FA,
+        setupToken: (res.error?.debug?.rawBody as any)?.setupToken,
+      };
     }
     const normalizedUser = normalizeUser(res.data.user);
     tokenStore.set(res.data.accessToken, res.data.refreshToken, normalizedUser, {

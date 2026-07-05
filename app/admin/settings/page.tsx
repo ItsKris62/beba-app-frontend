@@ -49,8 +49,12 @@ const emptyGeneralForm: GeneralFormState = {
 export default function AdminSettings() {
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(true)
-  const [twoFactorAuth, setTwoFactorAuth] = useState(false)
-  const [autoLogout, setAutoLogout] = useState(true)
+  
+  const [require2FA, setRequire2FA] = useState(false)
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(30)
+  const [passwordMinLength, setPasswordMinLength] = useState(8)
+  const [passwordExpiryDays, setPasswordExpiryDays] = useState(90)
+  const [requireComplexity, setRequireComplexity] = useState(true)
 
   const [general, setGeneral] = useState<GeneralFormState>(emptyGeneralForm)
   const [loading, setLoading] = useState(true)
@@ -70,6 +74,16 @@ export default function AdminSettings() {
           address: result.data.address ?? "",
           logoUrl: result.data.logoUrl ?? "",
         })
+        
+        if (result.data.security) {
+          setRequire2FA(result.data.security.require2FA ?? false)
+          setSessionTimeoutMinutes(result.data.security.sessionTimeoutMinutes ?? 30)
+          if (result.data.security.passwordPolicy) {
+            setPasswordMinLength(result.data.security.passwordPolicy.minLength ?? 8)
+            setPasswordExpiryDays(result.data.security.passwordPolicy.expiryDays ?? 90)
+            setRequireComplexity(result.data.security.passwordPolicy.requireComplexity ?? true)
+          }
+        }
       } else {
         toast.error(result.error?.message ?? "Failed to load organization settings")
       }
@@ -122,6 +136,15 @@ export default function AdminSettings() {
         contactPhone: general.contactPhone,
         address: general.address,
         ...(general.logoUrl ? { logoUrl: general.logoUrl } : {}),
+        security: {
+          require2FA,
+          sessionTimeoutMinutes,
+          passwordPolicy: {
+            minLength: passwordMinLength,
+            expiryDays: passwordExpiryDays,
+            requireComplexity,
+          },
+        },
       })
       if (!result.success) throw new Error(result.error?.message ?? "Could not save organization settings")
       toast.success("Organization settings saved")
@@ -295,7 +318,7 @@ export default function AdminSettings() {
                     Require 2FA for all admin users
                   </p>
                 </div>
-                <Switch checked={twoFactorAuth} onCheckedChange={setTwoFactorAuth} />
+                <Switch checked={require2FA} onCheckedChange={setRequire2FA} />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -305,17 +328,17 @@ export default function AdminSettings() {
                     Automatically log out inactive sessions after 30 minutes
                   </p>
                 </div>
-                <Switch checked={autoLogout} onCheckedChange={setAutoLogout} />
+                <Switch checked={sessionTimeoutMinutes > 0} onCheckedChange={(c) => setSessionTimeoutMinutes(c ? 30 : 0)} />
               </div>
               <Separator />
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Session Timeout (minutes)</Label>
-                  <Input type="number" defaultValue="30" />
+                  <Input type="number" value={sessionTimeoutMinutes} onChange={(e) => setSessionTimeoutMinutes(Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Password Expiry (days)</Label>
-                  <Input type="number" defaultValue="90" />
+                  <Input type="number" value={passwordExpiryDays} onChange={(e) => setPasswordExpiryDays(Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Max Login Attempts</Label>
@@ -338,7 +361,7 @@ export default function AdminSettings() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Minimum Length</Label>
-                  <Input type="number" defaultValue="8" />
+                  <Input type="number" value={passwordMinLength} onChange={(e) => setPasswordMinLength(Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Password History</Label>
@@ -349,22 +372,11 @@ export default function AdminSettings() {
                 <Label>Password Requirements</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-2">
-                    <Switch defaultChecked />
-                    <span className="text-sm">Uppercase letters</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch defaultChecked />
-                    <span className="text-sm">Lowercase letters</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch defaultChecked />
-                    <span className="text-sm">Numbers</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch defaultChecked />
-                    <span className="text-sm">Special characters</span>
+                    <Switch checked={requireComplexity} onCheckedChange={setRequireComplexity} />
+                    <span className="text-sm">Require Complexity (Upper, Lower, Num, Special)</span>
                   </div>
                 </div>
+
               </div>
             </CardContent>
           </Card>

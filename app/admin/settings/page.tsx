@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,59 +21,29 @@ import {
   Settings,
   Shield,
   Bell,
-  CreditCard,
   Mail,
   Globe,
   Database,
   Save,
   RefreshCw,
-  Plus,
-  Pencil,
-  Trash2,
-  Check,
-  X,
+  Building2,
 } from "lucide-react"
-import {
-  type LoanProduct,
-  type TenureUnit,
-  getLoanProducts,
-  updateLoanProduct,
-  createLoanProduct,
-  deleteLoanProduct,
-} from "@/lib/loan-products"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { tenantsApi } from "@/lib/api-client"
 
-const emptyProduct: Omit<LoanProduct, "id" | "createdAt" | "updatedAt"> = {
+type GeneralFormState = {
+  name: string
+  contactEmail: string
+  contactPhone: string
+  address: string
+  logoUrl: string
+}
+
+const emptyGeneralForm: GeneralFormState = {
   name: "",
-  description: "",
-  interestRate: 12,
-  interestType: "reducing",
-  maxAmount: null,
-  maxMultiplier: 3,
-  minTenure: 1,
-  maxTenure: 12,
-  tenureUnit: "months",
-  guarantorsRequired: 1,
-  processingFee: 1,
-  insuranceFee: 0.5,
-  isActive: true,
+  contactEmail: "",
+  contactPhone: "",
+  address: "",
+  logoUrl: "",
 }
 
 export default function AdminSettings() {
@@ -80,54 +51,85 @@ export default function AdminSettings() {
   const [smsNotifications, setSmsNotifications] = useState(true)
   const [twoFactorAuth, setTwoFactorAuth] = useState(false)
   const [autoLogout, setAutoLogout] = useState(true)
-  
-  // Loan products state
-  const [products, setProducts] = useState<LoanProduct[]>([])
-  const [editingProduct, setEditingProduct] = useState<LoanProduct | null>(null)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newProduct, setNewProduct] = useState(emptyProduct)
-  const [deleteProductId, setDeleteProductId] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
-  // Load products on mount
+  const [general, setGeneral] = useState<GeneralFormState>(emptyGeneralForm)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
-    setProducts(getLoanProducts())
+    let cancelled = false
+    tenantsApi.getSettings().then((result) => {
+      if (cancelled) return
+      if (result.success && result.data) {
+        setGeneral({
+          name: result.data.name ?? "",
+          contactEmail: result.data.contactEmail ?? "",
+          contactPhone: result.data.contactPhone ?? "",
+          address: result.data.address ?? "",
+          logoUrl: result.data.logoUrl ?? "",
+        })
+      } else {
+        toast.error(result.error?.message ?? "Failed to load organization settings")
+      }
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const handleUpdateProduct = (id: string, field: keyof LoanProduct, value: unknown) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
-    )
+  const updateGeneral = <K extends keyof GeneralFormState>(key: K, value: GeneralFormState[K]) => {
+    setGeneral((current) => ({ ...current, [key]: value }))
   }
 
-  const handleSaveProduct = (id: string) => {
-    const product = products.find((p) => p.id === id)
-    if (product) {
-      updateLoanProduct(id, product)
-      setEditingProduct(null)
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 2000)
+  const handleLogoSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setUploadingLogo(true)
+    try {
+      const intentResult = await tenantsApi.requestLogoUploadUrl(file.name, file.type)
+      if (!intentResult.success) {
+        throw new Error(intentResult.error?.message ?? "Could not start logo upload")
+      }
+
+      const { uploadUrl, publicUrl } = intentResult.data
+      const putResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      if (!putResponse.ok) throw new Error("Logo upload to storage failed")
+
+      updateGeneral("logoUrl", publicUrl)
+      toast.success("Logo uploaded. Click Save Changes to apply it.")
+    } catch (error: unknown) {
+      toast.error((error as { message?: string })?.message ?? "Logo upload failed")
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
-  const handleAddProduct = () => {
-    const created = createLoanProduct(newProduct)
-    setProducts((prev) => [...prev, created])
-    setIsAddDialogOpen(false)
-    setNewProduct(emptyProduct)
-  }
-
-  const handleDeleteProduct = (id: string) => {
-    deleteLoanProduct(id)
-    setProducts((prev) => prev.filter((p) => p.id !== id))
-    setDeleteProductId(null)
-  }
-
-  const handleToggleActive = (id: string, isActive: boolean) => {
-    updateLoanProduct(id, { isActive })
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive } : p))
-    )
+  const saveGeneralSettings = async () => {
+    setSaving(true)
+    try {
+      const result = await tenantsApi.updateSettings({
+        name: general.name,
+        contactEmail: general.contactEmail,
+        contactPhone: general.contactPhone,
+        address: general.address,
+        ...(general.logoUrl ? { logoUrl: general.logoUrl } : {}),
+      })
+      if (!result.success) throw new Error(result.error?.message ?? "Could not save organization settings")
+      toast.success("Organization settings saved")
+    } catch (error: unknown) {
+      toast.error((error as { message?: string })?.message ?? "Could not save organization settings")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -139,18 +141,17 @@ export default function AdminSettings() {
             Configure system-wide settings and preferences
           </p>
         </div>
-        <Button>
+        <Button onClick={saveGeneralSettings} disabled={saving || loading}>
           <Save className="mr-2 h-4 w-4" />
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-auto lg:grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="loans">Loan Products</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
 
@@ -164,29 +165,61 @@ export default function AdminSettings() {
               <CardDescription>Basic information about your SACCO</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                  {general.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={general.logoUrl} alt="Organization logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleLogoSelected}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingLogo || loading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WEBP or GIF. Saved when you click Save Changes.</p>
+                </div>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="orgName">Organization Name</Label>
-                  <Input id="orgName" defaultValue="Beba SACCO Ltd" />
+                  <Input id="orgName" value={general.name} disabled={loading} onChange={(e) => updateGeneral("name", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="regNumber">Registration Number</Label>
-                  <Input id="regNumber" defaultValue="CS/2024/001234" />
+                  <Input id="regNumber" defaultValue="CS/2024/001234" disabled />
+                  <p className="text-xs text-muted-foreground">Not yet backed by a database field — display only.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Contact Email</Label>
-                  <Input id="email" type="email" defaultValue="info@bebasacco.co.ke" />
+                  <Input id="email" type="email" value={general.contactEmail} disabled={loading} onChange={(e) => updateGeneral("contactEmail", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Contact Phone</Label>
-                  <Input id="phone" defaultValue="+254 700 123 456" />
+                  <Input id="phone" value={general.contactPhone} disabled={loading} onChange={(e) => updateGeneral("contactPhone", e.target.value)} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address">Physical Address</Label>
                 <Textarea
                   id="address"
-                  defaultValue="Beba House, 3rd Floor, Kimathi Street, Nairobi, Kenya"
+                  value={general.address}
+                  disabled={loading}
+                  onChange={(e) => updateGeneral("address", e.target.value)}
                 />
               </div>
             </CardContent>
@@ -198,7 +231,7 @@ export default function AdminSettings() {
                 <Globe className="h-5 w-5" />
                 <CardTitle>Regional Settings</CardTitle>
               </div>
-              <CardDescription>Configure regional and display preferences</CardDescription>
+              <CardDescription>Configure regional and display preferences (not yet persisted)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-3">
@@ -397,336 +430,6 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="loans" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  <div>
-                    <CardTitle>Loan Product Settings</CardTitle>
-                    <CardDescription>Configure loan products and interest rates</CardDescription>
-                  </div>
-                </div>
-                <Button onClick={() => setIsAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Product
-                </Button>
-              </div>
-              {saveSuccess && (
-                <div className="flex items-center gap-2 text-sm text-green-600 mt-2">
-                  <Check className="h-4 w-4" />
-                  Changes saved successfully
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {products.map((product) => {
-                  const isEditing = editingProduct?.id === product.id
-                  return (
-                    <div key={product.id} className={`p-4 rounded-lg border ${!product.isActive ? "opacity-60" : ""}`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="font-medium">{product.name}</h4>
-                          <p className="text-sm text-muted-foreground">{product.description}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isEditing ? (
-                            <>
-                              <Button size="sm" onClick={() => handleSaveProduct(product.id)}>
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingProduct(null)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingProduct(product)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive"
-                                onClick={() => setDeleteProductId(product.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          <Switch
-                            checked={product.isActive}
-                            onCheckedChange={(checked) => handleToggleActive(product.id, checked)}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                        <div className="space-y-2">
-                          <Label>Interest Rate (%)</Label>
-                          <Input
-                            type="number"
-                            value={product.interestRate}
-                            onChange={(e) => handleUpdateProduct(product.id, "interestRate", Number(e.target.value))}
-                            disabled={!isEditing}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Interest Type</Label>
-                          <Select
-                            value={product.interestType}
-                            onValueChange={(value) => handleUpdateProduct(product.id, "interestType", value)}
-                            disabled={!isEditing}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="flat">Flat Rate</SelectItem>
-                              <SelectItem value="reducing">Reducing Balance</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Max Tenure</Label>
-                          <Input
-                            type="number"
-                            value={product.maxTenure}
-                            onChange={(e) => handleUpdateProduct(product.id, "maxTenure", Number(e.target.value))}
-                            disabled={!isEditing}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Tenure Unit</Label>
-                          <Select
-                            value={product.tenureUnit}
-                            onValueChange={(value) => handleUpdateProduct(product.id, "tenureUnit", value as TenureUnit)}
-                            disabled={!isEditing}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="days">Days</SelectItem>
-                              <SelectItem value="weeks">Weeks</SelectItem>
-                              <SelectItem value="months">Months</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {product.maxMultiplier !== null && (
-                          <div className="space-y-2">
-                            <Label>Max BOSA Multiplier</Label>
-                            <Input
-                              type="number"
-                              value={product.maxMultiplier}
-                              onChange={(e) => handleUpdateProduct(product.id, "maxMultiplier", Number(e.target.value))}
-                              disabled={!isEditing}
-                            />
-                          </div>
-                        )}
-                        {product.maxAmount !== null && (
-                          <div className="space-y-2">
-                            <Label>Max Amount (KES)</Label>
-                            <Input
-                              type="number"
-                              value={product.maxAmount}
-                              onChange={(e) => handleUpdateProduct(product.id, "maxAmount", Number(e.target.value))}
-                              disabled={!isEditing}
-                            />
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <Label>Guarantors Required</Label>
-                          <Input
-                            type="number"
-                            value={product.guarantorsRequired}
-                            onChange={(e) => handleUpdateProduct(product.id, "guarantorsRequired", Number(e.target.value))}
-                            disabled={!isEditing}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Processing Fee (%)</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={product.processingFee}
-                            onChange={(e) => handleUpdateProduct(product.id, "processingFee", Number(e.target.value))}
-                            disabled={!isEditing}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {products.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No loan products configured. Click &quot;Add Product&quot; to create one.
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Add Product Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Loan Product</DialogTitle>
-                <DialogDescription>
-                  Configure the details for the new loan product
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Product Name</Label>
-                    <Input
-                      value={newProduct.name}
-                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                      placeholder="e.g., Emergency Loan"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Interest Rate (%)</Label>
-                    <Input
-                      type="number"
-                      value={newProduct.interestRate}
-                      onChange={(e) => setNewProduct({ ...newProduct, interestRate: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                    placeholder="Brief description of the loan product"
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label>Interest Type</Label>
-                    <Select
-                      value={newProduct.interestType}
-                      onValueChange={(value: "flat" | "reducing") => setNewProduct({ ...newProduct, interestType: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="flat">Flat Rate</SelectItem>
-                        <SelectItem value="reducing">Reducing Balance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Max Tenure</Label>
-                    <Input
-                      type="number"
-                      value={newProduct.maxTenure}
-                      onChange={(e) => setNewProduct({ ...newProduct, maxTenure: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tenure Unit</Label>
-                    <Select
-                      value={newProduct.tenureUnit}
-                      onValueChange={(value: TenureUnit) => setNewProduct({ ...newProduct, tenureUnit: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="days">Days</SelectItem>
-                        <SelectItem value="weeks">Weeks</SelectItem>
-                        <SelectItem value="months">Months</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label>Max BOSA Multiplier</Label>
-                    <Input
-                      type="number"
-                      value={newProduct.maxMultiplier || ""}
-                      onChange={(e) => setNewProduct({ ...newProduct, maxMultiplier: e.target.value ? Number(e.target.value) : null })}
-                      placeholder="Leave empty if not applicable"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Max Amount (KES)</Label>
-                    <Input
-                      type="number"
-                      value={newProduct.maxAmount || ""}
-                      onChange={(e) => setNewProduct({ ...newProduct, maxAmount: e.target.value ? Number(e.target.value) : null })}
-                      placeholder="Leave empty if not applicable"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Guarantors Required</Label>
-                    <Input
-                      type="number"
-                      value={newProduct.guarantorsRequired}
-                      onChange={(e) => setNewProduct({ ...newProduct, guarantorsRequired: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Processing Fee (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={newProduct.processingFee}
-                      onChange={(e) => setNewProduct({ ...newProduct, processingFee: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Insurance Fee (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={newProduct.insuranceFee}
-                      onChange={(e) => setNewProduct({ ...newProduct, insuranceFee: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddProduct} disabled={!newProduct.name}>
-                  Add Product
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog open={!!deleteProductId} onOpenChange={() => setDeleteProductId(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Loan Product?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the loan product configuration.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => deleteProductId && handleDeleteProduct(deleteProductId)}
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-4">

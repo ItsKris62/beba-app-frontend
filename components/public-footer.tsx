@@ -1,7 +1,19 @@
 import Link from "next/link"
 import { Facebook, Twitter, Linkedin, Mail, Phone, MapPin } from "lucide-react"
+import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
+
+const FALLBACK_NAME = "KC Boda Sacco"
+const FALLBACK_ADDRESS = "Kolwa Central Ward, Kisumu East Subcounty"
+const FALLBACK_PHONE = "0704 413 592 / 0796 762 007"
+const FALLBACK_EMAIL = "kolwacentralboda@gmail.com"
 
 export function PublicFooter() {
+  const { info } = useTenantPublicInfo()
+  const name = info?.name ?? FALLBACK_NAME
+  const address = info?.address ?? FALLBACK_ADDRESS
+  const phone = info?.contactPhone ?? FALLBACK_PHONE
+  const email = info?.contactEmail ?? FALLBACK_EMAIL
+
   return (
     <footer className="border-t bg-card">
       <div className="container mx-auto px-4 py-12">
@@ -9,8 +21,7 @@ export function PublicFooter() {
           {/* Brand */}
           <div className="space-y-4">
             <div className="flex items-center">
-              <span className="text-xl font-bold text-primary">KC Boda</span>
-              <span className="text-xl font-light text-muted-foreground">|Sacco</span>
+              <span className="text-xl font-bold text-primary">{name}</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Empowering members with secure savings and affordable credit solutions since 2020.
@@ -91,15 +102,15 @@ export function PublicFooter() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3 text-muted-foreground">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>Kolwa Central Ward, Kisumu East Subcounty</span>
+                <span>{address}</span>
               </li>
               <li className="flex items-center gap-3 text-muted-foreground">
                 <Phone className="h-4 w-4 shrink-0 text-primary" />
-                <span>0704 413 592 / 0796 762 007</span>
+                <span>{phone}</span>
               </li>
               <li className="flex items-center gap-3 text-muted-foreground">
                 <Mail className="h-4 w-4 shrink-0 text-primary" />
-                <span>kolwacentralboda@gmail.com</span>
+                <span>{email}</span>
               </li>
             </ul>
           </div>
@@ -107,7 +118,7 @@ export function PublicFooter() {
 
         <div className="mt-12 border-t pt-8">
           <div className="flex flex-col items-center justify-between gap-4 text-center text-sm text-muted-foreground md:flex-row">
-            <p>&copy; {new Date().getFullYear()} KC Boda Sacco. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} {name}. All rights reserved.</p>
             <div className="flex gap-6">
               <Link href="/privacy" className="transition-colors hover:text-primary">
                 Privacy Policy

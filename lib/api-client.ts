@@ -349,6 +349,39 @@ export interface Tenant {
   _count?: { users: number; members: number };
 }
 
+export interface TenantSettings {
+  maxConcurrentGuarantees: number;
+  name: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string | null;
+  logoUrl: string | null;
+}
+
+export interface TenantPublicInfo {
+  name: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string | null;
+  logoUrl: string | null;
+}
+
+export interface UpdateTenantSettingsPayload {
+  maxConcurrentGuarantees?: number;
+  name?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  logoUrl?: string;
+}
+
+export interface LogoUploadUrlResponse {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  expiresIn: number;
+}
+
 export type TransactionType =
   | 'DEPOSIT'
   | 'WITHDRAWAL'
@@ -1240,6 +1273,9 @@ export const loansApi = {
   getProducts: (includeInactive = false) =>
     apiFetch<LoanProduct[]>(`/loans/products${includeInactive ? '?includeInactive=true' : ''}`),
 
+  /** Unauthenticated feed for the public marketing site and loan calculator. Always active-only. */
+  getPublicProducts: () => apiFetch<LoanProduct[]>('/loans/products/public'),
+
   createProduct: (data: LoanProductPayload) =>
     apiFetch<LoanProduct>('/loans/products', {
       method: 'POST',
@@ -1753,6 +1789,25 @@ export const tenantsApi = {
 
   activate: (id: string) =>
     apiFetch<Tenant>(`/tenants/${id}/activate`, { method: 'PATCH' }),
+
+  getSettings: () =>
+    apiFetch<TenantSettings>('/tenants/settings'),
+
+  updateSettings: (payload: UpdateTenantSettingsPayload) =>
+    apiFetch<TenantSettings>('/tenants/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  requestLogoUploadUrl: (fileName: string, contentType: string) =>
+    apiFetch<LogoUploadUrlResponse>('/tenants/logo/upload-url', {
+      method: 'POST',
+      body: JSON.stringify({ fileName, contentType }),
+    }),
+
+  /** Unauthenticated feed for the public marketing site (footer, about, contact pages). */
+  getPublicInfo: () =>
+    apiFetch<TenantPublicInfo>('/tenants/public-info'),
 };
 
 // ─── Utility ──────────────────────────────────────────────────────────────────

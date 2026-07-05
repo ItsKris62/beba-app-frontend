@@ -11,16 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
+import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
 
-const branches = [
-  {
-    name: "Head Office - Kisumu",
-    address: "Kolwa Central Ward, Kisumu East Subcounty",
-    phone: "0704 413 592",
-    email: "kolwacentralboda@gmail.com",
-    hours: "Mon-Fri: 8:00 AM - 5:00 PM, Sat: 9:00 AM - 1:00 PM",
-  },
-]
+const FALLBACK_ADDRESS = "Kolwa Central Ward, Kisumu East Subcounty"
+const FALLBACK_PHONE = "0704 413 592"
+const FALLBACK_EMAIL = "kolwacentralboda@gmail.com"
 
 const socialLinks = [
   { name: "Facebook", icon: Facebook, href: "#" },
@@ -31,6 +26,17 @@ const socialLinks = [
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const { info } = useTenantPublicInfo()
+
+  const branches = [
+    {
+      name: "Head Office",
+      address: info?.address ?? FALLBACK_ADDRESS,
+      phone: info?.contactPhone ?? FALLBACK_PHONE,
+      email: info?.contactEmail ?? FALLBACK_EMAIL,
+      hours: "Mon-Fri: 8:00 AM - 5:00 PM, Sat: 9:00 AM - 1:00 PM",
+    },
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,8 +141,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold">Call Us</h3>
-                        <p className="text-sm text-muted-foreground">0704 413 592</p>
-                        <p className="text-sm text-muted-foreground">0796 762 007</p>
+                        <p className="text-sm text-muted-foreground">{branches[0].phone}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -147,7 +152,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold">Email Us</h3>
-                        <p className="text-sm text-muted-foreground">kolwacentralboda@gmail.com</p>
+                        <p className="text-sm text-muted-foreground">{branches[0].email}</p>
                       </div>
                     </CardContent>
                   </Card>

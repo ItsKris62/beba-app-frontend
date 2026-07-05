@@ -1,7 +1,12 @@
+"use client"
+
 import { Award, Target, Eye, Users } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
+import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
+
+const FALLBACK_NAME = "KC Boda Sacco"
 
 const boardMembers = [
   { name: "Dr. James Mwangi", role: "Chairman", image: "/placeholder-user.jpg" },
@@ -30,6 +35,9 @@ const milestones = [
 ]
 
 export default function AboutPage() {
+  const { info } = useTenantPublicInfo()
+  const name = info?.name ?? FALLBACK_NAME
+
   return (
     <div className="flex min-h-screen flex-col">
       <PublicNavbar />
@@ -39,7 +47,7 @@ export default function AboutPage() {
         <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-16 md:py-24">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">About KC Boda Sacco</h1>
+              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">About {name}</h1>
               <p className="text-lg text-muted-foreground">
                 Building financial futures together since 2020. We are a member-owned cooperative dedicated to providing accessible savings and credit services to boda boda operators in Kisumu.
               </p>
@@ -55,7 +63,7 @@ export default function AboutPage() {
                 <h2 className="mb-4 text-3xl font-bold">Our Story</h2>
                 <div className="space-y-4 text-muted-foreground">
                   <p>
-                    KC Boda Sacco was founded in 2020 by a group of boda boda operators in Kolwa Central Ward, Kisumu East Subcounty who shared a common vision: to create a financial institution that truly served their community&apos;s interests.
+                    {name} was founded in 2020 by a group of boda boda operators in Kolwa Central Ward, Kisumu East Subcounty who shared a common vision: to create a financial institution that truly served their community&apos;s interests.
                   </p>
                   <p>
                     What started as a small savings group has grown into a trusted SACCO with over 2,000 active members dedicated to empowering boda boda operators.

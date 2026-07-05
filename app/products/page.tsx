@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
 import { LoanCalculator } from "@/components/loan-calculator"
-import { type LoanProduct, getActiveLoanProducts, formatTenure } from "@/lib/loan-products"
+import { loansApi, type LoanProduct } from "@/lib/api-client"
 
 const savingsProducts = [
   {
@@ -51,8 +51,15 @@ function ProductsContent() {
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
-    setMounted(true)
-    setLoanProducts(getActiveLoanProducts())
+    let cancelled = false
+    loansApi.getPublicProducts().then((result) => {
+      if (cancelled) return
+      setLoanProducts(result.success ? result.data ?? [] : [])
+      setMounted(true)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   React.useEffect(() => {
@@ -62,21 +69,21 @@ function ProductsContent() {
     }
   }, [searchParams])
 
-  const formatMaxAmount = (product: LoanProduct) => {
-    if (product.maxMultiplier !== null) {
-      return `${product.maxMultiplier}x BOSA`
-    }
-    if (product.maxAmount !== null) {
-      return `KES ${product.maxAmount.toLocaleString()}`
-    }
-    return "Unlimited"
-  }
+  const formatMaxAmount = (product: LoanProduct) => `KES ${Number(product.maxAmount).toLocaleString()}`
 
   const formatInterestRate = (product: LoanProduct) => {
-    if (product.interestType === "flat") {
-      return `${product.interestRate}% flat`
-    }
-    return `${product.interestRate}% p.m. reducing`
+    const percent = (Number(product.interestRate) * 100).toFixed(1)
+    return product.interestType === "FLAT" ? `${percent}% flat` : `${percent}% p.a. reducing`
+  }
+
+  const formatGuarantors = (product: LoanProduct) =>
+    product.maxGuarantors > product.minGuarantors
+      ? `${product.minGuarantors}-${product.maxGuarantors}`
+      : `${product.minGuarantors}`
+
+  const formatFees = (product: LoanProduct) => {
+    const feePercent = Number(product.processingFeeRate) * 100
+    return feePercent > 0 ? `Processing: ${feePercent.toFixed(1)}%` : "None"
   }
 
   return (
@@ -223,30 +230,23 @@ function ProductsContent() {
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3" />
-                                Tenure
+                                Max Tenure
                               </div>
-                              <p className="font-semibold">
-                                {formatTenure(product.minTenure, product.tenureUnit)} -{" "}
-                                {formatTenure(product.maxTenure, product.tenureUnit)}
-                              </p>
+                              <p className="font-semibold">{product.maxTenureMonths} months</p>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Users className="h-3 w-3" />
                                 Guarantors
                               </div>
-                              <p className="font-semibold">{product.guarantorsRequired} required</p>
+                              <p className="font-semibold">{formatGuarantors(product)} required</p>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Percent className="h-3 w-3" />
                                 Fees
                               </div>
-                              <p className="font-semibold">
-                                {product.processingFee + product.insuranceFee > 0
-                                  ? `${product.processingFee + product.insuranceFee}%`
-                                  : "None"}
-                              </p>
+                              <p className="font-semibold">{formatFees(product)}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -325,18 +325,12 @@ function ProductsContent() {
                                 <TableCell className="text-primary">
                                   {formatInterestRate(product)}
                                 </TableCell>
-                                <TableCell>
-                                  {formatTenure(product.minTenure, product.tenureUnit)} -{" "}
-                                  {formatTenure(product.maxTenure, product.tenureUnit)}
-                                </TableCell>
+                                <TableCell>{product.maxTenureMonths} months</TableCell>
                                 <TableCell className="hidden md:table-cell">
-                                  {product.guarantorsRequired}
+                                  {formatGuarantors(product)}
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                  {product.processingFee > 0 && `Processing: ${product.processingFee}%`}
-                                  {product.processingFee > 0 && product.insuranceFee > 0 && ", "}
-                                  {product.insuranceFee > 0 && `Insurance: ${product.insuranceFee}%`}
-                                  {product.processingFee === 0 && product.insuranceFee === 0 && "None"}
+                                  {formatFees(product)}
                                 </TableCell>
                               </TableRow>
                             ))}

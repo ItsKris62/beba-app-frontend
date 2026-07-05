@@ -16,85 +16,102 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-
-import {
-  type LoanProduct,
-  type TenureUnit,
-  getActiveLoanProducts,
-  calculateLoanRepayment,
-  formatTenure,
-} from "@/lib/loan-products"
+import { loansApi, type LoanProduct } from "@/lib/api-client"
 
 interface LoanCalculatorProps {
   className?: string
   defaultProductId?: string
 }
 
+/**
+ * Mirrors LoanApplicationService.calculateInstalment on the backend so the
+ * marketing-site preview matches the real amortization the member would get.
+ * interestRate is an annual fraction (e.g. 0.12 for 12% p.a.).
+ */
+function calculateRepayment(
+  principal: number,
+  annualRate: number,
+  tenureMonths: number,
+  interestType: string,
+): { monthlyInstalment: number; totalInterest: number; totalRepayment: number } {
+  if (tenureMonths <= 0) {
+    return { monthlyInstalment: 0, totalInterest: 0, totalRepayment: principal }
+  }
+
+  let monthlyInstalment: number
+  if (interestType === "FLAT") {
+    const totalInterest = principal * annualRate * (tenureMonths / 12)
+    monthlyInstalment = (principal + totalInterest) / tenureMonths
+  } else {
+    const monthlyRate = annualRate / 12
+    if (monthlyRate === 0) {
+      monthlyInstalment = principal / tenureMonths
+    } else {
+      const pow = Math.pow(1 + monthlyRate, tenureMonths)
+      monthlyInstalment = (principal * monthlyRate * pow) / (pow - 1)
+    }
+  }
+
+  const totalRepayment = monthlyInstalment * tenureMonths
+  return {
+    monthlyInstalment: Math.round(monthlyInstalment * 100) / 100,
+    totalInterest: Math.round((totalRepayment - principal) * 100) / 100,
+    totalRepayment: Math.round(totalRepayment * 100) / 100,
+  }
+}
+
 export function LoanCalculator({ className, defaultProductId }: LoanCalculatorProps) {
   const [products, setProducts] = React.useState<LoanProduct[]>([])
+  const [loading, setLoading] = React.useState(true)
   const [selectedProductId, setSelectedProductId] = React.useState<string>("")
   const [loanAmount, setLoanAmount] = React.useState<number>(100000)
   const [tenure, setTenure] = React.useState<number>(12)
-  const [mounted, setMounted] = React.useState(false)
 
-  // Load products on mount
   React.useEffect(() => {
-    setMounted(true)
-    const activeProducts = getActiveLoanProducts()
-    setProducts(activeProducts)
+    let cancelled = false
+    setLoading(true)
+    loansApi.getPublicProducts().then((result) => {
+      if (cancelled) return
+      const activeProducts = result.success ? result.data ?? [] : []
+      setProducts(activeProducts)
+      setLoading(false)
 
-    // Set default product
-    if (activeProducts.length > 0) {
-      const defaultProduct = defaultProductId
-        ? activeProducts.find((p) => p.id === defaultProductId) || activeProducts[0]
-        : activeProducts[0]
-      setSelectedProductId(defaultProduct.id)
-      setTenure(defaultProduct.minTenure)
+      if (activeProducts.length > 0) {
+        const defaultProduct = defaultProductId
+          ? activeProducts.find((p) => p.id === defaultProductId) || activeProducts[0]
+          : activeProducts[0]
+        setSelectedProductId(defaultProduct.id)
+        setLoanAmount(Math.min(100000, Number(defaultProduct.maxAmount)))
+        setTenure(Math.min(12, defaultProduct.maxTenureMonths))
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [defaultProductId])
 
-  // Get selected product
   const selectedProduct = products.find((p) => p.id === selectedProductId)
+  const minAmount = selectedProduct ? Number(selectedProduct.minAmount) : 10000
+  const maxAmount = selectedProduct ? Number(selectedProduct.maxAmount) : 1000000
+  const minTenure = 1
+  const maxTenure = selectedProduct?.maxTenureMonths ?? 60
+  const interestRatePercent = selectedProduct ? Number(selectedProduct.interestRate) * 100 : 0
+  const processingFeePercent = selectedProduct ? Number(selectedProduct.processingFeeRate) * 100 : 0
+  const isFlat = selectedProduct?.interestType === "FLAT"
 
-  // Update tenure when product changes
+  // Clamp amount/tenure whenever the selected product changes
   React.useEffect(() => {
-    if (selectedProduct) {
-      // Clamp tenure to product limits
-      const clampedTenure = Math.max(
-        selectedProduct.minTenure,
-        Math.min(tenure, selectedProduct.maxTenure)
-      )
-      setTenure(clampedTenure)
+    if (!selectedProduct) return
+    setTenure((current) => Math.max(minTenure, Math.min(current, maxTenure)))
+    setLoanAmount((current) => Math.max(minAmount, Math.min(current, maxAmount)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProductId])
 
-      // Adjust loan amount for fixed max amount products
-      if (selectedProduct.maxAmount !== null && loanAmount > selectedProduct.maxAmount) {
-        setLoanAmount(selectedProduct.maxAmount)
-      }
-    }
-  }, [selectedProductId, selectedProduct])
-
-  // Calculate repayment
   const calculation = React.useMemo(() => {
     if (!selectedProduct) return null
-
-    return calculateLoanRepayment(
-      loanAmount,
-      selectedProduct.interestRate,
-      selectedProduct.interestType,
-      tenure,
-      selectedProduct.tenureUnit
-    )
+    return calculateRepayment(loanAmount, Number(selectedProduct.interestRate), tenure, selectedProduct.interestType)
   }, [selectedProduct, loanAmount, tenure])
 
-  // Get max loan amount
-  const getMaxLoanAmount = () => {
-    if (!selectedProduct) return 1000000
-    if (selectedProduct.maxAmount !== null) return selectedProduct.maxAmount
-    // For multiplier-based products, use a reasonable default for display
-    return 1000000
-  }
-
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-KE", {
       style: "currency",
@@ -104,42 +121,7 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
     }).format(amount)
   }
 
-  // Get tenure unit label
-  const getTenureUnitLabel = (unit: TenureUnit, plural: boolean = true) => {
-    const labels: Record<TenureUnit, { singular: string; plural: string }> = {
-      days: { singular: "day", plural: "days" },
-      weeks: { singular: "week", plural: "weeks" },
-      months: { singular: "month", plural: "months" },
-    }
-    return plural ? labels[unit].plural : labels[unit].singular
-  }
-
-  // Get payment frequency label
-  const getPaymentLabel = (unit: TenureUnit) => {
-    switch (unit) {
-      case "days":
-        return "Daily Payment"
-      case "weeks":
-        return "Weekly Payment"
-      case "months":
-        return "Monthly Payment"
-    }
-  }
-
-  // Get payment amount
-  const getPaymentAmount = () => {
-    if (!calculation || !selectedProduct) return 0
-    switch (selectedProduct.tenureUnit) {
-      case "days":
-        return calculation.dailyPayment || 0
-      case "weeks":
-        return calculation.weeklyPayment || 0
-      case "months":
-        return calculation.monthlyPayment || 0
-    }
-  }
-
-  if (!mounted) {
+  if (loading) {
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center py-12">
@@ -187,15 +169,15 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                   <div className="flex items-center gap-2">
                     <span>{product.name}</span>
                     <Badge variant="outline" className="text-xs">
-                      {product.interestRate}%{" "}
-                      {product.interestType === "flat" ? "flat" : "p.m."}
+                      {(Number(product.interestRate) * 100).toFixed(1)}%{" "}
+                      {product.interestType === "FLAT" ? "flat" : "p.a. reducing"}
                     </Badge>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {selectedProduct && (
+          {selectedProduct?.description && (
             <p className="text-sm text-muted-foreground">{selectedProduct.description}</p>
           )}
         </div>
@@ -209,14 +191,13 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                   <TooltipTrigger asChild>
                     <Badge variant="secondary" className="gap-1">
                       <Percent className="h-3 w-3" />
-                      {selectedProduct.interestRate}%{" "}
-                      {selectedProduct.interestType === "flat" ? "flat" : "reducing"}
+                      {interestRatePercent.toFixed(1)}% {isFlat ? "flat" : "p.a. reducing"}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {selectedProduct.interestType === "flat"
+                    {isFlat
                       ? "One-time interest on principal"
-                      : "Monthly interest on reducing balance"}
+                      : "Annual interest on reducing balance, amortized monthly"}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -226,8 +207,7 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                   <TooltipTrigger asChild>
                     <Badge variant="secondary" className="gap-1">
                       <Calendar className="h-3 w-3" />
-                      {formatTenure(selectedProduct.minTenure, selectedProduct.tenureUnit)} -{" "}
-                      {formatTenure(selectedProduct.maxTenure, selectedProduct.tenureUnit)}
+                      {minTenure} - {maxTenure} months
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>Allowed repayment period</TooltipContent>
@@ -239,27 +219,27 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                   <TooltipTrigger asChild>
                     <Badge variant="secondary" className="gap-1">
                       <Users className="h-3 w-3" />
-                      {selectedProduct.guarantorsRequired} guarantor
-                      {selectedProduct.guarantorsRequired !== 1 ? "s" : ""}
+                      {selectedProduct.minGuarantors}
+                      {selectedProduct.maxGuarantors > selectedProduct.minGuarantors
+                        ? `-${selectedProduct.maxGuarantors}`
+                        : ""}{" "}
+                      guarantor{selectedProduct.maxGuarantors !== 1 ? "s" : ""}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>Required number of guarantors</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {(selectedProduct.processingFee > 0 || selectedProduct.insuranceFee > 0) && (
+              {processingFeePercent > 0 && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant="secondary" className="gap-1">
                         <Shield className="h-3 w-3" />
-                        {selectedProduct.processingFee + selectedProduct.insuranceFee}% fees
+                        {processingFeePercent.toFixed(1)}% processing fee
                       </Badge>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      Processing: {selectedProduct.processingFee}% | Insurance:{" "}
-                      {selectedProduct.insuranceFee}%
-                    </TooltipContent>
+                    <TooltipContent>Deducted from disbursement</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -275,74 +255,59 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                 <Input
                   id="amount"
                   type="number"
-                  min={10000}
-                  max={getMaxLoanAmount()}
+                  min={minAmount}
+                  max={maxAmount}
                   step={1000}
                   value={loanAmount}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 0
-                    setLoanAmount(Math.min(value, getMaxLoanAmount()))
+                    setLoanAmount(Math.max(minAmount, Math.min(value, maxAmount)))
                   }}
                   className="font-mono"
                 />
                 <Slider
                   value={[loanAmount]}
                   onValueChange={([value]) => setLoanAmount(value)}
-                  min={10000}
-                  max={getMaxLoanAmount()}
-                  step={5000}
+                  min={minAmount}
+                  max={maxAmount}
+                  step={1000}
                   className="mt-2"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatCurrency(10000)}</span>
-                  <span>
-                    {selectedProduct.maxAmount !== null
-                      ? formatCurrency(selectedProduct.maxAmount)
-                      : selectedProduct.maxMultiplier !== null
-                        ? `Up to ${selectedProduct.maxMultiplier}x your BOSA`
-                        : formatCurrency(getMaxLoanAmount())}
-                  </span>
+                  <span>{formatCurrency(minAmount)}</span>
+                  <span>{formatCurrency(maxAmount)}</span>
                 </div>
               </div>
 
               {/* Tenure Input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="tenure">
-                    Repayment Period ({getTenureUnitLabel(selectedProduct.tenureUnit)})
-                  </Label>
-                  <span className="text-sm font-medium">
-                    {formatTenure(tenure, selectedProduct.tenureUnit)}
-                  </span>
+                  <Label htmlFor="tenure">Repayment Period (months)</Label>
+                  <span className="text-sm font-medium">{tenure} month{tenure !== 1 ? "s" : ""}</span>
                 </div>
                 <Input
                   id="tenure"
                   type="number"
-                  min={selectedProduct.minTenure}
-                  max={selectedProduct.maxTenure}
+                  min={minTenure}
+                  max={maxTenure}
                   value={tenure}
                   onChange={(e) => {
-                    const value = parseInt(e.target.value) || selectedProduct.minTenure
-                    setTenure(
-                      Math.max(
-                        selectedProduct.minTenure,
-                        Math.min(value, selectedProduct.maxTenure)
-                      )
-                    )
+                    const value = parseInt(e.target.value) || minTenure
+                    setTenure(Math.max(minTenure, Math.min(value, maxTenure)))
                   }}
                   className="font-mono"
                 />
                 <Slider
                   value={[tenure]}
                   onValueChange={([value]) => setTenure(value)}
-                  min={selectedProduct.minTenure}
-                  max={selectedProduct.maxTenure}
+                  min={minTenure}
+                  max={maxTenure}
                   step={1}
                   className="mt-2"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatTenure(selectedProduct.minTenure, selectedProduct.tenureUnit)}</span>
-                  <span>{formatTenure(selectedProduct.maxTenure, selectedProduct.tenureUnit)}</span>
+                  <span>{minTenure} month</span>
+                  <span>{maxTenure} months</span>
                 </div>
               </div>
             </div>
@@ -367,9 +332,9 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">{getPaymentLabel(selectedProduct.tenureUnit)}</p>
+                    <p className="text-xs text-muted-foreground">Monthly Payment</p>
                     <p className="text-lg font-semibold text-primary">
-                      {formatCurrency(getPaymentAmount())}
+                      {formatCurrency(calculation.monthlyInstalment)}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -379,38 +344,22 @@ export function LoanCalculator({ className, defaultProductId }: LoanCalculatorPr
                 </div>
 
                 {/* Fees Breakdown */}
-                {(selectedProduct.processingFee > 0 || selectedProduct.insuranceFee > 0) && (
+                {processingFeePercent > 0 && (
                   <div className="pt-3 border-t space-y-2">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
                       Additional fees (deducted from disbursement)
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2 text-sm">
-                      {selectedProduct.processingFee > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Processing Fee</span>
-                          <span>
-                            {formatCurrency((loanAmount * selectedProduct.processingFee) / 100)}
-                          </span>
-                        </div>
-                      )}
-                      {selectedProduct.insuranceFee > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Insurance Fee</span>
-                          <span>
-                            {formatCurrency((loanAmount * selectedProduct.insuranceFee) / 100)}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Processing Fee</span>
+                        <span>{formatCurrency((loanAmount * processingFeePercent) / 100)}</span>
+                      </div>
                     </div>
                     <div className="flex justify-between text-sm font-medium pt-2 border-t">
                       <span>Net Disbursement</span>
                       <span className="text-green-600">
-                        {formatCurrency(
-                          loanAmount -
-                            (loanAmount * selectedProduct.processingFee) / 100 -
-                            (loanAmount * selectedProduct.insuranceFee) / 100
-                        )}
+                        {formatCurrency(loanAmount - (loanAmount * processingFeePercent) / 100)}
                       </span>
                     </div>
                   </div>

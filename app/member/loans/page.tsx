@@ -3,21 +3,18 @@
 import * as React from "react"
 import { toast } from "sonner"
 import Link from "next/link"
-import { CreditCard, CheckCircle2, XCircle, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react"
+import { CreditCard, CheckCircle2, XCircle, ShieldCheck } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
 import {
   memberApi, loansApi, formatCurrency, formatDate, generateIdempotencyKey,
-  type Loan, type LoanProduct, type MemberDashboard,
+  type Loan, type MemberDashboard,
 } from "@/lib/api-client"
 import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
 
@@ -93,40 +90,6 @@ const OPEN_LOAN_STATUSES = new Set([
   "ACTIVE",
   "DEFAULTED",
 ])
-
-function getPreviouslyAcceptedGuarantors(loans: Loan[]): SelectedGuarantor[] {
-  const selected = new Map<string, SelectedGuarantor>()
-
-  for (const loan of loans) {
-    for (const guarantor of loan.guarantors ?? []) {
-      if (guarantor.status !== "ACCEPTED" || !guarantor.member) continue
-      selected.set(guarantor.memberId, {
-        memberId: guarantor.memberId,
-        maskedName: `${guarantor.member.user.firstName} ${guarantor.member.user.lastName}`,
-        maskedMemberNumber: guarantor.member.memberNumber,
-      })
-    }
-  }
-
-  return Array.from(selected.values())
-}
-
-function getEligibleSavings(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
-  if (!dashboard) return 0
-  if (product?.requiredAccountType === "BOSA") return dashboard.balances.bosa
-  if (product?.requiredAccountType === "FOSA") return dashboard.balances.fosa
-  return dashboard.balances.bosa + dashboard.balances.fosa
-}
-
-function getProductLoanLimit(product: LoanProduct | undefined, dashboard: MemberDashboard | null) {
-  if (!product) return 0
-  const savingsLimit = getEligibleSavings(product, dashboard) * Number(product.savingsMultiplier ?? 3)
-  return Math.min(Number(product.maxAmount), savingsLimit)
-}
-
-function getRequiredAccountLabel(product: LoanProduct | undefined) {
-  return product?.requiredAccountType ?? "combined FOSA+BOSA"
-}
 
 function getGuarantorRequirements(loan: Loan) {
   const principal = parseFloat(loan.principalAmount)
@@ -242,26 +205,16 @@ function LoanGuarantorRequestPanel({ loan, onRequested }: { loan: Loan; onReques
 }
 
 export default function LoansPage() {
-  const [products, setProducts] = React.useState<LoanProduct[]>([])
   const [loans, setLoans] = React.useState<Loan[]>([])
   const [dashboard, setDashboard] = React.useState<MemberDashboard | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [showApplyForm, setShowApplyForm] = React.useState(false)
-  const [selectedProduct, setSelectedProduct] = React.useState("")
-  const [principalAmount, setPrincipalAmount] = React.useState("")
-  const [tenureMonths, setTenureMonths] = React.useState("")
-  const [purpose, setPurpose] = React.useState("")
-  const [applicationGuarantors, setApplicationGuarantors] = React.useState<SelectedGuarantor[]>([])
-  const [isApplying, setIsApplying] = React.useState(false)
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true)
-    const [pr, lr, dr] = await Promise.all([
-      loansApi.getProducts(),
+    const [lr, dr] = await Promise.all([
       loansApi.getMyLoans({ limit: 50 }),
       memberApi.getDashboard(),
     ])
-    if (pr.success && pr.data) setProducts(Array.isArray(pr.data) ? pr.data : [])
     if (lr.success && lr.data) setLoans(lr.data.data ?? [])
     if (dr.success && dr.data) setDashboard(dr.data)
     setIsLoading(false)
@@ -270,83 +223,10 @@ export default function LoansPage() {
   React.useEffect(() => { loadData() }, [loadData])
 
   const openLoan = loans.find((loan) => OPEN_LOAN_STATUSES.has(loan.status))
-  const previousGuarantors = React.useMemo(() => getPreviouslyAcceptedGuarantors(loans), [loans])
-
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const amount = parseFloat(principalAmount)
-    const tenure = parseInt(tenureMonths)
-    if (!isKycApproved) {
-      toast.error("KYC verification is required before applying for a loan.")
-      return
-    }
-    if (openLoan) {
-      toast.error(`You already have loan ${openLoan.loanNumber}. Apply again after it is fully paid.`)
-      return
-    }
-    if (!selectedProduct || isNaN(amount) || isNaN(tenure)) {
-      toast.error("Please fill all required fields"); return
-    }
-    if (product && amount < Number(product.minAmount)) {
-      toast.error(`Minimum amount for this product is ${formatCurrency(Number(product.minAmount))}`)
-      return
-    }
-    if (product && amount > productLoanLimit) {
-      toast.error(`Loan amount exceeds your product limit of ${formatCurrency(productLoanLimit)}`)
-      return
-    }
-    if (product && tenure > product.maxTenureMonths) {
-      toast.error(`Maximum tenure for this product is ${product.maxTenureMonths} months`)
-      return
-    }
-    const requiredGuarantors = product?.minGuarantors ?? 0
-    if (applicationGuarantors.length < requiredGuarantors) {
-      toast.error(`Please select ${requiredGuarantors} guarantor${requiredGuarantors === 1 ? "" : "s"}.`)
-      return
-    }
-    setIsApplying(true)
-    try {
-      const res = await memberApi.applyForLoan(
-        {
-          loanProductId: selectedProduct,
-          principalAmount: amount,
-          tenureMonths: tenure,
-          purpose,
-          guarantorIds: applicationGuarantors.map((item) => item.memberId),
-        },
-        generateIdempotencyKey()
-      )
-      if (!res.success) { toast.error(res.error?.message ?? "Application failed"); return }
-      toast.success(applicationGuarantors.length > 0 ? "Loan application submitted and guarantors requested." : "Loan application submitted!")
-      setShowApplyForm(false)
-      setPrincipalAmount(""); setTenureMonths(""); setPurpose(""); setSelectedProduct("")
-      setApplicationGuarantors([])
-      loadData()
-    } catch { toast.error("Network error.") }
-    finally { setIsApplying(false) }
-  }
-
-  const product = products.find((p) => p.id === selectedProduct)
-  const selectedProductLimit = getProductLoanLimit(product, dashboard)
   const savingsVisible = dashboard ? dashboard.balances.bosa + dashboard.balances.fosa : 0
   const isKycApproved = isKycVerified(dashboard?.member.kycStatus)
-  const applicationAmount = parseFloat(principalAmount || "0")
-  const applicationMinGuarantors = product?.minGuarantors ?? 0
-  const applicationCoverageRatio = Number(product?.guarantorCoverageRatio ?? 1)
-  const applicationRequiredCoverage = applicationAmount * applicationCoverageRatio
-  const productLoanLimit = selectedProductLimit
   const previousLoansCount = loans.filter((loan) => ["FULLY_PAID", "REJECTED", "REJECTED_GUARANTOR_DECLINE", "WRITTEN_OFF"].includes(loan.status)).length
   const pendingLoansCount = loans.filter((loan) => ["DRAFT", "PENDING_GUARANTORS", "PENDING_REVIEW", "PENDING_APPROVAL", "APPROVED"].includes(loan.status)).length
-  const addApplicationGuarantor = (guarantor: SelectedGuarantor) => {
-    setApplicationGuarantors((current) => {
-      if (current.some((item) => item.memberId === guarantor.memberId)) return current
-      if (product?.maxGuarantors && current.length >= product.maxGuarantors) {
-        toast.error(`This product allows at most ${product.maxGuarantors} guarantor(s).`)
-        return current
-      }
-      return [...current, guarantor]
-    })
-  }
 
   if (isLoading) {
     return (
@@ -365,11 +245,12 @@ export default function LoansPage() {
           <h1 className="text-2xl font-bold tracking-tight">Loans</h1>
           <p className="text-muted-foreground">Apply for loans and manage your applications</p>
         </div>
-        <Button onClick={() => setShowApplyForm(!showApplyForm)} className="gap-2" disabled={Boolean(openLoan)}>
-          <CreditCard className="h-4 w-4" />
-          {showApplyForm ? "Cancel" : "Apply for Loan"}
-          {showApplyForm ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
+        <Link href="/member/loans/apply">
+          <Button className="gap-2" disabled={Boolean(openLoan)}>
+            <CreditCard className="h-4 w-4" />
+            Apply for Loan
+          </Button>
+        </Link>
       </div>
 
       <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
@@ -414,121 +295,6 @@ export default function LoansPage() {
             New applications are available after the current loan is fully paid.
           </AlertDescription>
         </Alert>
-      )}
-
-      {showApplyForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>New Loan Application</CardTitle>
-            <CardDescription>Fill in the details to apply</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleApply} className="space-y-4 max-w-lg">
-              <div className="space-y-2">
-                <Label>Loan Product</Label>
-                <Select value={selectedProduct} onValueChange={(value) => { setSelectedProduct(value); setApplicationGuarantors([]) }} required>
-                  <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
-                  <SelectContent>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} — {(parseFloat(p.interestRate) * 100).toFixed(1)}% p.a.
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {product && (
-                  <p className="text-xs text-muted-foreground">
-                    {formatCurrency(parseFloat(product.minAmount))} – {formatCurrency(parseFloat(product.maxAmount))} · Max {product.maxTenureMonths} months
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="principal">Principal Amount (KES)</Label>
-                <Input id="principal" type="number" placeholder="50000" value={principalAmount}
-                  onChange={(e) => setPrincipalAmount(e.target.value)}
-                  min={product ? parseFloat(product.minAmount) : 1000}
-                  max={Math.max(product ? Number(product.minAmount) : 1000, productLoanLimit)} required />
-                {product && (
-                  <p className="text-xs text-muted-foreground">
-                    Product limit: {formatCurrency(productLoanLimit)} based on {getRequiredAccountLabel(product)} savings x {Number(product.savingsMultiplier ?? 3)} and product max {formatCurrency(Number(product.maxAmount))}.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tenure">Repayment Period (months)</Label>
-                <Input id="tenure" type="number" placeholder="12" value={tenureMonths}
-                  onChange={(e) => setTenureMonths(e.target.value)}
-                  min={1} max={product?.maxTenureMonths ?? 60} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="purpose">Loan Purpose</Label>
-                <Textarea id="purpose" placeholder="Describe the purpose…" value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)} rows={3} />
-              </div>
-              {product && applicationMinGuarantors > 0 && (
-                <Alert>
-                  <AlertTitle>Guarantors required</AlertTitle>
-                  <AlertDescription>
-                    This product needs {applicationMinGuarantors} guarantor{applicationMinGuarantors === 1 ? "" : "s"}.
-                    {applicationAmount > 0 && <> Required coverage: {formatCurrency(applicationRequiredCoverage)}.</>}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {product && (
-                <div className="space-y-3 rounded-lg border p-3">
-                  <div>
-                    <p className="font-medium">Choose guarantors</p>
-                      <p className="text-xs text-muted-foreground">
-                      Search an active member by name or National ID and add them as a guarantor.
-                      {applicationAmount <= 0 ? " Enter the loan amount first so the system can check their savings capacity." : ""}
-                    </p>
-                  </div>
-                  {previousGuarantors.length > 0 && (
-                    <div className="space-y-2 rounded-md bg-muted p-3">
-                      <p className="text-sm font-medium">Previously accepted guarantors</p>
-                      <div className="flex flex-wrap gap-2">
-                        {previousGuarantors.map((guarantor) => {
-                          const alreadySelected = applicationGuarantors.some((item) => item.memberId === guarantor.memberId)
-                          return (
-                            <Button
-                              key={guarantor.memberId}
-                              type="button"
-                              size="sm"
-                              variant={alreadySelected ? "secondary" : "outline"}
-                              disabled={alreadySelected}
-                              onClick={() => addApplicationGuarantor(guarantor)}
-                            >
-                              {alreadySelected ? "Selected" : "Select"} {guarantor.maskedName}
-                            </Button>
-                          )
-                        })}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        The system will re-check their KYC and available savings before submitting.
-                      </p>
-                    </div>
-                  )}
-                  {applicationAmount > 0 ? (
-                    <GuarantorLookup
-                      requiredAmount={applicationRequiredCoverage}
-                      minGuarantors={Math.max(applicationMinGuarantors, 1)}
-                      maxGuarantors={product.maxGuarantors}
-                      loanProductId={selectedProduct}
-                      guarantors={applicationGuarantors}
-                      onAdd={addApplicationGuarantor}
-                      onRemove={(memberId) => setApplicationGuarantors((prev) => prev.filter((item) => item.memberId !== memberId))}
-                    />
-                  ) : (
-                    <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">Enter a loan amount to enable guarantor lookup.</p>
-                  )}
-                </div>
-              )}
-              <Button type="submit" disabled={isApplying || !isKycApproved || Boolean(openLoan)} className="w-full">
-                {isApplying ? "Submitting…" : "Submit Application"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
       )}
 
       {dashboard && dashboard.pendingGuarantorRequests.length > 0 && (
@@ -581,7 +347,9 @@ export default function LoansPage() {
             <div className="py-12 text-center">
               <CreditCard className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-4 text-sm text-muted-foreground">No loan applications yet</p>
-              <Button className="mt-4" onClick={() => setShowApplyForm(true)}>Apply for Your First Loan</Button>
+              <Link href="/member/loans/apply">
+                <Button className="mt-4">Apply for Your First Loan</Button>
+              </Link>
             </div>
           ) : (
             <div className="space-y-4">

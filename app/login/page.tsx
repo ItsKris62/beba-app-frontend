@@ -199,12 +199,20 @@ export default function LoginPage() {
                   {isSubmitting ? "Signing in..." : requires2FA ? "Verify Code" : "Sign In"}
                 </Button>
                 {!requires2FA && (
-                  <p className="text-center text-sm text-muted-foreground">
-                    Not a member yet?{" "}
-                    <Link href="/membership" className="text-primary hover:underline">
-                      Register here
-                    </Link>
-                  </p>
+                  <>
+                    <p className="text-center text-sm text-muted-foreground">
+                      First time signing in?{" "}
+                      <Link href="/auth/verify-pin" className="text-primary hover:underline">
+                        Verify with your PIN
+                      </Link>
+                    </p>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Not a member yet?{" "}
+                      <Link href="/membership" className="text-primary hover:underline">
+                        Register here
+                      </Link>
+                    </p>
+                  </>
                 )}
               </CardFooter>
             </form>

@@ -16,7 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { dashboardApi, statementApi, type DashboardReports } from '@/lib/sprint3-api';
+import { dashboardApi, type DashboardReports } from '@/lib/sprint3-api';
+import { memberApi } from '@/lib/api-client';
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -97,8 +98,8 @@ export default function AdminReportsPage() {
         ...(exportFrom ? { periodFrom: exportFrom } : {}),
         ...(exportTo ? { periodTo: exportTo } : {}),
       };
-      if (format === 'pdf') await statementApi.downloadPdf(exportType, params);
-      else await statementApi.downloadCsv(exportType, params);
+      if (format === 'pdf') await memberApi.downloadStatementPdf(exportType, params);
+      else await memberApi.downloadStatementCsv(exportType, params);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to export statement');
     } finally {

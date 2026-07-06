@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
 import { loansApi, memberApi, formatCurrency, generateIdempotencyKey, type Loan, type LoanProduct, type MemberDashboard } from "@/lib/api-client"
 import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
+import { calculateLoanRepayment } from "@/lib/loan-math"
 
 const OPEN_LOAN_STATUSES = new Set([
   "DRAFT",
@@ -86,6 +87,10 @@ export default function ApplyLoanPage() {
   const productLoanLimit = getProductLoanLimit(product, dashboardData)
   const amountPasses = Boolean(product && amount >= Number(product.minAmount) && amount <= productLoanLimit)
   const tenurePasses = Boolean(product && tenure >= 1 && tenure <= product.maxTenureMonths)
+  const repaymentPreview = React.useMemo(() => {
+    if (!product || amount <= 0 || tenure <= 0) return null
+    return calculateLoanRepayment(amount, Number(product.interestRate), tenure, product.interestType)
+  }, [product, amount, tenure])
   const canSubmit = Boolean(product && amountPasses && tenurePasses && coveragePasses && maxPasses && !openLoan && isKycApproved)
   const addGuarantor = (guarantor: SelectedGuarantor) => {
     setGuarantors((current) => {
@@ -147,6 +152,25 @@ export default function ApplyLoanPage() {
           <div className="space-y-2"><Label>Loan Product</Label><Select value={loanProductId} onValueChange={(value) => { setLoanProductId(value); setGuarantors([]) }}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent>{productList.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value)} min={product ? Number(product.minAmount) : 100} max={product ? Math.max(Number(product.minAmount), productLoanLimit) : undefined} />{product && <p className="text-xs text-muted-foreground">Product limit: {formatCurrency(productLoanLimit)}.</p>}</div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
           <div className="space-y-2"><Label>Purpose</Label><Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={3} /></div>
+          {repaymentPreview && (
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-sm font-medium">Estimated repayment</p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Monthly</p>
+                  <p className="font-semibold text-primary">{formatCurrency(repaymentPreview.monthlyInstalment)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total interest</p>
+                  <p className="font-semibold">{formatCurrency(repaymentPreview.totalInterest)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total repayment</p>
+                  <p className="font-semibold">{formatCurrency(repaymentPreview.totalRepayment)}</p>
+                </div>
+              </div>
+            </div>
+          )}
           {product && <Alert><AlertTitle>Guarantor requirements</AlertTitle><AlertDescription>{minGuarantors} to {maxGuarantors} guarantor(s), coverage ratio {(coverageRatio * 100).toFixed(0)}%, required coverage {formatCurrency(requiredCoverage)}.</AlertDescription></Alert>}
           {product && (
             <div className="space-y-3 rounded-lg border p-3">

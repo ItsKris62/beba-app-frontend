@@ -16,12 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  statementApi,
-  securityApi,
+  memberApi,
+  complianceApi,
   type FosaStatement,
   type BosaStatement,
   type StatementTransaction,
-} from '@/lib/sprint3-api';
+} from '@/lib/api-client';
 
 function formatDateInput(date: Date): string {
   const year = date.getFullYear();
@@ -43,11 +43,13 @@ function ConsentModal({ onAccept }: { onAccept: () => void }) {
     if (!checked) return;
     setAccepting(true);
     try {
-      await securityApi.acceptConsent('DATA_PROCESSING');
-      await securityApi.acceptConsent('STATEMENT_EXPORT');
-      onAccept();
-    } catch {
-      // ignore – user can retry
+      const [dataConsent, exportConsent] = await Promise.all([
+        complianceApi.acceptConsent('DATA_PROCESSING'),
+        complianceApi.acceptConsent('STATEMENT_EXPORT'),
+      ]);
+      if (dataConsent.success && exportConsent.success) {
+        onAccept();
+      }
     } finally {
       setAccepting(false);
     }
@@ -153,9 +155,9 @@ export default function MemberStatementsPage() {
 
   // Check consent on mount
   useEffect(() => {
-    securityApi
+    complianceApi
       .checkConsents()
-      .then((r) => setHasConsent(r.hasRequiredConsents))
+      .then((r) => setHasConsent(r.success && !!r.data?.hasRequiredConsents))
       .catch(() => setHasConsent(false));
   }, []);
 
@@ -178,11 +180,14 @@ export default function MemberStatementsPage() {
         page,
         limit,
       };
-      if (statementType === 'FOSA') {
-        setStatement(await statementApi.getFosa(params));
-      } else {
-        setStatement(await statementApi.getBosa(params));
+      const res = statementType === 'FOSA'
+        ? await memberApi.getFosaStatement(params)
+        : await memberApi.getBosaStatement(params);
+      if (!res.success || !res.data) {
+        setError(res.error?.message ?? 'Failed to load statement');
+        return;
       }
+      setStatement(res.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load statement');
     } finally {
@@ -221,8 +226,8 @@ export default function MemberStatementsPage() {
         ...(periodFrom ? { periodFrom } : {}),
         ...(periodTo ? { periodTo } : {}),
       };
-      if (format === 'pdf') await statementApi.downloadPdf(statementType, params);
-      else await statementApi.downloadCsv(statementType, params);
+      if (format === 'pdf') await memberApi.downloadStatementPdf(statementType, params);
+      else await memberApi.downloadStatementCsv(statementType, params);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to download statement');
     } finally {

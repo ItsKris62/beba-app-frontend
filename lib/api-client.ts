@@ -89,6 +89,8 @@ export interface LoginResponse {
     tenantId: string;
     mustChangePassword: boolean;
   };
+  /** Mirrors user.mustChangePassword — not encoded in the JWT itself. */
+  requiresPasswordChange?: boolean;
 }
 
 export interface MemberDashboard {
@@ -137,20 +139,59 @@ export interface MemberDashboard {
   }[];
 }
 
+export interface StatementTransaction {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  reference: string;
+}
+
+export interface StatementMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface FosaStatement {
-  account: { accountNumber: string; currentBalance: number };
-  data: {
-    id: string;
-    type: string;
-    status: string;
-    amount: number;
-    balanceBefore: number;
-    balanceAfter: number;
-    reference: string;
-    description: string | null;
-    createdAt: string;
-  }[];
-  meta: ApiMeta;
+  memberId: string;
+  memberNumber: string;
+  memberName: string;
+  generatedAt: string;
+  periodFrom: string;
+  periodTo: string;
+  openingBalance: number;
+  closingBalance: number;
+  totalDisbursed: number;
+  totalRepaid: number;
+  transactions: StatementTransaction[];
+  meta?: StatementMeta;
+  auditHash: string;
+}
+
+export interface BosaStatement {
+  memberId: string;
+  memberNumber: string;
+  memberName: string;
+  generatedAt: string;
+  periodFrom: string;
+  periodTo: string;
+  openingBalance: number;
+  closingBalance: number;
+  totalSavings: number;
+  welfareContributions: number;
+  transactions: StatementTransaction[];
+  meta?: StatementMeta;
+  auditHash: string;
+}
+
+export interface ConsentRecord {
+  consentType: string;
+  version: string;
+  acceptedAt: string;
+  ipAddress: string;
 }
 
 export interface LoanProduct {
@@ -736,8 +777,6 @@ export interface SupportTicketFilters {
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef } from 'react';
-
 const TOKEN_KEY = 'beba_access_token';
 const REFRESH_KEY = 'beba_refresh_token';
 const USER_KEY = 'beba_user';
@@ -1120,16 +1159,53 @@ export const authApi = {
       body: JSON.stringify({ secret, token }),
     }),
 
-  // F1 (auth): backend uses PATCH for change-password
-  changePassword: (currentPassword: string, newPassword: string) =>
+  // F1 (auth): backend uses PATCH for change-password.
+  // currentPassword is optional — PIN-onboarded accounts have none yet and the
+  // backend ignores it if sent; confirmPassword is required and must match newPassword.
+  changePassword: (newPassword: string, confirmPassword: string, currentPassword?: string) =>
     apiFetch<void>('/auth/change-password', {
       method: 'PATCH',
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({
+        ...(currentPassword ? { currentPassword } : {}),
+        newPassword,
+        confirmPassword,
+      }),
     }),
 
   /**
-   * Request a password reset email.
-   * Always returns success (prevents user enumeration).
+   * First-login PIN → full session. Same response envelope as login().
+   * See backend/docs/PIN_AUTH_FLOW.md Flow 2.
+   */
+  verifyPin: (phone: string, pin: string) =>
+    apiFetch<LoginResponse>('/auth/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), pin }),
+    }),
+
+  /**
+   * Request a PIN via SMS for password reset or a lost first-login PIN.
+   * Always returns success (prevents phone-number enumeration).
+   * See backend/docs/PIN_AUTH_FLOW.md Flow 3.
+   */
+  requestPasswordReset: (phone: string) =>
+    apiFetch<{ success: boolean; message: string }>('/auth/request-password-reset', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone.replace(/^\+/, '') }),
+    }),
+
+  /**
+   * Confirm the SMS PIN + set a new password. No tokens issued — log in afterward.
+   * See backend/docs/PIN_AUTH_FLOW.md Flow 3.
+   */
+  resetPasswordConfirm: (phone: string, pin: string, newPassword: string, confirmPassword: string) =>
+    apiFetch<{ success: boolean; message: string }>('/auth/reset-password/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), pin, newPassword, confirmPassword }),
+    }),
+
+  /**
+   * Legacy email-link password reset — kept for the existing /reset-password page.
+   * Do not build new frontend work against this; use requestPasswordReset/resetPasswordConfirm.
    */
   forgotPassword: (email: string) =>
     apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', {
@@ -1138,12 +1214,28 @@ export const authApi = {
     }),
 
   /**
-   * Complete password reset using the signed JWT token from the email link.
+   * Legacy email-link password reset — kept for the existing /reset-password page.
+   * Do not build new frontend work against this; use requestPasswordReset/resetPasswordConfirm.
    */
   resetPassword: (token: string, newPassword: string) =>
     apiFetch<{ success: boolean; message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, newPassword }),
+    }),
+};
+
+// ─── Compliance / consent endpoints ───────────────────────────────────────────
+
+export const complianceApi = {
+  getConsents: () => apiFetch<ConsentRecord[]>('/compliance/consent'),
+
+  checkConsents: () =>
+    apiFetch<{ hasRequiredConsents: boolean }>('/compliance/consent/check'),
+
+  acceptConsent: (consentType: 'DATA_PROCESSING' | 'STATEMENT_EXPORT' | 'LOAN_TERMS') =>
+    apiFetch<{ id: string; acceptedAt: string }>('/compliance/consent/accept', {
+      method: 'POST',
+      body: JSON.stringify({ consentType }),
     }),
 };
 
@@ -1159,13 +1251,40 @@ export const memberApi = {
       body: JSON.stringify(data),
     }),
 
-  getFosaStatement: (params: { page?: number; limit?: number; from?: string; to?: string }) => {
+  getFosaStatement: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params.page) q.set('page', String(params.page));
-    if (params.limit) q.set('limit', String(params.limit));
-    if (params.from) q.set('from', params.from);
-    if (params.to) q.set('to', params.to);
-    return apiFetch<FosaStatement>(`/members/accounts/fosa/statement?${q}`);
+    if (params?.memberId) q.set('memberId', params.memberId);
+    if (params?.periodFrom) q.set('periodFrom', params.periodFrom);
+    if (params?.periodTo) q.set('periodTo', params.periodTo);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<FosaStatement>(`/members/statement/fosa?${q}`);
+  },
+
+  getBosaStatement: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.memberId) q.set('memberId', params.memberId);
+    if (params?.periodFrom) q.set('periodFrom', params.periodFrom);
+    if (params?.periodTo) q.set('periodTo', params.periodTo);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<BosaStatement>(`/members/statement/bosa?${q}`);
+  },
+
+  downloadStatementPdf: (type: 'FOSA' | 'BOSA', params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+    const q = new URLSearchParams({
+      type,
+      ...Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][]),
+    });
+    return downloadAuthenticatedFile(`/statements/export/pdf?${q}`);
+  },
+
+  downloadStatementCsv: (type: 'FOSA' | 'BOSA', params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+    const q = new URLSearchParams({
+      type,
+      ...Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][]),
+    });
+    return downloadAuthenticatedFile(`/statements/export/csv?${q}`);
   },
 
   applyForLoan: (data: {
@@ -1193,12 +1312,6 @@ export const memberApi = {
     }>(`/members/loans/${loanId}/guarantors/request`, {
       method: 'POST',
       body: JSON.stringify({ guarantorIds }),
-    }),
-
-  lookupGuarantor: (idNumber: string, requiredAmount: number, loanProductId?: string) =>
-    apiFetch<GuarantorLookupResult>('/members/guarantors/lookup', {
-      method: 'POST',
-      body: JSON.stringify({ idNumber, requiredAmount, loanProductId }),
     }),
 
   searchGuarantors: (query: string, requiredAmount: number, loanProductId?: string) =>
@@ -1921,62 +2034,4 @@ async function downloadAuthenticatedFile(path: string, options: RequestInit = {}
   link.download = filename;
   link.click();
   URL.revokeObjectURL(blobUrl);
-}
-
-// ─── Deposit polling helper ───────────────────────────────────────────────────
-
-export interface DepositPollResult {
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
-  receipt?: string;
-  error?: string;
-}
-
-export function useDepositPolling(
-  checkoutRequestId: string,
-  timeoutMs = 120000,
-): { status: DepositPollResult['status'] | null; error: string | null; receipt: string | null; stop: () => void } {
-  const [status, setStatus] = useState<DepositPollResult['status'] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<string | null>(null);
-  const abortRef = useRef(false);
-
-  useEffect(() => {
-    abortRef.current = false;
-    const startTime = Date.now();
-
-    const poll = async () => {
-      while (!abortRef.current) {
-        if (Date.now() - startTime > timeoutMs) {
-          setError('Deposit timed out. Please check your M-Pesa messages.');
-          setStatus('FAILED');
-          return;
-        }
-
-        try {
-          const res = await memberApi.getDepositStatus(checkoutRequestId);
-          if (res.success && res.data) {
-            setStatus(res.data.status);
-            if (res.data.status === 'SUCCESS') {
-              setReceipt(res.data.completedAt ?? null);
-              return;
-            }
-            if (res.data.status === 'FAILED') {
-              setError('M-Pesa payment failed. Please try again.');
-              return;
-  }
-}
-        } catch {
-          // Network errors during polling are non-fatal — keep polling
-        }
-
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-    };
-
-    poll();
-
-    return () => { abortRef.current = true; };
-  }, [checkoutRequestId, timeoutMs]);
-
-  return { status, error, receipt, stop: () => { abortRef.current = true; } };
 }

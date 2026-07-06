@@ -16,7 +16,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!isLoading && !isAuthenticated) {
       router.replace("/login")
     }
-    if (!isLoading && isAuthenticated && user && !isAdmin(user.role)) {
+    if (!isLoading && isAuthenticated && user?.mustChangePassword) {
+      router.replace("/change-password")
+    }
+    if (!isLoading && isAuthenticated && user && !user.mustChangePassword && !isAdmin(user.role)) {
       router.replace(getDefaultPortalRoute(user.role))
     }
   }, [isLoading, isAuthenticated, user, router])
@@ -34,6 +37,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAuthenticated || !user) return null
+
+  if (user.mustChangePassword) return null
 
   if (!isAdmin(user.role)) return null
 

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { useAuth } from "@/lib/auth-context"
@@ -9,16 +10,29 @@ import { getDefaultPortalRoute } from "@/lib/role-routing"
 import { isMemberRole } from "@/lib/permissions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SocketProvider } from "@/components/providers/SocketProvider"
+import { memberApi } from "@/lib/api-client"
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
+  const isMember = isAuthenticated && !!user && !user.mustChangePassword && isMemberRole(user.role)
+
+  const { data: dashboardRes } = useQuery({
+    queryKey: ["member-dashboard"],
+    queryFn: () => memberApi.getDashboard(),
+    enabled: isMember,
+    staleTime: 5 * 60 * 1000,
+  })
+  const realMemberNumber = dashboardRes?.success ? dashboardRes.data?.member.memberNumber : undefined
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login")
     }
-    if (!isLoading && isAuthenticated && user && !isMemberRole(user.role)) {
+    if (!isLoading && isAuthenticated && user?.mustChangePassword) {
+      router.replace("/change-password")
+    }
+    if (!isLoading && isAuthenticated && user && !user.mustChangePassword && !isMemberRole(user.role)) {
       router.replace(getDefaultPortalRoute(user.role))
     }
   }, [isLoading, isAuthenticated, user, router])
@@ -37,6 +51,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
 
   if (!isAuthenticated || !user) return null
 
+  if (user.mustChangePassword) return null
+
   if (!isMemberRole(user.role)) return null
 
   const displayName = `${user.firstName} ${user.lastName}`
@@ -45,7 +61,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     <AppSidebar
       userType="member"
       userName={displayName}
-      memberNo={`#${user.id.slice(0, 8).toUpperCase()}`}
+      memberNo={realMemberNumber ?? `#${user.id.slice(0, 8).toUpperCase()}`}
     >
       <ErrorBoundary resetKeys={[user.id, user.role]}>
         <SocketProvider>{children}</SocketProvider>

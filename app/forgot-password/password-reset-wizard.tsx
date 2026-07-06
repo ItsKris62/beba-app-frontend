@@ -10,8 +10,7 @@ import { PublicNavbar } from "@/components/public-navbar"
 import { usePasswordResetStore } from "@/store/usePasswordResetStore"
 
 import { StepRequest } from "./step-request"
-import { StepReset } from "./step-reset"
-import { StepVerify } from "./step-verify"
+import { StepConfirm } from "./step-confirm"
 import { SuccessView } from "./success-view"
 
 function usePasswordResetTimer() {
@@ -28,12 +27,8 @@ function usePasswordResetTimer() {
 function StepContent() {
   const step = usePasswordResetStore((state) => state.step)
 
-  if (step === "verify-otp") {
-    return <StepVerify />
-  }
-
-  if (step === "set-password") {
-    return <StepReset />
+  if (step === "confirm") {
+    return <StepConfirm />
   }
 
   if (step === "success") {
@@ -58,7 +53,7 @@ export function PasswordResetWizard() {
               <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
             </Link>
             <p className="mt-2 text-sm text-muted-foreground">
-              Reset your password by email or SMS OTP
+              Reset your password using a PIN sent to your phone
             </p>
           </div>
 
@@ -66,8 +61,8 @@ export function PasswordResetWizard() {
             <CardHeader className="pb-4">
               <CardTitle>Forgot Password</CardTitle>
               <CardDescription>
-                Choose where to receive your one-time password. For your security, we always show
-                the same confirmation message.
+                Enter your phone number and we&apos;ll send you a PIN. For your security, we always
+                show the same confirmation message.
               </CardDescription>
             </CardHeader>
             <StepContent />
@@ -79,7 +74,7 @@ export function PasswordResetWizard() {
               <div className="text-sm">
                 <p className="font-medium">Security notice</p>
                 <p className="text-muted-foreground">
-                  OTP codes expire after 30 minutes. Never share your code or password with anyone.
+                  Your PIN expires after 20 minutes. Never share your code or password with anyone.
                 </p>
               </div>
             </div>

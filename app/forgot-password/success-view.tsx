@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CheckCircle2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { CardContent, CardFooter } from "@/components/ui/card"
@@ -16,6 +17,7 @@ export function SuccessView() {
   React.useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       resetFlow()
+      toast.success("Password reset successfully. Please log in with your new password.")
       router.push("/login")
     }, 3000)
 

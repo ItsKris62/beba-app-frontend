@@ -107,9 +107,6 @@ export default function ChangePasswordPage() {
 
   function validate(): boolean {
     const e: typeof fieldErrors = {}
-    if (!currentPw) {
-      e.current = "Enter your temporary password"
-    }
     if (!newPw) {
       e.new = "Enter a new password"
     } else if (!allRulesPassed) {
@@ -130,7 +127,7 @@ export default function ChangePasswordPage() {
     setIsSubmitting(true)
 
     try {
-      const res = await authApi.changePassword(currentPw, newPw)
+      const res = await authApi.changePassword(newPw, confirmPw, currentPw || undefined)
       if (!res.success) {
         const msg = res.error?.message ?? "Failed to change password"
         // Map the backend's "current password is incorrect" message to the right field
@@ -195,11 +192,11 @@ export default function ChangePasswordPage() {
               <CardContent className="space-y-4">
                 <PasswordField
                   id="currentPw"
-                  label="Temporary Password"
+                  label="Temporary Password (leave blank if you signed in with a PIN)"
                   value={currentPw}
                   onChange={setCurrentPw}
                   error={fieldErrors.current}
-                  placeholder="The password you were given"
+                  placeholder="The password you were given, if any"
                   autoComplete="current-password"
                 />
 

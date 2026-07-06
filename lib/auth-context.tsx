@@ -18,6 +18,8 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string; requires2FA?: boolean; setupToken?: string }>;
+  /** First-login PIN verification — issues a full session, same as login(). */
+  loginWithPin: (phone: string, pin: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
   logout: () => Promise<void>;
   /** Update the stored user object (e.g. after mustChangePassword is cleared) */
   updateUser: (patch: Partial<LoginResponse["user"]>) => void;
@@ -28,6 +30,7 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   isAuthenticated: false,
   login: async () => ({ success: false }),
+  loginWithPin: async () => ({ success: false }),
   logout: async () => {},
   updateUser: () => {},
 });
@@ -136,6 +139,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: true, user: normalizedUser };
   }, []);
 
+  const loginWithPin = useCallback(async (phone: string, pin: string) => {
+    const res = await authApi.verifyPin(phone, pin);
+    if (!res.success || !res.data) {
+      return { success: false, error: res.error?.message ?? "Invalid phone number or PIN" };
+    }
+    const normalizedUser = normalizeUser(res.data.user);
+    tokenStore.set(res.data.accessToken, res.data.refreshToken, normalizedUser, {
+      persistRefresh: !res.data.migrateRefreshToken,
+    });
+    setUser(normalizedUser);
+    return { success: true, user: normalizedUser };
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -170,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        loginWithPin,
         logout,
         updateUser,
       }}

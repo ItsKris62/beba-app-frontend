@@ -61,8 +61,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 export interface DashboardStats {
   totalMembers: number;
-  totalActiveAccounts: number;
-  engagedUsers30d: number;
+  activeMembers: number;
   pendingKyc: number;
   totalLoansCount: number;
   activeLoansCount: number;
@@ -135,50 +134,8 @@ export interface FinancialExecuteResponse {
 
 // ─── Dashboard API ────────────────────────────────────────────────────────────
 
-// Shape returned by the backend /admin/dashboard/stats endpoint
-type BackendDashboardStats = DashboardStats & {
-  members: { total: number; totalActiveAccounts: number; engagedUsers30d: number; pendingKyc: number };
-  loans: {
-    active: number;
-    totalOutstandingAmount: number;
-    defaulted: number;
-    defaultRatePercent: number;
-  };
-};
-
 export const dashboardApi = {
-  getStats: async (): Promise<DashboardStats> => {
-    const raw = await apiFetch<BackendDashboardStats>('/admin/dashboard/stats');
-    return raw;
-    const now = new Date().toISOString();
-    const cachedUntil = new Date(Date.now() + 60_000).toISOString();
-
-    // Map backend shape → frontend DashboardStats shape
-    return {
-      totalMembers: raw.members?.total ?? 0,
-      totalActiveAccounts: raw.members?.totalActiveAccounts ?? 0,
-      engagedUsers30d: raw.members?.engagedUsers30d ?? 0,
-      pendingKyc: raw.members?.pendingKyc ?? 0,
-      totalLoansCount: (raw.loans?.active ?? 0) + (raw.loans?.defaulted ?? 0),
-      activeLoansCount: raw.loans?.active ?? 0,
-      totalDisbursed: raw.loans?.totalOutstandingAmount ?? 0,
-      totalRepaid: 0, // not provided by this endpoint
-      outstandingBalance: raw.loans?.totalOutstandingAmount ?? 0,
-      defaultedLoans: raw.loans?.defaulted ?? 0,
-      defaultRate: raw.loans?.defaultRatePercent ?? 0,
-      collectionRate: raw.loans?.defaultRatePercent != null
-        ? Math.max(0, 100 - raw.loans.defaultRatePercent)
-        : 0,
-      totalSavings: 0, // not provided by this endpoint
-      welfareCollected: 0,
-      welfareDeficit: 0,
-      recentDisbursements: [],
-      repaymentHeatmap: [],
-      stageWelfareTable: [],
-      generatedAt: now,
-      cachedUntil,
-    };
-  },
+  getStats: () => apiFetch<DashboardStats>('/admin/dashboard/stats'),
   getReports: () => apiFetch<DashboardReports>('/admin/dashboard/reports'),
 };
 

@@ -281,26 +281,6 @@ export interface GuarantorRequest {
   purpose: string | null;
 }
 
-export interface AdminStats {
-  members: {
-    total: number;
-    totalActiveAccounts: number;
-    engagedUsers30d: number;
-    pendingKyc: number;
-  };
-  loans: {
-    active: number;
-    totalOutstandingAmount: number;
-    pendingApprovals: number;
-    defaulted: number;
-    defaultRatePercent: number;
-  };
-  mpesa: {
-    deposits7d: { count: number; totalAmount: number };
-    deposits30d: { count: number; totalAmount: number };
-  };
-}
-
 export interface AdminMember {
   id: string;
   memberNumber: string;
@@ -1562,9 +1542,6 @@ export const accountingApi = {
 };
 
 export const adminApi = {
-  getDashboardStats: () =>
-    apiFetch<AdminStats>('/admin/dashboard/stats'),
-
   getMembers: (params?: {
     search?: string;
     page?: number;

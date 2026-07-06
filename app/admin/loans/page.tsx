@@ -34,6 +34,22 @@ function LoanStatusBadge({ status }: { status: string }) {
   )
 }
 
+function getGuarantorSummary(loan: Loan) {
+  const required = loan.loanProduct?.minGuarantors ?? loan.guarantors?.length ?? 0
+  const accepted = (loan.guarantors ?? []).filter((g) => g.status === "ACCEPTED").length
+  return { accepted, required }
+}
+
+function GuarantorSummaryBadge({ loan }: { loan: Loan }) {
+  if (!loan.guarantors?.length && !loan.loanProduct?.minGuarantors) return null
+  const { accepted, required } = getGuarantorSummary(loan)
+  return (
+    <Badge variant={accepted >= required && required > 0 ? "default" : "secondary"}>
+      {accepted}/{required} Guarantors Verified
+    </Badge>
+  )
+}
+
 export default function AdminLoansPage() {
   const { user } = useAuth()
   const canApprove = canApproveLoans(user?.role)
@@ -169,7 +185,12 @@ export default function AdminLoansPage() {
                         <TableCell className="text-sm">{loan.loanProduct?.name ?? "—"}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(parseFloat(loan.principalAmount))}</TableCell>
                         <TableCell className="text-right text-sm">{formatCurrency(parseFloat(loan.outstandingBalance))}</TableCell>
-                        <TableCell><LoanStatusBadge status={loan.status} /></TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                            <LoanStatusBadge status={loan.status} />
+                            <GuarantorSummaryBadge loan={loan} />
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm">{formatDate(loan.appliedAt)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -242,7 +263,10 @@ export default function AdminLoansPage() {
               )}
               {selectedLoan.guarantors && selectedLoan.guarantors.length > 0 && (
                 <div>
-                  <Label className="text-muted-foreground">Guarantors</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-muted-foreground">Guarantors</Label>
+                    <GuarantorSummaryBadge loan={selectedLoan} />
+                  </div>
                   <div className="mt-2 space-y-2">
                     {selectedLoan.guarantors.map((g) => (
                       <div key={g.id} className="flex items-center justify-between rounded border p-2">

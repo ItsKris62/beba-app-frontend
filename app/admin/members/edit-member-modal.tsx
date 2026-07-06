@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { AdminMember, KycDocument } from '@/lib/api-client';
 import { Loader2, Upload, FileCheck, XCircle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface EditMemberModalProps {
   member: AdminMember | null;
@@ -20,7 +20,6 @@ interface EditMemberModalProps {
 export function EditMemberModal({ member, open, onClose, onSuccess }: EditMemberModalProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
@@ -54,13 +53,13 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
     try {
       const res = await adminApi.updateKyc(member.id, profileForm);
       if (res.success) {
-        toast({ title: 'Profile Updated', description: 'Member profile updated successfully.' });
+        toast.success('Member profile updated successfully.');
         onSuccess();
       } else {
-        toast({ variant: 'destructive', title: 'Update Failed', description: res.error?.message });
+        toast.error(res.error?.message ?? 'Failed to update profile.');
       }
     } catch (err: unknown) {
-      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+      toast.error('An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +98,7 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
     if (!file || !member) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ variant: 'destructive', title: 'File Too Large', description: 'Maximum file size is 5MB.' });
+      toast.error('Maximum file size is 5MB.');
       return;
     }
 
@@ -141,11 +140,11 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
         throw new Error(confirmRes.error?.message || 'Failed to confirm upload');
       }
 
-      toast({ title: 'Upload Successful', description: 'Document has been uploaded for the member.' });
+      toast.success('Document has been uploaded for the member.');
       loadDocuments(member.id);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Upload Failed', description: err.message || 'An unexpected error occurred.' });
+      toast.error(err.message || 'An unexpected error occurred.');
     } finally {
       setUploading(false);
     }

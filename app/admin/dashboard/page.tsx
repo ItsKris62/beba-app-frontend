@@ -68,6 +68,7 @@ function RepaymentHeatmap({
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [openTickets, setOpenTickets] = useState<number | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +80,8 @@ export default function AdminDashboardPage() {
       setStats(data);
       const tickets = await adminApi.getAllTickets({ status: 'OPEN' });
       if (tickets.success) setOpenTickets(tickets.data.length);
+      const pending = await adminApi.getLoans({ status: 'PENDING_APPROVAL', limit: 1 });
+      if (pending.success && pending.data) setPendingApprovals(pending.data.meta?.total ?? 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     } finally {
@@ -124,12 +127,13 @@ export default function AdminDashboardPage() {
       {/* KPI Grid */}
       {loading || !stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+          {Array.from({ length: 11 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.totalActiveAccounts ?? 0} active accounts, ${stats.engagedUsers30d ?? 0} engaged (30d)`} colorClass="text-blue-600" />
+          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.activeMembers ?? 0} active`} colorClass="text-blue-600" />
           <KpiCard title="KYC Queue" value={(stats.pendingKyc ?? 0).toLocaleString()} subtitle="Awaiting staff review" colorClass={(stats.pendingKyc ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
+          <KpiCard title="Pending Loan Approvals" value={(pendingApprovals ?? 0).toLocaleString()} subtitle="Awaiting admin decision" colorClass={(pendingApprovals ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
           <KpiCard title="Total Disbursed" value={fmt(stats.totalDisbursed ?? 0)} subtitle={`${stats.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
           <KpiCard title="Collection Rate" value={`${stats.collectionRate ?? 0}%`} subtitle={`${fmt(stats.totalRepaid ?? 0)} repaid`} colorClass={(stats.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />
           <KpiCard title="Default Rate" value={`${stats.defaultRate ?? 0}%`} subtitle={`${stats.defaultedLoans ?? 0} defaulted`} colorClass={(stats.defaultRate ?? 0) > 10 ? 'text-red-600' : 'text-green-600'} />

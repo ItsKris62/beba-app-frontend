@@ -143,8 +143,8 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
       toast.success('Document has been uploaded for the member.');
       loadDocuments(member.id);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (err: any) {
-      toast.error(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      toast.error((err as { message?: string })?.message || 'An unexpected error occurred.');
     } finally {
       setUploading(false);
     }

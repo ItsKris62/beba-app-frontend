@@ -85,8 +85,43 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+// The backend's global exception filter sends { detail, errorCode } where
+// errorCode is just the generic HTTP reason phrase ("Bad Request", "Conflict"...)
+// — not a useful discriminator. Domain-specific codes are instead embedded as a
+// "CODE_NAME: rest of message" prefix inside `detail`. Extract that prefix so
+// the registry can key off it.
+function extractDetailText(body: unknown): string | undefined {
+  const record = asRecord(body);
+  const detail = record.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail.trim();
+  if (Array.isArray(detail)) {
+    const first = detail.find((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    if (first) return first.trim();
+  }
+  return undefined;
+}
+
+function extractDomainCode(detailText: string | undefined): string | undefined {
+  if (!detailText) return undefined;
+  // Some backend messages are the bare code with no trailing text (e.g. "IDEMPOTENCY_KEY_REQUIRED"),
+  // others are "CODE: rest of sentence" (e.g. "ONE_OPEN_LOAN_ONLY: You already have...").
+  if (/^[A-Z][A-Z_]{2,}$/.test(detailText)) return detailText;
+  const match = /^([A-Z][A-Z_]{2,}):\s/.exec(detailText);
+  return match?.[1];
+}
+
 function inferCode(body: unknown, status: number): string {
   const record = asRecord(body);
+
+  // Mpesa's exception filter uses a distinct shape: { error: 'MPESA_XXX', message, retryable }
+  // — `error` is a bare machine-readable string here, not a nested object.
+  if (typeof record.error === 'string' && /^[A-Z][A-Z_]+$/.test(record.error)) {
+    return record.error;
+  }
+
+  const domainCode = extractDomainCode(extractDetailText(body));
+  if (domainCode) return domainCode;
+
   const nestedError = asRecord(record.error);
   return (
     firstString(record.errorCode, record.code, nestedError.code, record.type, record.title) ??
@@ -115,7 +150,7 @@ export function sanitizeHttpError({
     readHeader(response.headers, REQUEST_ID_HEADERS) ??
     firstString(asRecord(body).correlationId, asRecord(body).requestId);
   const retryAfterMs = parseRetryAfter(response.headers.get('retry-after'));
-  const message = getUserErrorMessage(backendCode, status);
+  const message = getUserErrorMessage(backendCode, status, extractDetailText(body));
 
   const sanitized: SanitizedApiError = {
     code: backendCode,

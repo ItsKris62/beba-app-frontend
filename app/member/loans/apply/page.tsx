@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -92,6 +93,7 @@ export default function ApplyLoanPage() {
     return calculateLoanRepayment(amount, Number(product.interestRate), tenure, product.interestType)
   }, [product, amount, tenure])
   const canSubmit = Boolean(product && amountPasses && tenurePasses && coveragePasses && maxPasses && !openLoan && isKycApproved)
+  const isLoading = products.isLoading || dashboard.isLoading || memberLoans.isLoading
   const addGuarantor = (guarantor: SelectedGuarantor) => {
     setGuarantors((current) => {
       if (current.some((item) => item.memberId === guarantor.memberId)) return current
@@ -111,6 +113,29 @@ export default function ApplyLoanPage() {
     },
     onError: () => toast.error("Network error while submitting loan application."),
   })
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -150,7 +175,7 @@ export default function ApplyLoanPage() {
         <CardHeader><CardTitle>Loan Details</CardTitle><CardDescription>Product terms determine guarantor coverage.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2"><Label>Loan Product</Label><Select value={loanProductId} onValueChange={(value) => { setLoanProductId(value); setGuarantors([]) }}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent>{productList.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value)} min={product ? Number(product.minAmount) : 100} max={product ? Math.max(Number(product.minAmount), productLoanLimit) : undefined} />{product && <p className="text-xs text-muted-foreground">Product limit: {formatCurrency(productLoanLimit)}.</p>}</div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
+          <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" inputMode="numeric" value={principalAmount} onChange={(e) => setPrincipalAmount(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault() }} min={product ? Number(product.minAmount) : 100} max={product ? Math.max(Number(product.minAmount), productLoanLimit) : undefined} />{product && <p className="text-xs text-muted-foreground">Product limit: {formatCurrency(productLoanLimit)}.</p>}</div><div className="space-y-2"><Label>Tenure (months)</Label><Input type="number" inputMode="numeric" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault() }} min={1} max={product?.maxTenureMonths ?? 60} /></div></div>
           <div className="space-y-2"><Label>Purpose</Label><Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={3} /></div>
           {repaymentPreview && (
             <div className="rounded-lg border bg-muted/40 p-3">

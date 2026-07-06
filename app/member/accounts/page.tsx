@@ -277,11 +277,15 @@ export default function AccountsPage() {
                 <Input
                   id="amount"
                   type="number"
+                  inputMode="numeric"
                   placeholder="1000"
                   min="10"
                   max="150000"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault()
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">Minimum KES 10 · Maximum KES 150,000 per transaction</p>

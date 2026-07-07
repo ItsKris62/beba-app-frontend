@@ -19,12 +19,18 @@ vi.mock("@/lib/api-client", async () => {
   }
 })
 
+class ResizeObserverMock implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 if (typeof window !== "undefined" && !("ResizeObserver" in window)) {
-  window.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver
+  Object.defineProperty(window, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: ResizeObserverMock,
+  })
 }
 
 const mockProduct = {

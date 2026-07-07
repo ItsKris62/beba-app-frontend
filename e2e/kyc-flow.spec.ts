@@ -12,6 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { createMockJwt } from './support/mock-jwt';
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
 
@@ -27,6 +28,24 @@ const ADMIN_CREDENTIALS = {
   email: 'admin@test.beba.co.ke',
   password: 'Admin1234!',
 };
+
+const MEMBER_TOKEN = createMockJwt({
+  sub: 'user-uuid-001',
+  email: MEMBER_CREDENTIALS.email,
+  role: 'MEMBER',
+  tenantId: TENANT_ID,
+  firstName: 'Test',
+  lastName: 'Member',
+});
+
+const ADMIN_TOKEN = createMockJwt({
+  sub: 'user-uuid-admin',
+  email: ADMIN_CREDENTIALS.email,
+  role: 'MANAGER',
+  tenantId: TENANT_ID,
+  firstName: 'Test',
+  lastName: 'Admin',
+});
 
 /** Intercept all requests to the backend and inject the tenant header. */
 async function injectTenantHeader(page: Page): Promise<void> {
@@ -89,7 +108,7 @@ async function mockMemberLogin(page: Page): Promise<void> {
         body: JSON.stringify({
           success: true,
           data: {
-            accessToken: 'mock-access-token-member',
+            accessToken: MEMBER_TOKEN,
             refreshToken: 'mock-refresh-token-member',
             user: {
               id: 'user-uuid-001',
@@ -119,7 +138,7 @@ async function mockAdminLogin(page: Page): Promise<void> {
       body: JSON.stringify({
         success: true,
         data: {
-          accessToken: 'mock-access-token-admin',
+          accessToken: ADMIN_TOKEN,
           refreshToken: 'mock-refresh-token-admin',
           user: {
             id: 'user-uuid-admin',
@@ -140,7 +159,7 @@ async function mockAdminLogin(page: Page): Promise<void> {
 /** Mock POST /auth/refresh so page-reload hydration works in tests. */
 async function mockRefresh(page: Page, role: 'MEMBER' | 'MANAGER' = 'MEMBER'): Promise<void> {
   await page.route(`${API_BASE}/auth/refresh`, (route) => {
-    const token = role === 'MEMBER' ? 'mock-access-token-member' : 'mock-access-token-admin';
+    const token = role === 'MEMBER' ? MEMBER_TOKEN : ADMIN_TOKEN;
     route.fulfill({
       status: 200,
       contentType: 'application/json',

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,10 +11,28 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Eye, ThumbsUp, ThumbsDown, Send, RefreshCw, CreditCard } from "lucide-react"
+import { Eye, ThumbsUp, ThumbsDown, Send, RefreshCw, CreditCard, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 import { loansApi, adminApi, formatCurrency, formatDate, type Loan } from "@/lib/api-client"
 import { useAuth, canApproveLoans } from "@/lib/auth-context"
+import { canSignApprovalChain } from "@/lib/permissions"
+import { DUAL_APPROVAL_THRESHOLD_KES } from "@/lib/loan-math"
+
+function ApprovalModeBadge({ principalAmount }: { principalAmount: string }) {
+  const amount = parseFloat(principalAmount)
+  if (amount >= DUAL_APPROVAL_THRESHOLD_KES) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-300 text-amber-800"
+        title={`Loans of ${formatCurrency(DUAL_APPROVAL_THRESHOLD_KES)} or more need one MANAGER and one TELLER to each sign off before disbursement, in addition to this approval.`}
+      >
+        Dual sign-off required
+      </Badge>
+    )
+  }
+  return <Badge variant="secondary">Single-approval</Badge>
+}
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING_GUARANTORS: "bg-amber-100 text-amber-700",
@@ -50,6 +69,129 @@ function GuarantorSummaryBadge({ loan }: { loan: Loan }) {
   )
 }
 
+function LoanTableRow({
+  loan,
+  currentUserEmail,
+  canApprove,
+  canSignOff,
+  onView,
+  onApprove,
+  onReject,
+  onDisburse,
+  onSignOff,
+}: {
+  loan: Loan
+  currentUserEmail?: string
+  canApprove: boolean
+  canSignOff: boolean
+  onView: () => void
+  onApprove: () => void
+  onReject: () => void
+  onDisburse: () => void
+  onSignOff: () => void
+}) {
+  const isPendingApproval = loan.status === "PENDING_APPROVAL"
+  const isApproved = loan.status === "APPROVED"
+  const needsDualSignOff = parseFloat(loan.principalAmount) >= DUAL_APPROVAL_THRESHOLD_KES
+
+  // The list endpoint doesn't return the applicant's email (only name), so we
+  // can't tell from list data alone whether the logged-in admin is also the
+  // member who applied (a staff member can also be a SACCO member). Fetch the
+  // loan detail — which does include it — only for rows where it actually
+  // matters, so most rows never pay this extra request.
+  const selfCheckEnabled = isPendingApproval && canApprove
+  const detailQuery = useQuery({
+    queryKey: ["admin-loan-detail", loan.id],
+    queryFn: () => loansApi.getLoan(loan.id),
+    enabled: selfCheckEnabled,
+    staleTime: 60_000,
+  })
+  const applicantEmail = detailQuery.data?.success ? detailQuery.data.data?.member?.user.email : undefined
+  const isSelfApproval = Boolean(
+    selfCheckEnabled && currentUserEmail && applicantEmail && currentUserEmail.toLowerCase() === applicantEmail.toLowerCase(),
+  )
+  const approveDisabledReason = isSelfApproval
+    ? "You applied for this loan yourself — another approver must review it."
+    : selfCheckEnabled && detailQuery.isLoading
+      ? "Checking applicant..."
+      : undefined
+
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-sm">{loan.loanNumber}</TableCell>
+      <TableCell className="text-sm">
+        {loan.member ? `${loan.member.user.firstName} ${loan.member.user.lastName}` : "—"}
+        <p className="text-xs text-muted-foreground">{loan.member?.memberNumber}</p>
+      </TableCell>
+      <TableCell className="text-sm">{loan.loanProduct?.name ?? "—"}</TableCell>
+      <TableCell className="text-right font-medium">{formatCurrency(parseFloat(loan.principalAmount))}</TableCell>
+      <TableCell className="text-right text-sm">{formatCurrency(parseFloat(loan.outstandingBalance))}</TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1 items-start">
+          <LoanStatusBadge status={loan.status} />
+          <ApprovalModeBadge principalAmount={loan.principalAmount} />
+          <GuarantorSummaryBadge loan={loan} />
+        </div>
+      </TableCell>
+      <TableCell className="text-sm">{formatDate(loan.appliedAt)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onView} aria-label={`View loan ${loan.loanNumber}`}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          {isPendingApproval && canApprove && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-green-600"
+                onClick={onApprove}
+                disabled={isSelfApproval || detailQuery.isLoading}
+                title={approveDisabledReason}
+                aria-label={`Approve loan ${loan.loanNumber}`}
+              >
+                <ThumbsUp className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-600"
+                onClick={onReject}
+                aria-label={`Reject loan ${loan.loanNumber}`}
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          {isApproved && canApprove && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-blue-600"
+              onClick={onDisburse}
+              aria-label={`Disburse loan ${loan.loanNumber}`}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
+          {isApproved && needsDualSignOff && canSignOff && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-amber-700"
+              onClick={onSignOff}
+              title="Sign off on this large loan's disbursement (4-eyes)"
+              aria-label={`Sign off on disbursement for loan ${loan.loanNumber}`}
+            >
+              <ShieldCheck className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
 export default function AdminLoansPage() {
   const { user } = useAuth()
   const canApprove = canApproveLoans(user?.role)
@@ -64,6 +206,35 @@ export default function AdminLoansPage() {
   const [actionType, setActionType] = useState<"approve" | "reject" | "disburse">("approve")
   const [actionComment, setActionComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [signOffLoan, setSignOffLoan] = useState<Loan | null>(null)
+  const [signOffDecision, setSignOffDecision] = useState<"approve" | "reject">("approve")
+  const [signOffNotes, setSignOffNotes] = useState("")
+  const [isSigningOff, setIsSigningOff] = useState(false)
+  const canSignOff = canSignApprovalChain(user?.role)
+
+  // Backstop for the self-approval guard: the row button already disables
+  // Approve, but the loan detail dialog has its own Approve button that opens
+  // this same confirmation dialog — re-check here too rather than trusting
+  // the caller. React Query dedupes this against the row's own fetch of the
+  // same loan (same query key), so opening the dialog after already seeing
+  // the row doesn't re-fetch.
+  const selectedLoanSelfCheckEnabled =
+    Boolean(selectedLoan) && selectedLoan?.status === "PENDING_APPROVAL" && canApprove
+  const selectedLoanDetailQuery = useQuery({
+    queryKey: ["admin-loan-detail", selectedLoan?.id],
+    queryFn: () => loansApi.getLoan(selectedLoan!.id),
+    enabled: selectedLoanSelfCheckEnabled,
+    staleTime: 60_000,
+  })
+  const selectedLoanApplicantEmail = selectedLoanDetailQuery.data?.success
+    ? selectedLoanDetailQuery.data.data?.member?.user.email
+    : undefined
+  const isSelectedLoanSelfApproval = Boolean(
+    selectedLoanSelfCheckEnabled &&
+      user?.email &&
+      selectedLoanApplicantEmail &&
+      user.email.toLowerCase() === selectedLoanApplicantEmail.toLowerCase(),
+  )
 
   const loadLoans = async (p = 1) => {
     setIsLoading(true)
@@ -94,6 +265,10 @@ export default function AdminLoansPage() {
 
   const handleAction = async () => {
     if (!selectedLoan) return
+    if (actionType === "approve" && isSelectedLoanSelfApproval) {
+      toast.error("You applied for this loan yourself — another approver must review it.")
+      return
+    }
     setIsSubmitting(true)
     try {
       let res
@@ -111,6 +286,24 @@ export default function AdminLoansPage() {
       loadLoans(page)
     } catch { toast.error("Network error.") }
     finally { setIsSubmitting(false) }
+  }
+
+  const handleSignOff = async () => {
+    if (!signOffLoan) return
+    setIsSigningOff(true)
+    try {
+      const res = await loansApi.signApprovalChain(signOffLoan.id, signOffDecision === "approve", signOffNotes || undefined)
+      if (!res.success) { toast.error(res.error?.message ?? "Sign-off failed"); return }
+      toast.success(
+        signOffDecision === "approve"
+          ? "Sign-off recorded. Disbursement can proceed once the other required sign-off is in too."
+          : "Sign-off rejection recorded. This loan will not be disbursed.",
+      )
+      setSignOffLoan(null)
+      setSignOffNotes("")
+      loadLoans(page)
+    } catch { toast.error("Network error.") }
+    finally { setIsSigningOff(false) }
   }
 
   const totalPages = Math.ceil(total / 20)
@@ -176,45 +369,18 @@ export default function AdminLoansPage() {
                   </TableHeader>
                   <TableBody>
                     {loans.map((loan) => (
-                      <TableRow key={loan.id}>
-                        <TableCell className="font-mono text-sm">{loan.loanNumber}</TableCell>
-                        <TableCell className="text-sm">
-                          {loan.member ? `${loan.member.user.firstName} ${loan.member.user.lastName}` : "—"}
-                          <p className="text-xs text-muted-foreground">{loan.member?.memberNumber}</p>
-                        </TableCell>
-                        <TableCell className="text-sm">{loan.loanProduct?.name ?? "—"}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(parseFloat(loan.principalAmount))}</TableCell>
-                        <TableCell className="text-right text-sm">{formatCurrency(parseFloat(loan.outstandingBalance))}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1 items-start">
-                            <LoanStatusBadge status={loan.status} />
-                            <GuarantorSummaryBadge loan={loan} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{formatDate(loan.appliedAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedLoan(loan); setIsDetailOpen(true) }}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {loan.status === "PENDING_APPROVAL" && canApprove && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => openAction(loan, "approve")}>
-                                  <ThumbsUp className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => openAction(loan, "reject")}>
-                                  <ThumbsDown className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            {loan.status === "APPROVED" && canApprove && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => openAction(loan, "disburse")}>
-                                <Send className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      <LoanTableRow
+                        key={loan.id}
+                        loan={loan}
+                        currentUserEmail={user?.email}
+                        canApprove={canApprove}
+                        canSignOff={canSignOff}
+                        onView={() => { setSelectedLoan(loan); setIsDetailOpen(true) }}
+                        onApprove={() => openAction(loan, "approve")}
+                        onReject={() => openAction(loan, "reject")}
+                        onDisburse={() => openAction(loan, "disburse")}
+                        onSignOff={() => { setSignOffLoan(loan); setSignOffDecision("approve"); setSignOffNotes("") }}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -244,7 +410,7 @@ export default function AdminLoansPage() {
             <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-muted-foreground">Member</Label><p className="font-medium">{selectedLoan.member?.user.firstName} {selectedLoan.member?.user.lastName}</p></div>
-                <div><Label className="text-muted-foreground">Status</Label><div className="mt-1"><LoanStatusBadge status={selectedLoan.status} /></div></div>
+                <div><Label className="text-muted-foreground">Status</Label><div className="mt-1 flex flex-wrap gap-1"><LoanStatusBadge status={selectedLoan.status} /><ApprovalModeBadge principalAmount={selectedLoan.principalAmount} /></div></div>
                 <div><Label className="text-muted-foreground">Principal</Label><p className="font-medium">{formatCurrency(parseFloat(selectedLoan.principalAmount))}</p></div>
                 <div><Label className="text-muted-foreground">Interest Rate</Label><p className="font-medium">{(parseFloat(selectedLoan.interestRate) * 100).toFixed(1)}% p.a.</p></div>
                 <div><Label className="text-muted-foreground">Tenure</Label><p className="font-medium">{selectedLoan.tenureMonths} months</p></div>
@@ -290,7 +456,12 @@ export default function AdminLoansPage() {
                 <Button variant="destructive" size="sm" onClick={() => { setIsDetailOpen(false); openAction(selectedLoan, "reject") }}>
                   <ThumbsDown className="mr-2 h-4 w-4" /> Reject
                 </Button>
-                <Button size="sm" onClick={() => { setIsDetailOpen(false); openAction(selectedLoan, "approve") }}>
+                <Button
+                  size="sm"
+                  disabled={isSelectedLoanSelfApproval}
+                  title={isSelectedLoanSelfApproval ? "You applied for this loan yourself — another approver must review it." : undefined}
+                  onClick={() => { setIsDetailOpen(false); openAction(selectedLoan, "approve") }}
+                >
                   <ThumbsUp className="mr-2 h-4 w-4" /> Approve
                 </Button>
               </>
@@ -317,6 +488,11 @@ export default function AdminLoansPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {actionType === "approve" && isSelectedLoanSelfApproval && (
+              <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                You applied for this loan yourself. Another approver must review it — this action is disabled.
+              </p>
+            )}
             {actionType !== "disburse" && (
               <div className="space-y-2">
                 <Label htmlFor="comment">{actionType === "reject" ? "Rejection Reason *" : "Comment (optional)"}</Label>
@@ -340,9 +516,60 @@ export default function AdminLoansPage() {
             <Button
               variant={actionType === "reject" ? "destructive" : "default"}
               onClick={handleAction}
-              disabled={isSubmitting}
+              disabled={isSubmitting || (actionType === "approve" && isSelectedLoanSelfApproval)}
             >
               {isSubmitting ? "Processing…" : actionType === "approve" ? "Approve" : actionType === "reject" ? "Reject" : "Disburse"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dual sign-off dialog (loans >= DUAL_APPROVAL_THRESHOLD_KES) */}
+      <Dialog open={Boolean(signOffLoan)} onOpenChange={(open) => { if (!open) setSignOffLoan(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign off on disbursement</DialogTitle>
+            <DialogDescription>
+              {signOffLoan?.loanNumber} — {signOffLoan?.member?.user.firstName} {signOffLoan?.member?.user.lastName} —{" "}
+              {signOffLoan ? formatCurrency(parseFloat(signOffLoan.principalAmount)) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              This loan requires one MANAGER and one TELLER to each sign off before it can be disbursed.
+              The same person cannot fill both slots, and you cannot sign off twice.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={signOffDecision === "approve" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSignOffDecision("approve")}
+              >
+                Approve disbursement
+              </Button>
+              <Button
+                type="button"
+                variant={signOffDecision === "reject" ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => setSignOffDecision("reject")}
+              >
+                Reject disbursement
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signoff-notes">{signOffDecision === "reject" ? "Reason (recommended)" : "Notes (optional)"}</Label>
+              <Textarea id="signoff-notes" value={signOffNotes} onChange={(e) => setSignOffNotes(e.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignOffLoan(null)}>Cancel</Button>
+            <Button
+              variant={signOffDecision === "reject" ? "destructive" : "default"}
+              onClick={handleSignOff}
+              disabled={isSigningOff}
+            >
+              {isSigningOff ? "Submitting…" : signOffDecision === "reject" ? "Submit rejection" : "Submit sign-off"}
             </Button>
           </DialogFooter>
         </DialogContent>

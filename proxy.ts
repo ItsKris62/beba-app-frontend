@@ -4,6 +4,22 @@ import { jwtDecode } from 'jwt-decode';
 import { canAccessPortalRoute, getDefaultPortalRoute } from './lib/role-routing';
 import { normalizeRole } from './types/roles';
 
+// SOURCE OF TRUTH NOTE
+// This edge proxy (Next.js 16's renamed `middleware.ts`) reads the JWT from the
+// `beba_access_token` cookie and calls jwtDecode() on it — a base64 decode with
+// NO signature verification. That is intentional, not an oversight: verifying a
+// JWT signature at the edge would require distributing the signing secret/JWKS
+// to this runtime, which is a bigger trust boundary than route-guard UX needs.
+// Treat everything this file decides as advisory routing/UX only:
+//   - It redirects unauthenticated/wrong-role users away from a portal route
+//     before the page renders, so they don't see a flash of the wrong UI.
+//   - It does NOT authenticate or authorize anything. A forged or expired
+//     token that happens to decode without throwing could pass this check.
+// The NestJS backend remains the absolute source of truth for cryptographic
+// JWT verification and RBAC enforcement (RolesGuard + JwtStrategy) on every
+// request — nothing here should ever be treated as a substitute for that, and
+// no data-fetching or mutation should rely on this file having run correctly.
+
 const ADMIN_ROUTES = ['/admin'];
 const MEMBER_ROUTES = ['/member'];
 const PUBLIC_ROUTES = [

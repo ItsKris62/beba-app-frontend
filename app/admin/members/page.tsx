@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
   Users, Search, RefreshCw, Download, UserPlus, Upload,
@@ -26,6 +27,9 @@ import { cn } from '@/lib/utils';
 import { adminApi, stagesAdminApi, usersApi, type AdminMember, type AdminStage } from '@/lib/api-client';
 import { applicationsApi } from '@/lib/locations-api';
 import { EditMemberModal } from './edit-member-modal';
+import { useAuth, isAdmin } from '@/lib/auth-context';
+
+const ADMIN_MEMBERS_STALE_TIME_MS = 20_000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -567,39 +571,43 @@ function CreateMemberModal({
 
 export default function MembersPage() {
   const router = useRouter();
-  const [members, setMembers] = useState<AdminMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  // Gate the fetch itself (not just the rendered UI) — see the same note on
+  // app/admin/dashboard/page.tsx for why the layout-level redirect alone
+  // isn't sufficient here.
+  const canViewMembers = isAdmin(user?.role);
+
   const [search, setSearch] = useState('');
+  const [committedSearch, setCommittedSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedMember, setSelectedMember] = useState<AdminMember | null>(null);
 
-  const loadMembers = useCallback(async (p = 1, q = '') => {
-    setLoading(true);
-    try {
-      const res = await adminApi.getMembers({ page: p, limit: 20, search: q || undefined });
-      if (res.success && res.data) {
-        const payload = res.data;
-        setMembers(payload.data ?? []);
-        setTotal(payload.meta?.total ?? 0);
-        setTotalPages(payload.meta?.totalPages ?? 1);
-      }
-    } catch {
-      // silent — user sees empty state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const membersQuery = useQuery({
+    queryKey: ['admin-members', page, committedSearch],
+    queryFn: () => adminApi.getMembers({ page, limit: 20, search: committedSearch || undefined }),
+    enabled: canViewMembers,
+    staleTime: ADMIN_MEMBERS_STALE_TIME_MS,
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadMembers(1); }, [loadMembers]);
+  const membersPayload = membersQuery.data?.success ? membersQuery.data.data : undefined;
+  const members = membersPayload?.data ?? [];
+  const total = membersPayload?.meta?.total ?? 0;
+  const totalPages = membersPayload?.meta?.totalPages ?? 1;
+  const loading = canViewMembers && membersQuery.isLoading;
+
+  const invalidateMembers = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['admin-members'] }),
+    [queryClient],
+  );
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPage(1);
-    loadMembers(1, search);
+    setCommittedSearch(search);
   };
 
   const activeCount = members.filter(m => m.isActive).length;
@@ -614,7 +622,7 @@ export default function MembersPage() {
           <p className="text-muted-foreground">View and manage all SACCO members</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => loadMembers(page, search)}>
+          <Button variant="outline" size="sm" onClick={() => membersQuery.refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
           <Button variant="outline" size="sm">
@@ -777,14 +785,14 @@ export default function MembersPage() {
             <Button
               variant="outline" size="sm"
               disabled={page <= 1}
-              onClick={() => { const p = page - 1; setPage(p); loadMembers(p, search); }}
+              onClick={() => setPage((p) => p - 1)}
             >
               Previous
             </Button>
             <Button
               variant="outline" size="sm"
               disabled={page >= totalPages}
-              onClick={() => { const p = page + 1; setPage(p); loadMembers(p, search); }}
+              onClick={() => setPage((p) => p + 1)}
             >
               Next
             </Button>
@@ -796,7 +804,7 @@ export default function MembersPage() {
       <CreateMemberModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onSuccess={() => { setPage(1); loadMembers(1, search); }}
+        onSuccess={() => { setPage(1); void invalidateMembers(); }}
       />
 
       {/* ── Edit Member Modal ── */}
@@ -804,7 +812,7 @@ export default function MembersPage() {
         open={showEdit}
         member={selectedMember}
         onClose={() => { setShowEdit(false); setSelectedMember(null); }}
-        onSuccess={() => { loadMembers(page, search); setShowEdit(false); setSelectedMember(null); }}
+        onSuccess={() => { void invalidateMembers(); setShowEdit(false); setSelectedMember(null); }}
       />
     </div>
   );

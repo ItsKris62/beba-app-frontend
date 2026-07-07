@@ -47,7 +47,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
       console.error('ErrorBoundary caught error:', error, errorInfo);
     } else {
       reportClientError(error, {

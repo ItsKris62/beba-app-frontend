@@ -61,6 +61,12 @@ export function canApproveLoans(role?: string | null): boolean {
   return normalized ? ['SUPER_ADMIN', 'TENANT_ADMIN', 'MANAGER'].includes(normalized) : false;
 }
 
+/** Mirrors the backend's @Roles(MANAGER, TELLER) guard on POST :id/approval-chain/sign. */
+export function canSignApprovalChain(role?: string | null): boolean {
+  const normalized = normalizeRole(role);
+  return normalized ? ['MANAGER', 'TELLER'].includes(normalized) : false;
+}
+
 /** Returns true when the role can administer platform tenants. */
 export function isSuperAdminRole(role?: string | null): boolean {
   return normalizeRole(role) === 'SUPER_ADMIN';

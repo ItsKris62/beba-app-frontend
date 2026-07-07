@@ -898,6 +898,18 @@ async function doRefresh(): Promise<string | null> {
  */
 export const refreshAccessToken = doRefresh;
 
+// Only GET/HEAD are safe to retry blindly after a network error or 5xx: for
+// those, the request either never reached the server or is known not to have
+// mutated anything. A POST/PATCH/DELETE may have already been fully processed
+// by the time the client sees a dropped connection or a 5xx (e.g. the mutation
+// committed but the response never made it back) — auto-retrying it here would
+// resubmit the same mutation a second time. Endpoints that need retry-safety
+// for a real user-initiated resubmit carry their own X-Idempotency-Key instead.
+function isSafeToAutoRetry(method?: string): boolean {
+  const m = (method ?? 'GET').toUpperCase();
+  return m === 'GET' || m === 'HEAD';
+}
+
 async function rawApiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -916,7 +928,6 @@ async function rawApiFetch<T>(
   }
 
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
     console.debug('[api-request]', {
       endpoint: path.split('?')[0],
       hasAuthorization: Boolean(headers.Authorization),
@@ -930,7 +941,7 @@ async function rawApiFetch<T>(
   try {
     response = await fetch(url, { ...options, headers, credentials: 'include' });
   } catch {
-    if (retries > 0) {
+    if (retries > 0 && isSafeToAutoRetry(options.method)) {
       await new Promise((r) => setTimeout(r, 500));
       return rawApiFetch<T>(path, options, retries - 1);
     }
@@ -1021,8 +1032,8 @@ async function rawApiFetch<T>(
     });
   }
 
-  // Retry on 5xx
-  if (response.status >= 500 && retries > 0) {
+  // Retry on 5xx — only for requests that are safe to repeat (see isSafeToAutoRetry)
+  if (response.status >= 500 && retries > 0 && isSafeToAutoRetry(options.method)) {
     await new Promise((r) => setTimeout(r, 1000));
     return rawApiFetch<T>(path, options, retries - 1);
   }
@@ -1303,13 +1314,24 @@ export const memberApi = {
   getGuarantorRequests: () =>
     apiFetch<GuarantorRequest[]>('/members/guarantor/requests'),
 
-  respondToGuarantor: (loanId: string, action: 'ACCEPT' | 'DECLINE', notes: string | undefined, idempotencyKey: string) =>
+  // digitalAcknowledgment is a required field on the backend DTO (no @IsOptional()) —
+  // omitting it fails validation for both actions, and for ACCEPT specifically the
+  // service throws DIGITAL_ACKNOWLEDGMENT_REQUIRED unless it's true. It must reflect
+  // that the member actually scrolled through and checked the disclosure, not just be
+  // hardcoded true.
+  respondToGuarantor: (
+    loanId: string,
+    action: 'ACCEPT' | 'DECLINE',
+    notes: string | undefined,
+    digitalAcknowledgment: boolean,
+    idempotencyKey: string,
+  ) =>
     apiFetch<{ loanId: string; memberId: string; status: string }>(
       `/members/loans/${loanId}/guarantor-response`,
       {
         method: 'POST',
         headers: { 'X-Idempotency-Key': idempotencyKey },
-        body: JSON.stringify({ action, notes }),
+        body: JSON.stringify({ action, notes, digitalAcknowledgment }),
       },
     ),
 
@@ -1451,6 +1473,14 @@ export const loansApi = {
   disburseLoan: (id: string) =>
     apiFetch<{ loan: Loan; newBalance: number }>(`/loans/${id}/disburse`, {
       method: 'PATCH',
+    }),
+
+  // 4-eyes disbursement gate for loans >= DUAL_APPROVAL_THRESHOLD_KES (lib/loan-math.ts).
+  // Restricted to MANAGER/TELLER server-side; the same person cannot fill both slots.
+  signApprovalChain: (id: string, approve: boolean, notes?: string) =>
+    apiFetch<{ chainComplete: boolean; allApproved: boolean }>(`/loans/${id}/approval-chain/sign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ approve, notes }),
     }),
 };
 

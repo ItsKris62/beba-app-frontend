@@ -4,6 +4,11 @@ import { useCallback, useRef, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Mirrors the backend's allowed KYC document MIME types (documents.service.ts).
+// The <input accept> attribute is a UX hint only — it doesn't stop a
+// drag-and-drop or a programmatically constructed File, so this check has to
+// run here too, before any network round-trip.
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 
 export type DocumentType =
   | 'NATIONAL_ID_FRONT'
@@ -75,6 +80,17 @@ async function errorMessage(response: Response): Promise<string> {
   }
 }
 
+/** Returns an error message if the file fails client-side type/size checks, or null if it's valid. */
+export function validateDocumentFile(file: File): string | null {
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    return 'Unsupported file type. Upload a JPEG, PNG, WebP, or PDF file.';
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return `File must be ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB or smaller`;
+  }
+  return null;
+}
+
 export async function computeDocumentChecksum(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -109,70 +125,79 @@ export function useDocumentUpload(
   const putWithProgress = useCallback((
     file: File,
     uploadUrl: string,
-    attempt = 0,
     abortController = new AbortController(),
   ): Promise<void> => {
-    setState((current) => ({
-      ...current,
-      status: 'uploading',
-      progress: attempt === 0 ? 0 : current.progress,
-      retryCount: attempt,
-      abortController,
-    }));
-
-    return new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      activeXhrRef.current = xhr;
-
-      abortController.signal.addEventListener('abort', () => {
-        xhr.abort();
-      }, { once: true });
-
-      xhr.upload.onprogress = (event) => {
-        if (abortController.signal.aborted) return;
-        if (!event.lengthComputable) return;
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setState((current) => ({ ...current, progress: percent }));
-        options?.onProgress?.(percent);
-      };
-
-      xhr.onload = () => {
-        activeXhrRef.current = null;
-        if (abortController.signal.aborted) {
-          reject(new Error('Upload cancelled'));
-          return;
-        }
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
-          return;
-        }
-        reject(new Error(`Storage upload failed: ${xhr.status}`));
-      };
-
-      xhr.onerror = () => {
-        activeXhrRef.current = null;
-        reject(new Error('Storage upload failed'));
-      };
-      xhr.onabort = () => {
-        activeXhrRef.current = null;
-        reject(new Error('Upload cancelled'));
-      };
-      xhr.open('PUT', uploadUrl);
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.send(file);
-    }).catch(async (error) => {
-      if (abortController.signal.aborted) throw error;
-      if (attempt >= 3) throw error;
-      const delayMs = 1000 * 2 ** attempt;
+    const attemptOnce = (attempt: number): Promise<void> => {
       setState((current) => ({
         ...current,
-        status: 'error',
-        error: `Upload failed. Retrying in ${Math.round(delayMs / 1000)}s.`,
-        retryCount: attempt + 1,
+        status: 'uploading',
+        progress: attempt === 0 ? 0 : current.progress,
+        retryCount: attempt,
+        abortController,
       }));
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      return putWithProgress(file, uploadUrl, attempt + 1, abortController);
-    });
+
+      return new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        activeXhrRef.current = xhr;
+
+        abortController.signal.addEventListener('abort', () => {
+          xhr.abort();
+        }, { once: true });
+
+        xhr.upload.onprogress = (event) => {
+          if (abortController.signal.aborted) return;
+          if (!event.lengthComputable) return;
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setState((current) => ({ ...current, progress: percent }));
+          options?.onProgress?.(percent);
+        };
+
+        xhr.onload = () => {
+          activeXhrRef.current = null;
+          if (abortController.signal.aborted) {
+            reject(new Error('Upload cancelled'));
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+            return;
+          }
+          reject(new Error(`Storage upload failed: ${xhr.status}`));
+        };
+
+        xhr.onerror = () => {
+          activeXhrRef.current = null;
+          reject(new Error('Storage upload failed'));
+        };
+        xhr.onabort = () => {
+          activeXhrRef.current = null;
+          reject(new Error('Upload cancelled'));
+        };
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.send(file);
+      });
+    };
+
+    const runWithRetries = async (attempt: number): Promise<void> => {
+      try {
+        await attemptOnce(attempt);
+      } catch (error) {
+        if (abortController.signal.aborted) throw error;
+        if (attempt >= 3) throw error;
+        const delayMs = 1000 * 2 ** attempt;
+        setState((current) => ({
+          ...current,
+          status: 'error',
+          error: `Upload failed. Retrying in ${Math.round(delayMs / 1000)}s.`,
+          retryCount: attempt + 1,
+        }));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return runWithRetries(attempt + 1);
+      }
+    };
+
+    return runWithRetries(0);
   }, [options]);
 
   const uploadToIntent = useCallback(async (
@@ -195,7 +220,7 @@ export function useDocumentUpload(
       const uploadUrl = intent.uploadUrl ?? intent.preSignedUrl;
       if (!uploadUrl) throw new Error('Upload URL was not returned');
 
-      await putWithProgress(file, uploadUrl, 0, abortController);
+      await putWithProgress(file, uploadUrl, abortController);
       setState((current) => ({ ...current, status: 'confirming' }));
 
       const checksum = await computeDocumentChecksum(file);
@@ -269,8 +294,9 @@ export function useDocumentUpload(
     });
 
     try {
-      if (file.size > MAX_UPLOAD_BYTES) {
-        throw new Error(`File must be ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB or smaller`);
+      const validationError = validateDocumentFile(file);
+      if (validationError) {
+        throw new Error(validationError);
       }
 
       const checksum = await computeDocumentChecksum(file);

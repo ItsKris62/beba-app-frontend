@@ -197,7 +197,7 @@ function VerifyPinContent() {
               <div className="text-sm">
                 <p className="font-medium">Security notice</p>
                 <p className="text-muted-foreground">
-                  Your PIN expires 20 minutes after it's sent and can only be used once.
+                  Your PIN expires 20 minutes after it&apos;s sent and can only be used once.
                 </p>
               </div>
             </div>

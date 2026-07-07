@@ -14,10 +14,22 @@ import { Separator } from "@/components/ui/separator"
 import { memberApi, formatCurrency, formatDateTime, generateIdempotencyKey, type MemberDashboard } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 
-type DepositStatus = "idle" | "pending" | "success" | "failed" | "timeout"
+type DepositStatus = "idle" | "pending" | "success" | "failed" | "timeout" | "cancelled"
 
-const MAX_POLL_ATTEMPTS = 12
-const POLL_INTERVAL_MS = 5000
+// STK push prompts typically resolve or expire within 60-120s. Poll on a
+// jittered, gently increasing interval rather than a fixed 5s tick, so a slow
+// connection doesn't get hammered and many concurrent members don't all poll
+// in lockstep.
+const POLL_BASE_DELAY_MS = 3000
+const POLL_MAX_DELAY_MS = 10000
+const POLL_WINDOW_MS = 100000
+
+/** Exported for unit testing — jittered, capped backoff delay for STK status polls. */
+export function getDepositPollDelayMs(attempt: number): number {
+  const base = Math.min(POLL_BASE_DELAY_MS * Math.pow(1.3, attempt), POLL_MAX_DELAY_MS)
+  const jitter = base * 0.2 * (Math.random() * 2 - 1)
+  return Math.round(base + jitter)
+}
 
 export default function AccountsPage() {
   const { user } = useAuth()
@@ -31,18 +43,29 @@ export default function AccountsPage() {
   const [checkoutId, setCheckoutId] = React.useState<string | null>(null)
   const [isDepositing, setIsDepositing] = React.useState(false)
 
-  // F7: Use ref to track interval so we can cancel on unmount
-  const pollIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-  const pollAttemptsRef = React.useRef(0)
+  // Track the poll's retry timeout, elapsed window, and a cancellation flag
+  // (the flag matters because a poll's in-flight request can resolve after
+  // the user has already clicked Cancel).
+  const pollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollAttemptRef = React.useRef(0)
+  const pollStartedAtRef = React.useRef(0)
+  const pollCancelledRef = React.useRef(false)
+
+  const stopPolling = React.useCallback(() => {
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current)
+      pollTimeoutRef.current = null
+    }
+    pollAttemptRef.current = 0
+  }, [])
 
   // Cancel polling on unmount
   React.useEffect(() => {
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-      }
+      pollCancelledRef.current = true
+      stopPolling()
     }
-  }, [])
+  }, [stopPolling])
 
   React.useEffect(() => {
     const load = async () => {
@@ -55,14 +78,6 @@ export default function AccountsPage() {
     }
     load()
   }, [])
-
-  const stopPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current)
-      pollIntervalRef.current = null
-    }
-    pollAttemptsRef.current = 0
-  }
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +110,6 @@ export default function AccountsPage() {
       setCheckoutId(cid)
       toast.success(res.data.customerMessage ?? "STK Push sent! Check your phone.")
       setDepositStatus("pending")
-      // F7: Poll /members/deposit/status/:checkoutRequestId every 5s (max 12 attempts = 60s)
       startPolling(cid)
     } catch {
       toast.error("Network error. Please try again.")
@@ -107,45 +121,56 @@ export default function AccountsPage() {
 
   const startPolling = (cid: string) => {
     stopPolling()
-    pollAttemptsRef.current = 0
+    pollCancelledRef.current = false
+    pollStartedAtRef.current = Date.now()
 
-    pollIntervalRef.current = setInterval(async () => {
-      pollAttemptsRef.current += 1
+    const poll = async () => {
+      if (pollCancelledRef.current) return
+      pollAttemptRef.current += 1
 
       const res = await memberApi.getDepositStatus(cid)
-      if (!res.success || !res.data) {
-        // Network error during poll — keep trying
-        return
+      if (pollCancelledRef.current) return // user cancelled while the request was in flight
+
+      if (res.success && res.data) {
+        const status = res.data.status
+
+        if (status === "SUCCESS") {
+          stopPolling()
+          setDepositStatus("success")
+          toast.success("Deposit confirmed! Your FOSA balance has been updated.")
+          const dashRes = await memberApi.getDashboard()
+          if (dashRes.success && dashRes.data) setDashboard(dashRes.data)
+          setAmount("")
+          setPhone("")
+          return
+        }
+
+        if (status === "FAILED") {
+          stopPolling()
+          setDepositStatus("failed")
+          toast.error("M-Pesa payment was not completed. Please try again.")
+          return
+        }
       }
 
-      const status = res.data.status
-
-      if (status === "SUCCESS") {
-        stopPolling()
-        setDepositStatus("success")
-        toast.success("Deposit confirmed! Your FOSA balance has been updated.")
-        // Refresh dashboard balances
-        const dashRes = await memberApi.getDashboard()
-        if (dashRes.success && dashRes.data) setDashboard(dashRes.data)
-        setAmount("")
-        setPhone("")
-        return
-      }
-
-      if (status === "FAILED") {
-        stopPolling()
-        setDepositStatus("failed")
-        toast.error("M-Pesa payment was not completed. Please try again.")
-        return
-      }
-
-      // Still PENDING — check if we've exhausted attempts
-      if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
+      // Still pending (or a transient error reading status) — check the window
+      if (Date.now() - pollStartedAtRef.current >= POLL_WINDOW_MS) {
         stopPolling()
         setDepositStatus("timeout")
         toast.warning("Payment status unknown. Please check your M-Pesa messages.")
+        return
       }
-    }, POLL_INTERVAL_MS)
+
+      pollTimeoutRef.current = setTimeout(poll, getDepositPollDelayMs(pollAttemptRef.current))
+    }
+
+    pollTimeoutRef.current = setTimeout(poll, getDepositPollDelayMs(0))
+  }
+
+  const handleCancelDeposit = () => {
+    pollCancelledRef.current = true
+    stopPolling()
+    setDepositStatus("cancelled")
   }
 
   if (isLoading) {
@@ -177,7 +202,7 @@ export default function AccountsPage() {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Available Balance</p>
-              <p className="text-3xl font-bold text-primary">{formatCurrency(dashboard?.balances.fosa ?? 0)}</p>
+              <p className="text-3xl font-bold text-primary" aria-label={`FOSA available balance: ${formatCurrency(dashboard?.balances.fosa ?? 0)}`}>{formatCurrency(dashboard?.balances.fosa ?? 0)}</p>
             </div>
             <Separator />
             <div className="text-sm text-muted-foreground">
@@ -194,7 +219,7 @@ export default function AccountsPage() {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Share Capital</p>
-              <p className="text-3xl font-bold text-green-600">{formatCurrency(dashboard?.balances.bosa ?? 0)}</p>
+              <p className="text-3xl font-bold text-green-600" aria-label={`BOSA share capital: ${formatCurrency(dashboard?.balances.bosa ?? 0)}`}>{formatCurrency(dashboard?.balances.bosa ?? 0)}</p>
             </div>
             <Separator />
             <div className="text-sm text-muted-foreground">
@@ -238,6 +263,19 @@ export default function AccountsPage() {
               </div>
               <Button onClick={() => setDepositStatus("idle")}>Try Again</Button>
             </div>
+          ) : depositStatus === "cancelled" ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <XCircle className="h-16 w-16 text-muted-foreground" />
+              <div className="text-center">
+                <p className="text-lg font-semibold">Deposit Cancelled</p>
+                <p className="text-sm text-muted-foreground">
+                  We stopped waiting for a status update. If you already entered your M-Pesa PIN,
+                  the payment may still complete — check your M-Pesa messages before retrying.
+                </p>
+                {checkoutId && <p className="mt-2 font-mono text-xs text-muted-foreground">Ref: {checkoutId}</p>}
+              </div>
+              <Button onClick={() => setDepositStatus("idle")}>Make Another Deposit</Button>
+            </div>
           ) : depositStatus === "pending" && checkoutId ? (
             <div className="flex flex-col items-center gap-4 py-8">
               <Clock className="h-16 w-16 text-amber-500 animate-pulse" />
@@ -248,7 +286,7 @@ export default function AccountsPage() {
                 </p>
                 <p className="mt-2 font-mono text-xs text-muted-foreground">Ref: {checkoutId}</p>
               </div>
-              <Button variant="outline" onClick={() => setDepositStatus("idle")}>Cancel</Button>
+              <Button variant="outline" onClick={handleCancelDeposit}>Cancel</Button>
             </div>
           ) : (
             <form onSubmit={handleDeposit} className="space-y-4 max-w-sm">

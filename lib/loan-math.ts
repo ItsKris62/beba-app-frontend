@@ -1,3 +1,11 @@
+/**
+ * Mirrors DUAL_APPROVAL_THRESHOLD in the backend's ApprovalChainService.
+ * At or above this principal, disbursement is blocked until one MANAGER and
+ * one TELLER each sign off via the loan's approval chain — approve() itself
+ * is always a single-actor action regardless of amount.
+ */
+export const DUAL_APPROVAL_THRESHOLD_KES = 500_000
+
 export interface LoanRepaymentCalculation {
   monthlyInstalment: number
   totalInterest: number

@@ -3,17 +3,17 @@
 import * as React from "react"
 import { toast } from "sonner"
 import Link from "next/link"
-import { CreditCard, CheckCircle2, XCircle, ShieldCheck } from "lucide-react"
+import { CreditCard, ShieldCheck } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GuarantorLookup, type SelectedGuarantor } from "@/components/GuarantorLookup"
+import { GuarantorRequestCard } from "@/components/GuarantorRequestCard"
 import {
-  memberApi, loansApi, formatCurrency, formatDate, generateIdempotencyKey,
+  memberApi, loansApi, formatCurrency, formatDate,
   type Loan, type MemberDashboard,
 } from "@/lib/api-client"
 import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
@@ -35,47 +35,6 @@ function LoanStatusBadge({ status }: { status: string }) {
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-700"}`}>
       {status.replace(/_/g, " ")}
     </span>
-  )
-}
-
-function GuarantorCard({ loanId, applicantName, loanNumber, loanAmount, guaranteedAmount, onRespond }: {
-  loanId: string; applicantName: string; loanNumber: string
-  loanAmount: number; guaranteedAmount: number; onRespond: () => void
-}) {
-  const [notes, setNotes] = React.useState("")
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-
-  const respond = async (action: "ACCEPT" | "DECLINE") => {
-    setIsSubmitting(true)
-    try {
-      const res = await memberApi.respondToGuarantor(loanId, action, notes, generateIdempotencyKey())
-      if (!res.success) { toast.error(res.error?.message ?? "Failed"); return }
-      toast.success(action === "ACCEPT" ? "Guarantee accepted!" : "Guarantee declined.")
-      onRespond()
-    } catch { toast.error("Network error.") }
-    finally { setIsSubmitting(false) }
-  }
-
-  return (
-    <div className="rounded-lg border p-4 space-y-3" id={`guarantor-${loanId}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="font-medium">{applicantName}</p>
-          <p className="text-sm text-muted-foreground">Loan {loanNumber} · {formatCurrency(loanAmount)}</p>
-          <p className="text-sm font-medium text-amber-600">Your guarantee: {formatCurrency(guaranteedAmount)}</p>
-        </div>
-        <Badge variant="outline" className="text-amber-600 border-amber-300">Pending</Badge>
-      </div>
-      <Textarea placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-      <div className="flex gap-2">
-        <Button size="sm" onClick={() => respond("ACCEPT")} disabled={isSubmitting} className="gap-1">
-          <CheckCircle2 className="h-4 w-4" /> Accept
-        </Button>
-        <Button size="sm" variant="destructive" onClick={() => respond("DECLINE")} disabled={isSubmitting} className="gap-1">
-          <XCircle className="h-4 w-4" /> Decline
-        </Button>
-      </div>
-    </div>
   )
 }
 
@@ -305,9 +264,19 @@ export default function LoansPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {dashboard.pendingGuarantorRequests.map((req) => (
-              <GuarantorCard key={req.guarantorId} loanId={req.loanId} applicantName={req.applicantName}
-                loanNumber={req.loanNumber} loanAmount={req.loanAmount}
-                guaranteedAmount={req.guaranteedAmount} onRespond={loadData} />
+              <GuarantorRequestCard
+                key={req.guarantorId}
+                request={{
+                  loanId: req.loanId,
+                  loanNumber: req.loanNumber,
+                  applicantName: req.applicantName,
+                  amount: req.loanAmount,
+                  guaranteedAmount: req.guaranteedAmount,
+                  status: "PENDING",
+                  purpose: req.purpose,
+                }}
+                onSettled={loadData}
+              />
             ))}
           </CardContent>
         </Card>

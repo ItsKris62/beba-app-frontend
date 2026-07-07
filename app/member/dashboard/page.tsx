@@ -69,7 +69,7 @@ function SummaryCard({
         <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
+        <div className={`text-2xl font-bold ${valueColor}`} aria-label={`${title}: ${value}`}>{value}</div>
         {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
       </CardContent>
     </Card>
@@ -131,7 +131,12 @@ export default function MemberDashboardPage() {
     try {
       const res = await memberApi.withdrawMpesa({ amount: amountNum, phoneNumber: withdrawPhone });
       if (res.success) {
-        toast.success(res.data?.message || 'Withdrawal initiated successfully');
+        // There is no status-polling endpoint for FOSA-to-M-Pesa withdrawals
+        // (unlike the deposit STK flow) — don't imply we can track it here.
+        toast.success(
+          'Withdrawal initiated. Your FOSA balance has already been updated — check your M-Pesa messages to confirm the payout, or refresh this page in a few minutes.',
+          { duration: 8000 },
+        );
         setWithdrawOpen(false);
         setWithdrawAmount('');
         loadDashboard();
@@ -206,9 +211,9 @@ export default function MemberDashboardPage() {
             variant="green"
           />
           <SummaryCard
-            title="Welfare Contributions"
+            title="FOSA Balance"
             value={formatCurrency(fosaBalance)}
-            sub="FOSA balance"
+            sub="Available for withdrawal or transfer"
             variant="blue"
           />
         </div>
@@ -461,6 +466,13 @@ export default function MemberDashboardPage() {
                     />
                     <p className="text-xs text-muted-foreground">Start with 254</p>
                   </div>
+                  <Alert>
+                    <AlertTitle className="text-sm">Real-time tracking isn&apos;t available</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Unlike M-Pesa deposits, withdrawals can&apos;t be tracked live here. Once submitted,
+                      please check your M-Pesa messages or refresh your balance manually to confirm the payout.
+                    </AlertDescription>
+                  </Alert>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setWithdrawOpen(false)} disabled={withdrawing}>

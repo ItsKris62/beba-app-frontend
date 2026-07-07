@@ -5,7 +5,7 @@
  * Role: SUPER_ADMIN, TENANT_ADMIN, MANAGER, AUDITOR
  */
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { dashboardApi, type DashboardStats } from '@/lib/sprint3-api';
 import { adminApi } from '@/lib/api-client';
+import { useAuth, isAdmin } from '@/lib/auth-context';
+
+// Kept short and uniform across the three queries below: this dashboard
+// surfaces pending-approval counts staff act on, so 20s is "near real-time"
+// without hammering the API on every re-render.
+const ADMIN_DASHBOARD_STALE_TIME_MS = 20_000;
 
 function KpiCard({
   title,
@@ -66,34 +72,47 @@ function RepaymentHeatmap({
 }
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [openTickets, setOpenTickets] = useState<number | null>(null);
-  const [pendingApprovals, setPendingApprovals] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  // Gate the fetch itself, not just the rendered UI — the /admin route layout
+  // already redirects non-admin roles away, but that redirect runs in its own
+  // effect on the same mount as this page's, so without this the dashboard
+  // queries could still fire once before the redirect completes.
+  const canViewAdminDashboard = isAdmin(user?.role);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await dashboardApi.getStats();
-      setStats(data);
-      const tickets = await adminApi.getAllTickets({ status: 'OPEN' });
-      if (tickets.success) setOpenTickets(tickets.data.length);
-      const pending = await adminApi.getLoans({ status: 'PENDING_APPROVAL', limit: 1 });
-      if (pending.success && pending.data) setPendingApprovals(pending.data.meta?.total ?? 0);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
-    } finally {
-      setLoading(false);
-    }
+  const statsQuery = useQuery({
+    queryKey: ['admin-dashboard-stats'],
+    queryFn: () => dashboardApi.getStats(),
+    enabled: canViewAdminDashboard,
+    staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
+  });
+  const ticketsQuery = useQuery({
+    queryKey: ['admin-dashboard-open-tickets'],
+    queryFn: () => adminApi.getAllTickets({ status: 'OPEN' }),
+    enabled: canViewAdminDashboard,
+    staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
+  });
+  const pendingApprovalsQuery = useQuery({
+    queryKey: ['admin-dashboard-pending-approvals'],
+    queryFn: () => adminApi.getLoans({ status: 'PENDING_APPROVAL', limit: 1 }),
+    enabled: canViewAdminDashboard,
+    staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
+  });
+
+  const stats: DashboardStats | null = statsQuery.data ?? null;
+  const openTickets = ticketsQuery.data?.success ? ticketsQuery.data.data.length : null;
+  const pendingApprovals = pendingApprovalsQuery.data?.success
+    ? pendingApprovalsQuery.data.data?.meta?.total ?? 0
+    : null;
+  const loading = canViewAdminDashboard && statsQuery.isLoading;
+  const error = statsQuery.isError
+    ? statsQuery.error instanceof Error ? statsQuery.error.message : 'Failed to load dashboard'
+    : null;
+
+  const refresh = () => {
+    void statsQuery.refetch();
+    void ticketsQuery.refetch();
+    void pendingApprovalsQuery.refetch();
   };
-
-  useEffect(() => {
-    void load();
-    const interval = setInterval(() => void load(), 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const fmt = (n: number) => `KES ${n.toLocaleString('en-KE')}`;
 
@@ -101,7 +120,7 @@ export default function AdminDashboardPage() {
     return (
       <div className="p-6">
         <div className="text-red-600 bg-red-50 p-4 rounded">{error}</div>
-        <Button className="mt-4" onClick={() => void load()}>Retry</Button>
+        <Button className="mt-4" onClick={refresh}>Retry</Button>
       </div>
     );
   }
@@ -119,7 +138,7 @@ export default function AdminDashboardPage() {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
           {loading ? 'Loading…' : 'Refresh'}
         </Button>
       </div>

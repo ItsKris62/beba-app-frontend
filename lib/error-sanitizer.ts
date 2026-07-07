@@ -212,7 +212,6 @@ export function reportApiError(debug: ApiErrorDebug, userMessage: string): void 
   };
 
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
     console.warn('[api-error]', { ...payload, userMessage, debug });
     return;
   }
@@ -232,7 +231,6 @@ export function reportApiError(debug: ApiErrorDebug, userMessage: string): void 
 
 export function reportClientError(error: unknown, context: Record<string, unknown> = {}): void {
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
     console.error('[client-error]', { error, context });
     return;
   }

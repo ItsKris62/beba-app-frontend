@@ -33,6 +33,33 @@ const DOC_TYPES = [
   { value: "OTHER", label: "Other Document" },
 ] as const
 
+const ALLOWED_UPLOAD_MIMES = ["image/jpeg", "image/png", "image/webp", "application/pdf", "image/heic", "image/heif"]
+// iPhones capture photos as HEIC/HEIF, and some mobile browsers/file pickers
+// don't populate File.type at all (it comes back "" or "application/octet-stream").
+// When the reported MIME type isn't trustworthy, fall back to checking the
+// file extension instead of rejecting outright.
+const ALLOWED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"]
+const UPLOAD_TYPE_ERROR = "Only JPG, PNG, WebP, PDF, and HEIC/HEIF files are accepted."
+
+export function hasAllowedExtension(fileName: string): boolean {
+  const dotIndex = fileName.lastIndexOf(".")
+  if (dotIndex === -1) return false
+  const extension = fileName.slice(dotIndex).toLowerCase()
+  return ALLOWED_UPLOAD_EXTENSIONS.includes(extension)
+}
+
+/** Returns an error message if the file fails the type/size gate, or null if it's valid. */
+export function getUploadValidationError(file: File): string | null {
+  const mimeType = file.type || "application/octet-stream"
+  const mimeTypeIsTrustworthy = mimeType !== "application/octet-stream"
+  const isAllowed = mimeTypeIsTrustworthy
+    ? ALLOWED_UPLOAD_MIMES.includes(mimeType)
+    : hasAllowedExtension(file.name)
+  if (!isAllowed) return UPLOAD_TYPE_ERROR
+  if (file.size > 5 * 1024 * 1024) return "File exceeds the 5 MB limit."
+  return null
+}
+
 const STATUS_CONFIG: Record<string, { icon: React.ElementType; label: string; className: string }> = {
   APPROVED: { icon: CheckCircle, label: "Approved", className: "bg-green-100 text-green-700" },
   REJECTED: { icon: XCircle, label: "Rejected", className: "bg-red-100 text-red-700" },
@@ -164,16 +191,12 @@ export default function ProfilePage() {
       return
     }
 
+    const validationError = getUploadValidationError(file)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
     const mimeType = file.type || "application/octet-stream"
-    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
-    if (!allowedMimes.includes(mimeType)) {
-      toast.error("Only JPG, PNG, WebP, and PDF files are accepted.")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File exceeds the 5 MB limit.")
-      return
-    }
 
     setIsUploading(true)
     let keepUploadPanelOpen = false
@@ -523,7 +546,7 @@ export default function ProfilePage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0]

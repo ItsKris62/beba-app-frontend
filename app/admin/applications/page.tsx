@@ -37,6 +37,7 @@ interface MemberCredentials {
   lastName: string;
   email: string;
   temporaryPassword: string;
+  smsEnqueued: boolean;
 }
 
 function MemberCredentialsModal({
@@ -78,7 +79,9 @@ function MemberCredentialsModal({
           <h2 className="text-lg font-semibold text-gray-900">Member Account Created</h2>
         </div>
         <p className="text-sm text-gray-500 mb-5">
-          Share the credentials below with{' '}
+          {credentials.smsEnqueued
+            ? 'This password has been queued for SMS delivery to '
+            : 'SMS queue failed — share the credentials below with '}
           <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change
           their password on first login.
         </p>
@@ -334,6 +337,7 @@ export default function ApplicationsPage() {
         lastName: data.user?.lastName ?? '',
         email: data.user?.email ?? '',
         temporaryPassword: data.temporaryPassword ?? '',
+        smsEnqueued: data.smsEnqueued ?? false,
       });
     },
     onError: (err: unknown) => {

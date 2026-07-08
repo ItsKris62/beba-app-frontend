@@ -192,11 +192,11 @@ export default function ChangePasswordPage() {
               <CardContent className="space-y-4">
                 <PasswordField
                   id="currentPw"
-                  label="Temporary Password (leave blank if you signed in with a PIN)"
+                  label="Temporary Password"
                   value={currentPw}
                   onChange={setCurrentPw}
                   error={fieldErrors.current}
-                  placeholder="The password you were given, if any"
+                  placeholder="The temporary password you signed in with"
                   autoComplete="current-password"
                 />
 

@@ -60,7 +60,6 @@ const ROLE_LABELS: Record<string, string> = {
 
 interface CreateForm {
   email: string
-  password: string
   firstName: string
   lastName: string
   phone: string
@@ -73,25 +72,19 @@ interface CreatedCredentials {
   email: string
   password: string
   role: string
+  smsEnqueued: boolean
   mode: "created" | "regenerated"
 }
 
 const EMPTY_FORM: CreateForm = {
   email: "",
-  password: "",
   firstName: "",
   lastName: "",
   phone: "",
   role: "",
 }
 
-const TEMP_PASSWORD_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!"
-
-function generateTempPassword(): string {
-  return Array.from({ length: 12 }, () =>
-    TEMP_PASSWORD_CHARS[Math.floor(Math.random() * TEMP_PASSWORD_CHARS.length)],
-  ).join("")
-}
+const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/
 
 // ─── Credentials Dialog ───────────────────────────────────────────────────────
 
@@ -123,11 +116,17 @@ function CredentialsDialog({
             <DialogTitle>{regenerated ? "Temporary Password Generated" : "Account Created Successfully"}</DialogTitle>
           </div>
           <DialogDescription>
-            Share the credentials below with{" "}
-            <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change their
-            password on next login.
+            {credentials.smsEnqueued
+              ? "This password has been queued for SMS delivery to the user."
+              : `Share the credentials below with ${credentials.firstName} ${credentials.lastName}. They must change their password on next login.`}
           </DialogDescription>
         </DialogHeader>
+
+        {!credentials.smsEnqueued && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <span>SMS queue failed. You must share this password manually.</span>
+          </div>
+        )}
 
         <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
           <CredentialRow
@@ -233,7 +232,6 @@ export default function AdminUsers() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
-  const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formErrors, setFormErrors] = useState<Partial<CreateForm>>({})
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null)
@@ -274,7 +272,8 @@ export default function AdminUsers() {
     if (!form.firstName.trim()) errors.firstName = "Required"
     if (!form.lastName.trim()) errors.lastName = "Required"
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) errors.email = "Valid email required"
-    if (!form.password || form.password.length < 8) errors.password = "Min 8 characters"
+    if (!form.phone.trim()) errors.phone = "Required — the temporary password is sent to this number"
+    else if (!KENYA_PHONE_REGEX.test(form.phone.trim())) errors.phone = "Enter a valid Kenyan number (e.g. 0712345678)"
     if (!form.role) errors.role = "Required"
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -285,19 +284,19 @@ export default function AdminUsers() {
     setIsSubmitting(true)
     const res = await usersApi.create({
       email: form.email.trim().toLowerCase(),
-      password: form.password,
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
-      phone: form.phone.trim() || undefined,
+      phone: form.phone.trim(),
       role: form.role,
     })
-    if (res.success) {
+    if (res.success && res.data) {
       setCreatedCredentials({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim().toLowerCase(),
-        password: form.password,
+        password: res.data.temporaryPassword,
         role: form.role,
+        smsEnqueued: res.data.smsEnqueued,
         mode: "created",
       })
       setIsCreateOpen(false)
@@ -333,6 +332,7 @@ export default function AdminUsers() {
           email: r.data.user.email,
           password: r.data.temporaryPassword,
           role: r.data.user.role,
+          smsEnqueued: r.data.smsEnqueued,
           mode: "regenerated",
         })
       }
@@ -373,8 +373,7 @@ export default function AdminUsers() {
         {assignableRoles.length > 0 && (
           <Button
             onClick={() => {
-              setForm({ ...EMPTY_FORM, password: generateTempPassword() })
-              setShowPassword(false)
+              setForm(EMPTY_FORM)
               setFormErrors({})
               setIsCreateOpen(true)
             }}
@@ -608,49 +607,18 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Temporary Password</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    className={formErrors.password ? "border-red-500 pr-9" : "pr-9"}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowPassword((s) => !s)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  title="Generate password"
-                  onClick={() => {
-                    setForm((f) => ({ ...f, password: generateTempPassword() }))
-                    setShowPassword(true)
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-              {formErrors.password && <p className="text-xs text-red-500">{formErrors.password}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone (optional)</Label>
+              <Label htmlFor="phone">Phone</Label>
               <Input
                 id="phone"
                 type="tel"
+                required
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder="+254712345678"
+                className={formErrors.phone ? "border-red-500" : ""}
               />
+              <p className="text-xs text-muted-foreground">The temporary password is sent to this number via SMS.</p>
+              {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
             </div>
 
             <div className="space-y-2">

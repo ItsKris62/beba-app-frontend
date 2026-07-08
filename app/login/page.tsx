@@ -1,93 +1,172 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react"
-import { toast } from "sonner"
+import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react";
+import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { PublicNavbar } from "@/components/public-navbar"
-import { PublicFooter } from "@/components/public-footer"
-import { useAuth } from "@/lib/auth-context"
-import { resolvePostLoginRedirect } from "@/lib/role-routing"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { PublicNavbar } from "@/components/public-navbar";
+import { PublicFooter } from "@/components/public-footer";
+import { useAuth } from "@/lib/auth-context";
+import { authApi } from "@/lib/api-client";
+import { resolvePostLoginRedirect } from "@/lib/role-routing";
+
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { login, logout, isAuthenticated, isLoading, user } = useAuth()
-  const [showPassword, setShowPassword] = React.useState(false)
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [identifier, setIdentifier] = React.useState("")
-  const [password, setPassword] = React.useState("")
-  const [requires2FA, setRequires2FA] = React.useState(false)
-  const [twoFactorCode, setTwoFactorCode] = React.useState("")
+  const router = useRouter();
+  const { login, verifyLoginOtp, logout, isAuthenticated, isLoading, user } =
+    useAuth();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [identifier, setIdentifier] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [requires2FA, setRequires2FA] = React.useState(false);
+  const [twoFactorCode, setTwoFactorCode] = React.useState("");
+  const [requiresPhoneVerification, setRequiresPhoneVerification] =
+    React.useState(false);
+  const [otpPhone, setOtpPhone] = React.useState("");
+  const [otpCode, setOtpCode] = React.useState("");
+  const [otpCooldown, setOtpCooldown] = React.useState(0);
+  const [isResendingOtp, setIsResendingOtp] = React.useState(false);
+
+  React.useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setOtpCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [otpCooldown]);
 
   const getReturnTo = React.useCallback(() => {
-    if (typeof window === "undefined") return null
-    return new URLSearchParams(window.location.search).get("returnTo")
-  }, [])
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("returnTo");
+  }, []);
 
   // Redirect already-authenticated users who land on this page
   React.useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
       // Check if we were redirected here because of an expired token
       if (typeof window !== "undefined") {
-        const currentParams = new URLSearchParams(window.location.search)
+        const currentParams = new URLSearchParams(window.location.search);
         if (currentParams.get("reason") === "expired") {
           // Clear local state immediately to avoid race conditions
           // before the async logout finishes
           import("@/lib/api-client").then(({ tokenStore }) => {
-            tokenStore.clear()
-          })
+            tokenStore.clear();
+          });
           logout().then(() => {
-            window.history.replaceState({}, document.title, "/login")
-          })
-          toast.error("Your session has expired. Please log in again.")
-          return
+            window.history.replaceState({}, document.title, "/login");
+          });
+          toast.error("Your session has expired. Please log in again.");
+          return;
         }
       }
 
-      router.replace(resolvePostLoginRedirect(user, getReturnTo()))
+      router.replace(resolvePostLoginRedirect(user, getReturnTo()));
     }
-  }, [isLoading, isAuthenticated, user, logout, router, getReturnTo])
+  }, [isLoading, isAuthenticated, user, logout, router, getReturnTo]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!identifier || !password) {
-      toast.error("Please enter your email or phone and password")
-      return
+      toast.error("Please enter your email or phone and password");
+      return;
     }
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const totpToken = requires2FA && twoFactorCode.length === 6 ? twoFactorCode : undefined;
-      const backupCode = requires2FA && twoFactorCode.length !== 6 ? twoFactorCode : undefined;
-      const result = await login(identifier, password, totpToken, backupCode)
-      
+      const totpToken =
+        requires2FA && twoFactorCode.length === 6 ? twoFactorCode : undefined;
+      const backupCode =
+        requires2FA && twoFactorCode.length !== 6 ? twoFactorCode : undefined;
+      const result = await login(identifier, password, totpToken, backupCode);
+
       if (!result.success || !result.user) {
         if (result.setupToken) {
-          router.replace(`/auth/2fa-setup?token=${result.setupToken}`)
-          return
+          router.replace(`/auth/2fa-setup?token=${result.setupToken}`);
+          return;
         }
         if (result.requires2FA) {
-          setRequires2FA(true)
-          toast.info("Two-factor authentication required.")
-          return
+          setRequires2FA(true);
+          toast.info("Two-factor authentication required.");
+          return;
         }
-        toast.error(result.error ?? "Invalid credentials. Please try again.")
-        return
+        if (result.requiresPhoneVerification) {
+          setOtpPhone(result.phone ?? identifier);
+          setRequiresPhoneVerification(true);
+          setOtpCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+          toast.info("A verification code has been sent to your phone.");
+          return;
+        }
+        toast.error(result.error ?? "Invalid credentials. Please try again.");
+        return;
       }
-      toast.success("Welcome back!")
-      router.replace(resolvePostLoginRedirect(result.user, getReturnTo()))
+      toast.success("Welcome back!");
+      router.replace(resolvePostLoginRedirect(result.user, getReturnTo()));
     } catch {
-      toast.error("Something went wrong. Please try again.")
+      toast.error("Something went wrong. Please try again.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      toast.error("Enter the 6-digit code sent to your phone");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await verifyLoginOtp(otpPhone, otpCode);
+      if (!result.success || !result.user) {
+        toast.error(result.error ?? "Invalid or expired code");
+        return;
+      }
+      toast.success("Phone verified!");
+      if (result.user.mustChangePassword) {
+        router.replace("/change-password");
+      } else {
+        router.replace(resolvePostLoginRedirect(result.user, getReturnTo()));
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (otpCooldown > 0) return;
+    setIsResendingOtp(true);
+    try {
+      await authApi.resendLoginOtp(otpPhone);
+      toast.success("A new code has been sent.");
+      setOtpCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+    } catch {
+      toast.error("Unable to resend code. Please try again.");
+    } finally {
+      setIsResendingOtp(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -99,7 +178,9 @@ export default function LoginPage() {
           <div className="mb-8 text-center">
             <Link href="/" className="inline-flex items-center">
               <span className="text-2xl font-bold text-primary">KC Boda</span>
-              <span className="text-2xl font-light text-muted-foreground">|Sacco</span>
+              <span className="text-2xl font-light text-muted-foreground">
+                |Sacco
+              </span>
             </Link>
             <p className="mt-2 text-sm text-muted-foreground">
               Secure access to your accounts
@@ -107,115 +188,195 @@ export default function LoginPage() {
           </div>
 
           <Card>
-            <CardHeader className="pb-4">
-              <CardTitle>Sign In</CardTitle>
-              <CardDescription>Enter your credentials to access your account</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4">
-                {!requires2FA ? (
-                  <>
+            {requiresPhoneVerification ? (
+              <>
+                <CardHeader className="pb-4">
+                  <CardTitle>Verify Your Phone</CardTitle>
+                  <CardDescription>
+                    Enter the 6-digit code we sent to your phone via SMS.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={handleVerifyOtp}>
+                  <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="identifier">Email or Phone (254...)</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="identifier"
-                          type="text"
-                          placeholder="you@example.com or 254712345678"
-                          className="pl-9"
-                          value={identifier}
-                          onChange={(e) => setIdentifier(e.target.value)}
-                          required
-                          autoComplete="username"
-                        />
-                      </div>
+                      <Label htmlFor="otpCode">Verification Code</Label>
+                      <InputOTP
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(value) =>
+                          setOtpCode(value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        disabled={isSubmitting}
+                        containerClassName="justify-between"
+                      >
+                        <InputOTPGroup>
+                          {Array.from({ length: 6 }).map((_, index) => (
+                            <InputOTPSlot
+                              key={index}
+                              index={index}
+                              className="h-11 w-11 text-base"
+                            />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+                      <p className="text-xs text-muted-foreground">
+                        The code expires 30 minutes after it&apos;s sent.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="password">Password</Label>
-                        <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                          Forgot password?
-                        </Link>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-3">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Verifying..." : "Verify & Continue"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={isResendingOtp || otpCooldown > 0}
+                      onClick={handleResendOtp}
+                    >
+                      {otpCooldown > 0
+                        ? `Resend Code (${otpCooldown}s)`
+                        : isResendingOtp
+                          ? "Sending..."
+                          : "Resend Code"}
+                    </Button>
+                  </CardFooter>
+                </form>
+              </>
+            ) : (
+              <>
+                <CardHeader className="pb-4">
+                  <CardTitle>Sign In</CardTitle>
+                  <CardDescription>
+                    Enter your credentials to access your account
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={handleLogin}>
+                  <CardContent className="space-y-4">
+                    {!requires2FA ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="identifier">
+                            Email or Phone (254...)
+                          </Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id="identifier"
+                              type="text"
+                              placeholder="you@example.com or 254712345678"
+                              className="pl-9"
+                              value={identifier}
+                              onChange={(e) => setIdentifier(e.target.value)}
+                              required
+                              autoComplete="username"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="password">Password</Label>
+                            <Link
+                              href="/forgot-password"
+                              className="text-sm text-primary hover:underline"
+                            >
+                              Forgot password?
+                            </Link>
+                          </div>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter your password"
+                              className="pl-9 pr-9"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              required
+                              autoComplete="current-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="remember" />
+                          <Label
+                            htmlFor="remember"
+                            className="text-sm font-normal"
+                          >
+                            Remember me on this device
+                          </Label>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="twoFactorCode">
+                          Two-Factor Authentication Code
+                        </Label>
+                        <div className="relative">
+                          <Shield className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="twoFactorCode"
+                            type="text"
+                            placeholder="6-digit code or backup code"
+                            className="pl-9"
+                            value={twoFactorCode}
+                            onChange={(e) => setTwoFactorCode(e.target.value)}
+                            required
+                            autoComplete="one-time-code"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enter the 6-digit code from your authenticator app, or
+                          an 8-character backup code.
+                        </p>
                       </div>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Enter your password"
-                          className="pl-9 pr-9"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          autoComplete="current-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-4">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting
+                        ? "Signing in..."
+                        : requires2FA
+                          ? "Verify Code"
+                          : "Sign In"}
+                    </Button>
+                    {!requires2FA && (
+                      <p className="text-center text-sm text-muted-foreground">
+                        Not a member yet?{" "}
+                        <Link
+                          href="/membership"
+                          className="text-primary hover:underline"
                         >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="remember" />
-                      <Label htmlFor="remember" className="text-sm font-normal">
-                        Remember me on this device
-                      </Label>
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="twoFactorCode">Two-Factor Authentication Code</Label>
-                    <div className="relative">
-                      <Shield className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="twoFactorCode"
-                        type="text"
-                        placeholder="6-digit code or backup code"
-                        className="pl-9"
-                        value={twoFactorCode}
-                        onChange={(e) => setTwoFactorCode(e.target.value)}
-                        required
-                        autoComplete="one-time-code"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter the 6-digit code from your authenticator app, or an 8-character backup code.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex flex-col gap-4">
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Signing in..." : requires2FA ? "Verify Code" : "Sign In"}
-                </Button>
-                {!requires2FA && (
-                  <>
-                    <p className="text-center text-sm text-muted-foreground">
-                      First time signing in?{" "}
-                      <Link href="/auth/verify-pin" className="text-primary hover:underline">
-                        Verify with your PIN
-                      </Link>
-                    </p>
-                    <p className="text-center text-sm text-muted-foreground">
-                      Not a member yet?{" "}
-                      <Link href="/membership" className="text-primary hover:underline">
-                        Register here
-                      </Link>
-                    </p>
-                  </>
-                )}
-              </CardFooter>
-            </form>
+                          Register here
+                        </Link>
+                      </p>
+                    )}
+                  </CardFooter>
+                </form>
+              </>
+            )}
           </Card>
 
           {/* Security Notice */}
@@ -225,7 +386,8 @@ export default function LoginPage() {
               <div className="text-sm">
                 <p className="font-medium">Your security matters</p>
                 <p className="text-muted-foreground">
-                  We use industry-standard encryption to protect your data. Never share your password with anyone.
+                  We use industry-standard encryption to protect your data.
+                  Never share your password with anyone.
                 </p>
               </div>
             </div>
@@ -235,5 +397,5 @@ export default function LoginPage() {
 
       <PublicFooter />
     </div>
-  )
+  );
 }

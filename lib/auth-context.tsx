@@ -17,9 +17,11 @@ interface AuthContextValue {
   user: LoginResponse["user"] | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string; requires2FA?: boolean; setupToken?: string }>;
+  login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string; requires2FA?: boolean; setupToken?: string; requiresPhoneVerification?: boolean; phone?: string }>;
   /** First-login PIN verification — issues a full session, same as login(). */
   loginWithPin: (phone: string, pin: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
+  /** Phone-verification OTP after a first-time temp-password login — issues a full session, same as login(). */
+  verifyLoginOtp: (phone: string, otp: string) => Promise<{ success: boolean; user?: LoginResponse["user"]; error?: string }>;
   logout: () => Promise<void>;
   /** Update the stored user object (e.g. after mustChangePassword is cleared) */
   updateUser: (patch: Partial<LoginResponse["user"]>) => void;
@@ -31,6 +33,7 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   login: async () => ({ success: false }),
   loginWithPin: async () => ({ success: false }),
+  verifyLoginOtp: async () => ({ success: false }),
   logout: async () => {},
   updateUser: () => {},
 });
@@ -124,11 +127,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: "Please verify your email before logging in. Use the verification email we sent, or request a new link.",
         };
       }
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: message,
         requires2FA: (res.error?.debug?.rawBody as any)?.requires2FA,
         setupToken: (res.error?.debug?.rawBody as any)?.setupToken,
+        requiresPhoneVerification: (res.error?.debug?.rawBody as any)?.requiresPhoneVerification,
+        phone: (res.error?.debug?.rawBody as any)?.phone,
       };
     }
     const normalizedUser = normalizeUser(res.data.user);
@@ -143,6 +148,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await authApi.verifyPin(phone, pin);
     if (!res.success || !res.data) {
       return { success: false, error: res.error?.message ?? "Invalid phone number or PIN" };
+    }
+    const normalizedUser = normalizeUser(res.data.user);
+    tokenStore.set(res.data.accessToken, res.data.refreshToken, normalizedUser, {
+      persistRefresh: !res.data.migrateRefreshToken,
+    });
+    setUser(normalizedUser);
+    return { success: true, user: normalizedUser };
+  }, []);
+
+  const verifyLoginOtp = useCallback(async (phone: string, otp: string) => {
+    const res = await authApi.verifyLoginOtp(phone, otp);
+    if (!res.success || !res.data) {
+      return { success: false, error: res.error?.message ?? "Invalid or expired code" };
     }
     const normalizedUser = normalizeUser(res.data.user);
     tokenStore.set(res.data.accessToken, res.data.refreshToken, normalizedUser, {
@@ -187,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         loginWithPin,
+        verifyLoginOtp,
         logout,
         updateUser,
       }}

@@ -148,7 +148,6 @@ interface CreateMemberForm {
   idNumber: string;
   phoneNumber: string;
   email: string;
-  password: string;
   stageId: string;
   position: string;
 }
@@ -159,14 +158,15 @@ const EMPTY_FORM: CreateMemberForm = {
   idNumber: '',
   phoneNumber: '',
   email: '',
-  password: '',
   stageId: '',
   position: 'MEMBER',
 };
 
+const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/;
+
 type SuccessState =
-  | { type: 'member'; memberNumber: string; tempPassword: string }
-  | { type: 'staff'; firstName: string; lastName: string; role: string };
+  | { type: 'member'; memberNumber: string; tempPassword: string; smsEnqueued: boolean }
+  | { type: 'staff'; firstName: string; lastName: string; role: string; tempPassword: string; smsEnqueued: boolean };
 
 function CreateMemberModal({
   open,
@@ -218,13 +218,9 @@ function CreateMemberModal({
       const value = e.target.value;
       setForm(f => {
         const next = { ...f, [field]: value };
-        // When switching position type, clear the fields that don't apply
-        if (field === 'position') {
-          if (isStagePos(value) && !isStagePos(f.position)) {
-            next.password = '';
-          } else if (!isStagePos(value) && isStagePos(f.position)) {
-            next.stageId = '';
-          }
+        // When switching away from a stage position, clear the field that doesn't apply
+        if (field === 'position' && !isStagePos(value) && isStagePos(f.position)) {
+          next.stageId = '';
         }
         return next;
       });
@@ -235,6 +231,15 @@ function CreateMemberModal({
     if (submittedRef.current) return;
     setError(null);
 
+    if (!form.phoneNumber.trim()) {
+      setError('Phone Number is required — the temporary password is sent to this number');
+      return;
+    }
+    if (!KENYA_PHONE_REGEX.test(form.phoneNumber.trim())) {
+      setError('Phone must be a valid Kenyan number (e.g. 0712345678 or 2547XXXXXXXX)');
+      return;
+    }
+
     if (isStagePos(form.position)) {
       if (!form.idNumber.trim()) {
         setError('ID Number is required');
@@ -242,14 +247,6 @@ function CreateMemberModal({
       }
       if (!/^\d{7,8}$/.test(form.idNumber.trim())) {
         setError('ID Number must be 7 or 8 digits (e.g. 31081907)');
-        return;
-      }
-      if (!form.phoneNumber.trim()) {
-        setError('Phone Number is required');
-        return;
-      }
-      if (!/^(07\d{8}|2547\d{8}|\+2547\d{8})$/.test(form.phoneNumber.trim())) {
-        setError('Phone must be a valid Kenyan number (e.g. 0712345678 or 2547XXXXXXXX)');
         return;
       }
       if (!form.stageId) {
@@ -305,25 +302,31 @@ function CreateMemberModal({
           type: 'member',
           memberNumber: result.member.memberNumber,
           tempPassword: result.temporaryPassword,
+          smsEnqueued: result.smsEnqueued,
         });
       } else {
         // ── Staff roles: direct user creation ─────────────────────────────────
         if (!form.email.trim()) { setError('Email is required for staff accounts'); submittedRef.current = false; setLoading(false); return; }
-        if (form.password.length < 8) { setError('Password must be at least 8 characters'); submittedRef.current = false; setLoading(false); return; }
 
-        await usersApi.create({
+        const staffResult = await usersApi.create({
           email: form.email.trim(),
-          password: form.password,
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
+          phone: form.phoneNumber.trim(),
           role: form.position,
         });
+
+        if (!staffResult.success || !staffResult.data) {
+          throw new Error(staffResult.error?.message ?? 'Failed to create user');
+        }
 
         setSuccess({
           type: 'staff',
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           role: form.position,
+          tempPassword: staffResult.data.temporaryPassword,
+          smsEnqueued: staffResult.data.smsEnqueued,
         });
       }
 
@@ -389,7 +392,10 @@ function CreateMemberModal({
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Share the temporary password with the member. They will be prompted to change it on first login.
+                  {success.smsEnqueued
+                    ? 'This password has been queued for SMS delivery to the member.'
+                    : 'SMS queue failed — share the temporary password with the member manually.'}{' '}
+                  They will be prompted to change it on first login.
                 </p>
               </>
             ) : (
@@ -404,9 +410,16 @@ function CreateMemberModal({
                     <span className="text-gray-500">Role</span>
                     <span className="font-semibold">{ROLE_LABELS[success.role] ?? success.role}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Temp Password</span>
+                    <span className="font-mono font-semibold text-orange-600">{success.tempPassword}</span>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  The user will be prompted to change their password on first login.
+                  {success.smsEnqueued
+                    ? 'This password has been queued for SMS delivery to the user.'
+                    : 'SMS queue failed — share the temporary password manually.'}{' '}
+                  They will be prompted to change it on first login.
                 </p>
               </>
             )}
@@ -455,31 +468,32 @@ function CreateMemberModal({
               </div>
             </div>
 
+            {/* Phone — required for every role; the temp password is sent here via SMS */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
+              <Input
+                value={form.phoneNumber}
+                onChange={set('phoneNumber')}
+                placeholder="e.g. 0712345678"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">The temporary password is sent to this number via SMS.</p>
+            </div>
+
             {stageMember ? (
               /* ── Member / Chairman fields ── */
               <>
-                {/* ID + Phone */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">ID Number *</label>
-                    <Input
-                      value={form.idNumber}
-                      onChange={set('idNumber')}
-                      placeholder="e.g. 31081907"
-                      required
-                      pattern="\d{7,8}"
-                      title="7 or 8 digit national ID"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
-                    <Input
-                      value={form.phoneNumber}
-                      onChange={set('phoneNumber')}
-                      placeholder="e.g. 0712345678"
-                      required
-                    />
-                  </div>
+                {/* ID Number */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">ID Number *</label>
+                  <Input
+                    value={form.idNumber}
+                    onChange={set('idNumber')}
+                    placeholder="e.g. 31081907"
+                    required
+                    pattern="\d{7,8}"
+                    title="7 or 8 digit national ID"
+                  />
                 </div>
 
                 {/* Email optional */}
@@ -516,33 +530,16 @@ function CreateMemberModal({
               </>
             ) : (
               /* ── Staff fields ── */
-              <>
-                {/* Email required */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={set('email')}
-                    placeholder="staff@example.com"
-                    required
-                  />
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Temporary Password *</label>
-                  <Input
-                    type="password"
-                    value={form.password}
-                    onChange={set('password')}
-                    placeholder="Min 8 characters"
-                    required
-                    minLength={8}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">User will be prompted to change on first login</p>
-                </div>
-              </>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={set('email')}
+                  placeholder="staff@example.com"
+                  required
+                />
+              </div>
             )}
 
             {/* Actions */}

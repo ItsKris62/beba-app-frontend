@@ -197,6 +197,7 @@ export const applicationsApi = {
     member: { id: string; memberNumber: string };
     accounts: { id: string; accountNumber: string; accountType: string }[];
     temporaryPassword: string;
+    smsEnqueued: boolean;
     message: string;
   }> =>
     apiFetchWithRetry(`/admin/applications/${id}/approve`, {

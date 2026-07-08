@@ -1174,6 +1174,24 @@ export const authApi = {
     }),
 
   /**
+   * Phone-verification OTP required after a first-time temp-password login
+   * (POST /auth/login responds with requiresPhoneVerification: true). Same
+   * response envelope as login().
+   */
+  verifyLoginOtp: (phone: string, otp: string) =>
+    apiFetch<LoginResponse>('/auth/verify-login-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), otp }),
+    }),
+
+  /** Resend the phone-verification OTP. Always returns a generic success message. */
+  resendLoginOtp: (phone: string) =>
+    apiFetch<{ success: boolean; message: string }>('/auth/resend-login-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phone.replace(/^\+/, '') }),
+    }),
+
+  /**
    * Request a PIN via SMS for password reset or a lost first-login PIN.
    * Always returns success (prevents phone-number enumeration).
    * See backend/docs/PIN_AUTH_FLOW.md Flow 3.
@@ -1896,13 +1914,18 @@ export const usersApi = {
 
   create: (data: {
     email: string;
-    password: string;
     firstName: string;
     lastName: string;
-    phone?: string;
+    phone: string;
     role: string;
   }) =>
-    apiFetch<StaffUser>('/users', {
+    apiFetch<{
+      success: boolean;
+      temporaryPassword: string;
+      smsEnqueued: boolean;
+      user: StaffUser;
+      message: string;
+    }>('/users', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -1925,6 +1948,7 @@ export const usersApi = {
     apiFetch<{
       success: boolean;
       temporaryPassword: string;
+      smsEnqueued: boolean;
       user: Pick<StaffUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'>;
       message: string;
     }>(`/users/${id}/generate-temporary-password`, {

@@ -66,6 +66,7 @@ describe("Admin loans page — approval mode badge & self-approval guard", () =>
       isAuthenticated: true,
       login: vi.fn(),
       loginWithPin: vi.fn(),
+      verifyLoginOtp: vi.fn(),
       logout: vi.fn(),
       updateUser: vi.fn(),
     })

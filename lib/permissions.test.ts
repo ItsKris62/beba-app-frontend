@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canApproveTransactions, canViewTransactions, isAdminRole, isMemberRole } from './permissions';
+import { canApproveTransactions, canRevealTempPassword, canViewTransactions, isAdminRole, isMemberRole } from './permissions';
 
 describe('transaction permissions', () => {
   it.each(['MANAGER', 'SUPER_ADMIN', 'TENANT_ADMIN', 'AUDITOR'])(
@@ -43,5 +43,20 @@ describe('portal role families', () => {
 
   it('does not classify chairman as an admin portal role', () => {
     expect(isAdminRole('CHAIRMAN')).toBe(false);
+  });
+});
+
+describe('canRevealTempPassword', () => {
+  it('allows TENANT_ADMIN only', () => {
+    expect(canRevealTempPassword('TENANT_ADMIN')).toBe(true);
+    expect(canRevealTempPassword('tenant_admin')).toBe(true);
+  });
+
+  it('blocks SUPER_ADMIN, MANAGER, and every other role — narrower than isAdminRole', () => {
+    expect(canRevealTempPassword('SUPER_ADMIN')).toBe(false);
+    expect(canRevealTempPassword('MANAGER')).toBe(false);
+    expect(canRevealTempPassword('TELLER')).toBe(false);
+    expect(canRevealTempPassword('AUDITOR')).toBe(false);
+    expect(canRevealTempPassword()).toBe(false);
   });
 });

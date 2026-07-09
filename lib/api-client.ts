@@ -968,14 +968,18 @@ async function rawApiFetch<T>(
     };
   }
 
-  // Handle 403 – user lacks permission for this action
+  // Handle 403 – user lacks permission for this action. Parse the real body
+  // rather than substituting a synthetic one: some 403s (e.g. login's
+  // "phone verification required") carry extra signal fields callers need
+  // to branch on, not just a generic permission-denied message.
   if (response.status === 403) {
+    const body403 = await response.json().catch(() => ({ errorCode: 'HTTP_403' }));
     return {
       success: false,
       data: null as T,
       error: sanitizeHttpError({
         response,
-        body: { errorCode: 'HTTP_403' },
+        body: body403,
         endpoint: path,
         method: options.method ?? 'GET',
       }),
@@ -1921,7 +1925,6 @@ export const usersApi = {
   }) =>
     apiFetch<{
       success: boolean;
-      temporaryPassword: string;
       smsEnqueued: boolean;
       user: StaffUser;
       message: string;
@@ -1947,13 +1950,22 @@ export const usersApi = {
   generateTemporaryPassword: (id: string) =>
     apiFetch<{
       success: boolean;
-      temporaryPassword: string;
       smsEnqueued: boolean;
       user: Pick<StaffUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'>;
       message: string;
     }>(`/users/${id}/generate-temporary-password`, {
       method: 'PATCH',
     }),
+
+  /**
+   * TENANT_ADMIN only, rate-limited server-side (5/hour/admin). Once the
+   * target has set their own password the backend clears the encrypted
+   * blob and this 400s — that's the only 400 this endpoint returns, so
+   * callers can key off `error.status === 400` to show the "already set"
+   * explanation inline instead of a generic error toast.
+   */
+  revealTemporaryPassword: (id: string) =>
+    apiFetch<{ temporaryPassword: string }>(`/users/${id}/reveal-temp-password`),
 };
 
 // ─── Tenants endpoints (SUPER_ADMIN only) ────────────────────────────────────

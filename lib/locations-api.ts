@@ -196,7 +196,6 @@ export const applicationsApi = {
     user: { id: string; email: string; firstName: string; lastName: string };
     member: { id: string; memberNumber: string };
     accounts: { id: string; accountNumber: string; accountType: string }[];
-    temporaryPassword: string;
     smsEnqueued: boolean;
     message: string;
   }> =>

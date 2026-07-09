@@ -104,6 +104,8 @@ const KNOWN_MESSAGE_TEXT: Record<string, string> = {
   'Approved KYC document IDs are required for approval': 'Select at least one approved document before approving KYC.',
   'Reviewer notes are required when rejecting KYC': "Add a reason before rejecting this member's KYC.",
   'KYC approval checklist is required': 'Complete the KYC checklist before approving.',
+  'This user has already set their own password. No temporary password is available to reveal.':
+    'This user has already logged in and set their own password, so there is no temporary password left to reveal.',
 };
 
 export function getUserErrorMessage(

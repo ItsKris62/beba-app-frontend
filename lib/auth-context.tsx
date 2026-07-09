@@ -6,6 +6,7 @@ import { jwtDecode } from "jwt-decode";
 import { authApi, tokenStore, refreshAccessToken, type LoginResponse } from "./api-client";
 import {
   canApproveLoans as canApproveLoansForRole,
+  canRevealTempPassword as canRevealTempPasswordForRole,
   canWriteAdminRecords,
   isAdminRole,
   isMemberRole,
@@ -241,4 +242,9 @@ export function canApproveLoans(role?: string) {
 /** Only SUPER_ADMIN can manage tenants */
 export function isSuperAdmin(role?: string) {
   return isSuperAdminRole(role)
+}
+
+/** Only TENANT_ADMIN can reveal a user's current temporary password */
+export function canRevealTempPassword(role?: string) {
+  return canRevealTempPasswordForRole(role)
 }

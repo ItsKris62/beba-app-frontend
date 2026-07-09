@@ -17,7 +17,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { usersApi, formatDate, type StaffUser } from "@/lib/api-client"
-import { useAuth } from "@/lib/auth-context"
+import { RevealTempPasswordModal } from "@/components/RevealTempPasswordModal"
+import { useAuth, canRevealTempPassword } from "@/lib/auth-context"
 
 const ASSIGNABLE_ROLES: Record<string, { value: string; label: string }[]> = {
   SUPER_ADMIN: [
@@ -70,7 +71,6 @@ interface CreatedCredentials {
   firstName: string
   lastName: string
   email: string
-  password: string
   role: string
   smsEnqueued: boolean
   mode: "created" | "regenerated"
@@ -117,14 +117,15 @@ function CredentialsDialog({
           </div>
           <DialogDescription>
             {credentials.smsEnqueued
-              ? "This password has been queued for SMS delivery to the user."
-              : `Share the credentials below with ${credentials.firstName} ${credentials.lastName}. They must change their password on next login.`}
+              ? "A temporary password has been queued for SMS delivery to the user."
+              : `SMS delivery of the temporary password failed for ${credentials.firstName} ${credentials.lastName}.`}
+            {" "}They must change their password on next login.
           </DialogDescription>
         </DialogHeader>
 
         {!credentials.smsEnqueued && (
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            <span>SMS queue failed. You must share this password manually.</span>
+            <span>The user was created, but the temporary password could not be delivered via SMS. A Tenant Admin can retrieve it via Reveal Temp Password from this user&apos;s row menu.</span>
           </div>
         )}
 
@@ -150,19 +151,7 @@ function CredentialsDialog({
             copiedField={copiedField}
             onCopy={copy}
           />
-          <CredentialRow
-            label="Temporary Password"
-            value={credentials.password}
-            fieldKey="password"
-            copiedField={copiedField}
-            onCopy={copy}
-            isPassword
-          />
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          This is the only time this temporary password will be shown. Copy it before closing.
-        </p>
 
         <DialogFooter>
           <Button onClick={onClose} className="w-full">Done</Button>
@@ -222,6 +211,7 @@ function CredentialRow({
 export default function AdminUsers() {
   const { user } = useAuth()
   const assignableRoles = ASSIGNABLE_ROLES[user?.role ?? ""] ?? []
+  const canReveal = canRevealTempPassword(user?.role)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
@@ -235,6 +225,7 @@ export default function AdminUsers() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formErrors, setFormErrors] = useState<Partial<CreateForm>>({})
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null)
+  const [revealUser, setRevealUser] = useState<StaffUser | null>(null)
 
   const [confirmAction, setConfirmAction] = useState<{
     type: "deactivate" | "force-reset" | "generate-temp-password" | "approve"
@@ -294,7 +285,6 @@ export default function AdminUsers() {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim().toLowerCase(),
-        password: res.data.temporaryPassword,
         role: form.role,
         smsEnqueued: res.data.smsEnqueued,
         mode: "created",
@@ -330,7 +320,6 @@ export default function AdminUsers() {
           firstName: r.data.user.firstName,
           lastName: r.data.user.lastName,
           email: r.data.user.email,
-          password: r.data.temporaryPassword,
           role: r.data.user.role,
           smsEnqueued: r.data.smsEnqueued,
           mode: "regenerated",
@@ -530,6 +519,12 @@ export default function AdminUsers() {
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Generate Temp Password
                               </DropdownMenuItem>
+                              {canReveal && (
+                                <DropdownMenuItem onClick={() => setRevealUser(u)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Reveal Temp Password
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -656,6 +651,16 @@ export default function AdminUsers() {
       <CredentialsDialog
         credentials={createdCredentials}
         onClose={() => setCreatedCredentials(null)}
+      />
+
+      {/* Reveal Temp Password Modal */}
+      <RevealTempPasswordModal
+        target={revealUser ? {
+          userId: revealUser.id,
+          name: `${revealUser.firstName} ${revealUser.lastName}`,
+          detail: ROLE_LABELS[revealUser.role] ?? revealUser.role,
+        } : null}
+        onClose={() => setRevealUser(null)}
       />
 
       {/* Confirm Action Dialog */}

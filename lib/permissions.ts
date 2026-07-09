@@ -71,3 +71,13 @@ export function canSignApprovalChain(role?: string | null): boolean {
 export function isSuperAdminRole(role?: string | null): boolean {
   return normalizeRole(role) === 'SUPER_ADMIN';
 }
+
+/**
+ * Mirrors the backend's @Roles(TENANT_ADMIN) guard on
+ * GET /users/:id/reveal-temp-password. Deliberately narrower than
+ * ADMIN_ROLES/isSuperAdminRole — SUPER_ADMIN is not in the backend's
+ * @Roles list for this endpoint, so it is not granted here either.
+ */
+export function canRevealTempPassword(role?: string | null): boolean {
+  return normalizeRole(role) === 'TENANT_ADMIN';
+}

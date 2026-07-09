@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Users, Search, RefreshCw, Download, UserPlus, Upload,
   Eye, MoreHorizontal, CheckCircle, XCircle, Loader2, X,
-  AlertCircle, Check, ChevronsUpDown, MapPin,
+  AlertCircle, Check, ChevronsUpDown, MapPin, KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,8 @@ import { cn } from '@/lib/utils';
 import { adminApi, stagesAdminApi, usersApi, type AdminMember, type AdminStage } from '@/lib/api-client';
 import { applicationsApi } from '@/lib/locations-api';
 import { EditMemberModal } from './edit-member-modal';
-import { useAuth, isAdmin } from '@/lib/auth-context';
+import { RevealTempPasswordModal } from '@/components/RevealTempPasswordModal';
+import { useAuth, isAdmin, canRevealTempPassword } from '@/lib/auth-context';
 
 const ADMIN_MEMBERS_STALE_TIME_MS = 20_000;
 
@@ -165,8 +166,8 @@ const EMPTY_FORM: CreateMemberForm = {
 const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/;
 
 type SuccessState =
-  | { type: 'member'; memberNumber: string; tempPassword: string; smsEnqueued: boolean }
-  | { type: 'staff'; firstName: string; lastName: string; role: string; tempPassword: string; smsEnqueued: boolean };
+  | { type: 'member'; memberNumber: string; smsEnqueued: boolean }
+  | { type: 'staff'; firstName: string; lastName: string; role: string; smsEnqueued: boolean };
 
 function CreateMemberModal({
   open,
@@ -301,7 +302,6 @@ function CreateMemberModal({
         setSuccess({
           type: 'member',
           memberNumber: result.member.memberNumber,
-          tempPassword: result.temporaryPassword,
           smsEnqueued: result.smsEnqueued,
         });
       } else {
@@ -325,7 +325,6 @@ function CreateMemberModal({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           role: form.position,
-          tempPassword: staffResult.data.temporaryPassword,
           smsEnqueued: staffResult.data.smsEnqueued,
         });
       }
@@ -386,16 +385,13 @@ function CreateMemberModal({
                     <span className="text-gray-500">Member Number</span>
                     <span className="font-mono font-semibold">{success.memberNumber}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Temp Password</span>
-                    <span className="font-mono font-semibold text-orange-600">{success.tempPassword}</span>
-                  </div>
                 </div>
                 <p className="text-xs text-gray-500">
                   {success.smsEnqueued
-                    ? 'This password has been queued for SMS delivery to the member.'
-                    : 'SMS queue failed — share the temporary password with the member manually.'}{' '}
+                    ? 'A temporary password has been queued for SMS delivery to the member.'
+                    : 'SMS queue failed to send the temporary password.'}{' '}
                   They will be prompted to change it on first login.
+                  {!success.smsEnqueued && ' A Tenant Admin can retrieve the temporary password from this member’s row menu.'}
                 </p>
               </>
             ) : (
@@ -410,15 +406,11 @@ function CreateMemberModal({
                     <span className="text-gray-500">Role</span>
                     <span className="font-semibold">{ROLE_LABELS[success.role] ?? success.role}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Temp Password</span>
-                    <span className="font-mono font-semibold text-orange-600">{success.tempPassword}</span>
-                  </div>
                 </div>
                 <p className="text-xs text-gray-500">
                   {success.smsEnqueued
-                    ? 'This password has been queued for SMS delivery to the user.'
-                    : 'SMS queue failed — share the temporary password manually.'}{' '}
+                    ? 'A temporary password has been queued for SMS delivery to the user.'
+                    : 'SMS queue failed to send the temporary password.'}{' '}
                   They will be prompted to change it on first login.
                 </p>
               </>
@@ -574,6 +566,7 @@ export default function MembersPage() {
   // app/admin/dashboard/page.tsx for why the layout-level redirect alone
   // isn't sufficient here.
   const canViewMembers = isAdmin(user?.role);
+  const canReveal = canRevealTempPassword(user?.role);
 
   const [search, setSearch] = useState('');
   const [committedSearch, setCommittedSearch] = useState('');
@@ -581,6 +574,7 @@ export default function MembersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedMember, setSelectedMember] = useState<AdminMember | null>(null);
+  const [revealMember, setRevealMember] = useState<AdminMember | null>(null);
 
   const membersQuery = useQuery({
     queryKey: ['admin-members', page, committedSearch],
@@ -760,6 +754,11 @@ export default function MembersPage() {
                           <DropdownMenuItem onClick={() => { setSelectedMember(m); setShowEdit(true); }}>
                             <Users className="mr-2 h-4 w-4" /> Edit Profile
                           </DropdownMenuItem>
+                          {canReveal && (
+                            <DropdownMenuItem onClick={() => setRevealMember(m)}>
+                              <KeyRound className="mr-2 h-4 w-4" /> Reveal Temp Password
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -810,6 +809,16 @@ export default function MembersPage() {
         member={selectedMember}
         onClose={() => { setShowEdit(false); setSelectedMember(null); }}
         onSuccess={() => { void invalidateMembers(); setShowEdit(false); setSelectedMember(null); }}
+      />
+
+      {/* ── Reveal Temp Password Modal ── */}
+      <RevealTempPasswordModal
+        target={revealMember ? {
+          userId: revealMember.user.id,
+          name: `${revealMember.user.firstName} ${revealMember.user.lastName}`,
+          detail: revealMember.memberNumber,
+        } : null}
+        onClose={() => setRevealMember(null)}
       />
     </div>
   );

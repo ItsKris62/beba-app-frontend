@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { applicationsApi } from '@/lib/locations-api';
 import { LocationSelector } from '@/components/location-selector';
-import { CheckCircle2, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Copy, Check } from 'lucide-react';
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 
@@ -36,7 +36,6 @@ interface MemberCredentials {
   firstName: string;
   lastName: string;
   email: string;
-  temporaryPassword: string;
   smsEnqueued: boolean;
 }
 
@@ -48,7 +47,6 @@ function MemberCredentialsModal({
   onClose: () => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   if (!credentials) return null;
 
@@ -80,8 +78,8 @@ function MemberCredentialsModal({
         </div>
         <p className="text-sm text-gray-500 mb-5">
           {credentials.smsEnqueued
-            ? 'This password has been queued for SMS delivery to '
-            : 'SMS queue failed — share the credentials below with '}
+            ? 'A temporary password has been queued for SMS delivery to '
+            : 'SMS queue failed to send a temporary password to '}
           <strong>{credentials.firstName} {credentials.lastName}</strong>. They must change
           their password on first login.
         </p>
@@ -104,31 +102,13 @@ function MemberCredentialsModal({
             </div>
             <CopyBtn value={credentials.email} field="email" />
           </div>
-
-          {/* Temporary Password */}
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs text-gray-500">Temporary Password</p>
-              <p className="font-mono text-sm font-semibold text-gray-900">
-                {showPassword ? credentials.temporaryPassword : '••••••••••••'}
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <button
-                onClick={() => setShowPassword((s) => !s)}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                title={showPassword ? 'Hide' : 'Show'}
-              >
-                {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </button>
-              <CopyBtn value={credentials.temporaryPassword} field="password" />
-            </div>
-          </div>
         </div>
 
-        <p className="text-xs text-gray-400 mb-4">
-          This is the only time the temporary password will be shown. Copy it before closing.
-        </p>
+        {!credentials.smsEnqueued && (
+          <p className="text-xs text-gray-400 mb-4">
+            A Tenant Admin can retrieve the temporary password from this member’s row menu on the Members page.
+          </p>
+        )}
 
         <button
           onClick={onClose}
@@ -336,7 +316,6 @@ export default function ApplicationsPage() {
         firstName: data.user?.firstName ?? '',
         lastName: data.user?.lastName ?? '',
         email: data.user?.email ?? '',
-        temporaryPassword: data.temporaryPassword ?? '',
         smsEnqueued: data.smsEnqueued ?? false,
       });
     },

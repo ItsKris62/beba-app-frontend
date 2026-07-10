@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import {
-  User, Mail, Phone, Shield, Key, Smartphone, FileText, Upload,
+  User, Mail, Phone, Shield, Key, Smartphone, FileText, Upload, Camera, Trash2,
   Eye, EyeOff, CheckCircle, XCircle, Clock, AlertCircle,
 } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -14,9 +15,9 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ProfileAvatar } from "@/components/profile-avatar"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -40,6 +41,8 @@ const ALLOWED_UPLOAD_MIMES = ["image/jpeg", "image/png", "image/webp", "applicat
 // file extension instead of rejecting outright.
 const ALLOWED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"]
 const UPLOAD_TYPE_ERROR = "Only JPG, PNG, WebP, PDF, and HEIC/HEIF files are accepted."
+const ALLOWED_AVATAR_MIMES = ["image/jpeg", "image/png", "image/webp"]
+const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"]
 
 export function hasAllowedExtension(fileName: string): boolean {
   const dotIndex = fileName.lastIndexOf(".")
@@ -80,12 +83,14 @@ function DocStatusBadge({ status }: { status: string }) {
 }
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient()
   const [dashboard, setDashboard] = React.useState<MemberDashboard | null>(null)
   const [documents, setDocuments] = React.useState<KycDocument[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [isDocsLoading, setIsDocsLoading] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [isUploading, setIsUploading] = React.useState(false)
+  const [isAvatarUploading, setIsAvatarUploading] = React.useState(false)
   const [isChangingPassword, setIsChangingPassword] = React.useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
   const [showNewPassword, setShowNewPassword] = React.useState(false)
@@ -105,6 +110,7 @@ export default function ProfilePage() {
   // Upload form
   const [uploadDocType, setUploadDocType] = React.useState<string>("")
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const uploader = useDocumentUpload(undefined, undefined, {
     onTokenExpiry: () => toast.warning("Upload session expired. Please restart the upload."),
     onQuarantine: (reason) => toast.error(reason),
@@ -241,14 +247,108 @@ export default function ProfilePage() {
     }
   }
 
+  const expectedAvatarMimeType = (fileName: string) => {
+    const lowerName = fileName.toLowerCase()
+    if (lowerName.endsWith(".png")) return "image/png"
+    if (lowerName.endsWith(".webp")) return "image/webp"
+    if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) return "image/jpeg"
+    return null
+  }
+
+  const inferAvatarMimeType = (file: File) => {
+    const expected = expectedAvatarMimeType(file.name)
+    if (file.type) return file.type
+    if (expected) return expected
+    return "image/jpeg"
+  }
+
+  const handleUploadAvatar = async (file: File) => {
+    const lowerName = file.name.toLowerCase()
+    const hasAvatarExtension = ALLOWED_AVATAR_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
+    const expectedMimeType = expectedAvatarMimeType(file.name)
+    const mimeType = inferAvatarMimeType(file)
+    if (!hasAvatarExtension || !expectedMimeType || mimeType !== expectedMimeType || !ALLOWED_AVATAR_MIMES.includes(mimeType)) {
+      toast.error("Choose a JPG, PNG, or WebP image.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Profile picture must be 5 MB or smaller.")
+      return
+    }
+
+    setIsAvatarUploading(true)
+    try {
+      const urlRes = await memberApi.requestProfileImageUploadUrl(file.name)
+      if (!urlRes.success || !urlRes.data) {
+        toast.error(urlRes.error?.message ?? "Failed to prepare profile picture upload.")
+        return
+      }
+
+      const uploadRes = await fetch(urlRes.data.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": mimeType },
+      })
+      if (!uploadRes.ok) {
+        toast.error("Profile picture upload failed.")
+        return
+      }
+
+      const saveRes = await memberApi.patchProfile({ profileImageKey: urlRes.data.fileKey })
+      if (!saveRes.success) {
+        toast.error(saveRes.error?.message ?? "Failed to save profile picture.")
+        return
+      }
+
+      const updatedAt = saveRes.data?.user?.updatedAt ?? new Date().toISOString()
+      setDashboard((current) => current
+        ? {
+            ...current,
+            member: {
+              ...current.member,
+              profileImageKey: urlRes.data.fileKey,
+              updatedAt,
+            },
+          }
+        : current)
+      await queryClient.invalidateQueries({ queryKey: ["member-dashboard"] })
+      toast.success("Profile picture updated.")
+    } catch {
+      toast.error("Profile picture upload failed. Please try again.")
+    } finally {
+      setIsAvatarUploading(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    setIsAvatarUploading(true)
+    try {
+      const res = await memberApi.patchProfile({ profileImageKey: null })
+      if (!res.success) {
+        toast.error(res.error?.message ?? "Failed to remove profile picture.")
+        return
+      }
+
+      const updatedAt = res.data?.user?.updatedAt ?? new Date().toISOString()
+      setDashboard((current) => current
+        ? {
+            ...current,
+            member: {
+              ...current.member,
+              profileImageKey: null,
+              updatedAt,
+            },
+          }
+        : current)
+      await queryClient.invalidateQueries({ queryKey: ["member-dashboard"] })
+      toast.success("Profile picture removed.")
+    } finally {
+      setIsAvatarUploading(false)
+    }
+  }
+
   const displayName = dashboard?.member.name ?? "—"
   const memberNumber = dashboard?.member.memberNumber ?? "—"
-  const initials = displayName
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
 
   return (
     <div className="space-y-6">
@@ -269,11 +369,51 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-6 sm:flex-row">
-              <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <div className="flex flex-col items-center gap-3">
+                <ProfileAvatar
+                  name={displayName}
+                  profileImageKey={dashboard?.member.profileImageKey}
+                  updatedAt={dashboard?.member.updatedAt}
+                  className="h-24 w-24"
+                  fallbackClassName="bg-primary text-primary-foreground text-2xl"
+                />
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleUploadAvatar(file)
+                    e.target.value = ""
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={isAvatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {isAvatarUploading ? "Uploading..." : "Photo"}
+                  </Button>
+                  {dashboard?.member.profileImageKey && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={isAvatarUploading}
+                      onClick={handleRemoveAvatar}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Remove profile picture</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div className="text-center sm:text-left">
                 <h2 className="text-2xl font-bold">{displayName}</h2>
                 <p className="text-muted-foreground">Member No: {memberNumber}</p>

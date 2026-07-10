@@ -32,7 +32,6 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +43,7 @@ import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { ProfileAvatar } from "@/components/profile-avatar"
 import { useAuth } from "@/lib/auth-context"
 import { TRANSACTION_ROLES } from "@/lib/permissions"
 import { normalizeRole, type UserRole } from "@/types/roles"
@@ -59,6 +59,8 @@ interface SidebarProps {
   userName?: string
   userRole?: string
   memberNo?: string
+  profileImageKey?: string | null
+  avatarUpdatedAt?: string | null
   children?: React.ReactNode
 }
 
@@ -101,14 +103,21 @@ const SidebarContext = React.createContext<{
   setCollapsed: (value: boolean) => void
 }>({ collapsed: false, setCollapsed: () => {} })
 
-export function AppSidebar({ userType, userName = "Admin User", userRole = "Administrator", memberNo, children }: SidebarProps) {
+export function AppSidebar({
+  userType,
+  userName = "Admin User",
+  userRole = "Administrator",
+  memberNo,
+  profileImageKey,
+  avatarUpdatedAt,
+  children,
+}: SidebarProps) {
   const pathname = usePathname()
   const { logout } = useAuth()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const navItems = userType === "member" ? memberNavItems : getAdminNavItems(userRole)
   const displayName = userName || "User"
-  const initials = displayName.split(" ").map(n => n[0]).join("").toUpperCase() || "U"
 
   React.useEffect(() => {
     setMobileOpen(false)
@@ -259,12 +268,13 @@ export function AppSidebar({ userType, userName = "Admin User", userRole = "Admi
                     collapsed ? "lg:justify-center" : "justify-start"
                   )}
                 >
-                  <Avatar className="h-9 w-9 shrink-0 ring-2 ring-primary/20">
-                    <AvatarImage src="" />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                  <ProfileAvatar
+                    name={displayName}
+                    profileImageKey={profileImageKey}
+                    updatedAt={avatarUpdatedAt}
+                    className="h-9 w-9 shrink-0 ring-2 ring-primary/20"
+                    fallbackClassName="bg-primary text-primary-foreground text-xs font-medium"
+                  />
                   <div className={cn(
                     "flex flex-col items-start text-left transition-all duration-300 overflow-hidden",
                     collapsed ? "lg:w-0 lg:opacity-0" : "w-auto opacity-100"
@@ -353,11 +363,13 @@ export function AppSidebar({ userType, userName = "Admin User", userRole = "Admi
                   <p className="text-sm font-medium leading-none">{displayName}</p>
                   <p className="text-xs text-muted-foreground">{memberNo || userRole}</p>
                 </div>
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <ProfileAvatar
+                  name={displayName}
+                  profileImageKey={profileImageKey}
+                  updatedAt={avatarUpdatedAt}
+                  className="h-9 w-9"
+                  fallbackClassName="bg-primary text-primary-foreground text-xs"
+                />
               </div>
             </div>
           </header>

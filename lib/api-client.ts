@@ -100,6 +100,8 @@ export interface MemberDashboard {
     name: string;
     email: string;
     phone?: string | null;
+    profileImageKey?: string | null;
+    updatedAt?: string;
     kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | string;
     kycRejectionReason?: string | null;
   };
@@ -1259,9 +1261,10 @@ export const memberApi = {
   getDashboard: () =>
     apiFetch<MemberDashboard>('/members/dashboard'),
 
-  withdrawMpesa: (data: { phoneNumber: string; amount: number }) =>
+  withdrawMpesa: (data: { phoneNumber: string; amount: number }, idempotencyKey: string) =>
     apiFetch<{ message: string; transactionId: string }>('/members/withdraw/mpesa', {
       method: 'POST',
+      headers: { 'X-Idempotency-Key': idempotencyKey },
       body: JSON.stringify(data),
     }),
 
@@ -1382,11 +1385,27 @@ export const memberApi = {
     employer?: string;
     occupation?: string;
     stageIds?: string[];
+    profileImageKey?: string | null;
   }) =>
-    apiFetch<{ id: string }>('/members/profile', {
+    apiFetch<{
+      id: string;
+      user?: { profileImageKey?: string | null; updatedAt?: string };
+    }>('/members/profile', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  requestProfileImageUploadUrl: (fileName: string) =>
+    apiFetch<{ uploadUrl: string; fileKey: string; contentType: string; expiresIn: number }>(
+      '/members/profile/image-url',
+      {
+        method: 'POST',
+        body: JSON.stringify({ fileName }),
+      },
+    ),
+
+  getProfileImageUrl: () =>
+    apiFetch<{ imageUrl: string | null; fileKey: string | null }>('/members/profile/image-url'),
 
   listDocuments: () =>
     apiFetch<KycDocument[]>('/members/documents'),

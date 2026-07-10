@@ -24,6 +24,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     staleTime: 5 * 60 * 1000,
   })
   const realMemberNumber = dashboardRes?.success ? dashboardRes.data?.member.memberNumber : undefined
+  const profileImageKey = dashboardRes?.success ? dashboardRes.data?.member.profileImageKey : undefined
+  const avatarUpdatedAt = dashboardRes?.success ? dashboardRes.data?.member.updatedAt : undefined
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -62,6 +64,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       userType="member"
       userName={displayName}
       memberNo={realMemberNumber ?? `#${user.id.slice(0, 8).toUpperCase()}`}
+      profileImageKey={profileImageKey}
+      avatarUpdatedAt={avatarUpdatedAt}
     >
       <ErrorBoundary resetKeys={[user.id, user.role]}>
         <SocketProvider>{children}</SocketProvider>

@@ -52,7 +52,7 @@ export function MatchDepositForm({
         setMembers([])
         return
       }
-      const res = await adminApi.getMembers({ search: memberSearch, page: 1, limit: 10, status: "active" })
+      const res = await adminApi.getMembers({ search: memberSearch, page: 1, limit: 10, accountStatus: "ACTIVE" })
       if (res.success) setMembers(res.data.data)
       else toast.error(res.error?.message ?? "Failed to search members")
     }, 250)

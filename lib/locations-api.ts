@@ -3,13 +3,19 @@
 /**
  * Sprint 1 – Locations, Applications & Stages API helpers
  *
- * Uses the same apiFetch pattern as the rest of api-client.ts.
- * All calls automatically attach Authorization + X-Tenant-ID headers.
+ * Delegates to the shared apiFetch() (lib/api-client.ts) so these calls
+ * inherit the real RFC 7807 error parsing and 401→refresh→retry logic
+ * instead of a separate hand-rolled fetch wrapper. Callers here rely on a
+ * throw-on-error contract returning the unwrapped payload (not apiFetch's
+ * own {success,data,error} shape), so locationsFetch() below translates that.
+ *
+ * Note: the old custom apiFetchWithRetry() blindly retried POST /approve on
+ * a 5xx, which risked a duplicate approval (double member-account creation,
+ * double SMS) on a slow-but-successful first attempt. The shared apiFetch()
+ * only auto-retries GET/HEAD (see isSafeToAutoRetry in api-client.ts) — that
+ * safer behavior now applies here too rather than being preserved.
  */
-import { sanitizeHttpError, sanitizeThrownError } from './error-sanitizer';
-import { tokenStore } from './api-client';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+import { apiFetch } from './api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,84 +87,31 @@ export interface PaginatedResponse<T> {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
-// ─── Internal fetch helper (mirrors api-client.ts pattern) ───────────────────
-
-function getTenantId(): string {
-  if (process.env.NEXT_PUBLIC_TENANT_ID) return process.env.NEXT_PUBLIC_TENANT_ID;
-  if (typeof window !== 'undefined') return localStorage.getItem('beba_tenant_id') ?? '';
-  return '';
-}
-
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = tokenStore.getAccess();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': getTenantId(),
-    ...(options.headers as Record<string, string>),
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  } catch (error) {
-    throw sanitizeThrownError({
-      error,
-      endpoint: path,
-      method: options.method ?? 'GET',
-      code: 'NETWORK_ERROR',
-      status: 0,
-    });
+async function locationsFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const result = await apiFetch<T>(path, options);
+  if (!result.success) {
+    throw new Error(result.error?.message ?? 'Request failed. Please try again.');
   }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ errorCode: `HTTP_${res.status}` }));
-    const sanitized = sanitizeHttpError({
-      response: res,
-      body,
-      endpoint: path,
-      method: options.method ?? 'GET',
-    });
-    throw Object.assign(sanitized, {
-      response: { status: res.status, data: body },
-    });
-  }
-
-  return res.json() as Promise<T>;
-}
-
-/** Like apiFetch but retries once on 5xx errors to handle transient server failures. */
-async function apiFetchWithRetry<T>(path: string, options: RequestInit = {}, retries = 1): Promise<T> {
-  try {
-    return await apiFetch<T>(path, options);
-  } catch (err: unknown) {
-    const status = (err as { response?: { status?: number } })?.response?.status;
-    if (retries > 0 && status && status >= 500) {
-      await new Promise(r => setTimeout(r, 1000));
-      return apiFetchWithRetry<T>(path, options, retries - 1);
-    }
-    throw err;
-  }
+  return result.data;
 }
 
 // ─── Locations API ────────────────────────────────────────────────────────────
 
 export const locationsApi = {
-  getCounties: (): Promise<County[]> =>
-    apiFetch<any>('/locations/counties').then(res => res?.data || res),
+  getCounties: (): Promise<County[]> => locationsFetch<County[]>('/locations/counties'),
 
   getConstituencies: (countyId: string): Promise<Constituency[]> =>
-    apiFetch<any>(`/locations/constituencies?countyId=${countyId}`).then(res => res?.data || res),
+    locationsFetch<Constituency[]>(`/locations/constituencies?countyId=${countyId}`),
 
   getWards: (constituencyId: string): Promise<Ward[]> =>
-    apiFetch<any>(`/locations/wards?constituencyId=${constituencyId}`).then(res => res?.data || res),
+    locationsFetch<Ward[]>(`/locations/wards?constituencyId=${constituencyId}`),
 };
 
 // ─── Applications API ─────────────────────────────────────────────────────────
 
 export const applicationsApi = {
   submit: (data: Record<string, unknown>): Promise<MemberApplication> =>
-    apiFetch<MemberApplication>('/admin/applications', {
+    locationsFetch<MemberApplication>('/admin/applications', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -175,18 +128,11 @@ export const applicationsApi = {
     if (params?.status) qs.set('status', params.status);
     if (params?.search) qs.set('search', params.search);
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    // The backend returns { data, meta } directly — normalize to PaginatedResponse shape
-    return apiFetch<PaginatedResponse<MemberApplication>>(`/admin/applications/pending${query}`)
-      .then(res => {
-        // If the response is already { data, meta } return as-is
-        if (res && typeof res === 'object' && 'data' in res) return res;
-        // Otherwise wrap it
-        return { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } };
-      });
+    return locationsFetch<PaginatedResponse<MemberApplication>>(`/admin/applications/pending${query}`);
   },
 
   getOne: (id: string): Promise<MemberApplication> =>
-    apiFetch<MemberApplication>(`/admin/applications/${id}`),
+    locationsFetch<MemberApplication>(`/admin/applications/${id}`),
 
   approve: (
     id: string,
@@ -199,7 +145,7 @@ export const applicationsApi = {
     smsEnqueued: boolean;
     message: string;
   }> =>
-    apiFetchWithRetry(`/admin/applications/${id}/approve`, {
+    locationsFetch(`/admin/applications/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify(data ?? {}),
     }),
@@ -208,7 +154,7 @@ export const applicationsApi = {
     id: string,
     reviewNotes: string,
   ): Promise<{ success: boolean; message: string }> =>
-    apiFetch(`/admin/applications/${id}/reject`, {
+    locationsFetch(`/admin/applications/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reviewNotes }),
     }),
@@ -233,28 +179,28 @@ export const stagesApi = {
     if (params?.wardId) qs.set('wardId', params.wardId);
     if (params?.search) qs.set('search', params.search);
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    return apiFetch<PaginatedResponse<Stage>>(`/admin/stages${query}`);
+    return locationsFetch<PaginatedResponse<Stage>>(`/admin/stages${query}`);
   },
 
   create: (data: { name: string; wardId: string }): Promise<Stage> =>
-    apiFetch<Stage>('/admin/stages', { method: 'POST', body: JSON.stringify(data) }),
+    locationsFetch<Stage>('/admin/stages', { method: 'POST', body: JSON.stringify(data) }),
 
   getOne: (id: string): Promise<Stage> =>
-    apiFetch<Stage>(`/admin/stages/${id}`),
+    locationsFetch<Stage>(`/admin/stages/${id}`),
 
   update: (id: string, data: { name?: string; wardId?: string }): Promise<Stage> =>
-    apiFetch<Stage>(`/admin/stages/${id}`, {
+    locationsFetch<Stage>(`/admin/stages/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
   delete: (id: string): Promise<{ success: boolean; message: string }> =>
-    apiFetch<{ success: boolean; message: string }>(`/admin/stages/${id}`, {
+    locationsFetch<{ success: boolean; message: string }>(`/admin/stages/${id}`, {
       method: 'DELETE',
     }),
 
   assign: (stageId: string, data: { userId: string; position?: string }) =>
-    apiFetch(`/admin/stages/${stageId}/assign`, {
+    locationsFetch(`/admin/stages/${stageId}/assign`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

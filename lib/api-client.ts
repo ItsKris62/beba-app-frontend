@@ -917,8 +917,11 @@ async function rawApiFetch<T>(
 ): Promise<ApiResponse<T>> {
   const accessToken = tokenStore.getAccess();
 
+  // Skip Content-Type for FormData bodies — the browser must generate its own
+  // multipart boundary; forcing application/json here would corrupt the upload.
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     'X-Tenant-ID': getTenantId(),
     ...(options.headers as Record<string, string>),
   };
@@ -1086,7 +1089,11 @@ async function rawApiFetch<T>(
   return json as ApiResponse<T>;
 }
 
-async function apiFetch<T>(
+// Exported so other client modules (support, incidents, locations, reports)
+// can share the same 401→refresh→retry logic and RFC 7807 error parsing
+// instead of hand-rolling their own fetch wrapper — see rawApiFetch above for
+// the refresh/retry/queueing implementation this delegates to.
+export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
   retries = 2,
@@ -1593,18 +1600,111 @@ export const accountingApi = {
     }),
 };
 
+export interface AdminDashboardStats {
+  members: {
+    total: number;
+    totalActiveAccounts: number;
+    engagedUsers30d: number;
+    pendingKyc: number;
+  };
+  loans: {
+    total: number;
+    active: number;
+    totalOutstandingAmount: number;
+    pendingApprovals: number;
+    defaulted: number;
+    defaultRatePercent: number;
+    portfolioAtRisk30d: {
+      outstandingAmount: number;
+      percentOfActivePortfolio: number;
+    };
+    disbursements: {
+      thisMonth: { count: number; totalAmount: number };
+      overall: { count: number; totalAmount: number };
+    };
+  };
+  mpesa: {
+    deposits7d: { count: number; totalAmount: number };
+    deposits30d: { count: number; totalAmount: number };
+  };
+}
+
+export interface AdminDashboardReports {
+  loansByStatus: Array<{ status: string; count: number; totalAmount: number }>;
+  savingsByWeek: Array<{ weekNumber: number; totalAmount: number; memberCount: number }>;
+  topDefaulters: Array<{ memberNumber: string; outstandingBalance: number; arrearsDays: number }>;
+  generatedAt: string;
+}
+
+export interface FinancialPreviewResponse {
+  sheetType: string;
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  rows: Array<{
+    rowNumber: number;
+    status: 'VALID' | 'WARNING' | 'ERROR';
+    message?: string;
+    resolvedMemberId?: string;
+    data: Record<string, unknown>;
+  }>;
+  totalAmount: number;
+}
+
+export interface FinancialExecuteResponse {
+  batchId: string;
+  sheetType: string;
+  loansCreated: number;
+  repaymentsCreated: number;
+  savingsCreated: number;
+  welfareCollectionsCreated: number;
+  skipped: number;
+  errors: number;
+  errorDetails?: Array<{ row: number; reason: string }>;
+}
+
 export const adminApi = {
+  getDashboardStats: () => apiFetch<AdminDashboardStats>('/admin/dashboard/stats'),
+
+  getDashboardReports: () => apiFetch<AdminDashboardReports>('/admin/dashboard/reports'),
+
+  previewFinancialImport: (file: File, sheetType: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('sheetType', sheetType);
+    return apiFetch<FinancialPreviewResponse>('/admin/data-import/financial-preview', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  executeFinancialImport: (file: File, sheetType: string, importBatchId?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('sheetType', sheetType);
+    if (importBatchId) form.append('importBatchId', importBatchId);
+    return apiFetch<FinancialExecuteResponse>('/admin/data-import/execute-financial', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
   getMembers: (params?: {
     search?: string;
     page?: number;
     limit?: number;
-    status?: 'active' | 'inactive';
+    accountStatus?: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
+    recentlyActive?: boolean;
+    role?: string;
   }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set('search', params.search);
     if (params?.page) q.set('page', String(params.page));
     if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.status) q.set('status', params.status);
+    if (params?.accountStatus) q.set('accountStatus', params.accountStatus);
+    if (params?.recentlyActive !== undefined) q.set('recentlyActive', String(params.recentlyActive));
+    if (params?.role) q.set('role', params.role);
     return apiFetch<{ data: AdminMember[]; meta: ApiMeta }>(`/admin/members?${q}`);
   },
 
@@ -1618,7 +1718,7 @@ export const adminApi = {
     occupation?: string;
     dateOfBirth?: string;
     phone?: string;
-    documentUrls?: string[];
+    documentIds?: string[];
     verified?: boolean;
     notes?: string;
     checklist?: Record<string, boolean>;
@@ -2033,7 +2133,11 @@ export function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function downloadAuthenticatedFile(path: string, options: RequestInit = {}): Promise<void> {
+async function downloadAuthenticatedFile(
+  path: string,
+  options: RequestInit = {},
+  allowRefresh = true,
+): Promise<void> {
   const accessToken = tokenStore.getAccess();
   const headers: Record<string, string> = {
     'X-Tenant-ID': getTenantId(),
@@ -2058,6 +2162,20 @@ async function downloadAuthenticatedFile(path: string, options: RequestInit = {}
       status: 0,
     });
   }
+
+  // Same one-shot refresh-and-retry contract as rawApiFetch() — a long-lived
+  // export/GL-download session shouldn't die on a plain expired access token.
+  if (response.status === 401 && allowRefresh) {
+    const newToken = await doRefresh();
+    if (newToken) {
+      return downloadAuthenticatedFile(path, options, false);
+    }
+    if (typeof window !== 'undefined') {
+      tokenStore.clear();
+      window.location.href = '/login';
+    }
+  }
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({ errorCode: `HTTP_${response.status}` }));
     throw sanitizeHttpError({

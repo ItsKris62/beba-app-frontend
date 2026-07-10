@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Eye,
   FileCheck2,
+  Loader2,
   RefreshCw,
   Search,
+  ShieldCheck,
   XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -24,7 +27,7 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { adminApi, type PendingMember } from "@/lib/api-client"
+import { adminApi, type KycDocument, type PendingMember } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 
 const PAGE_SIZE = 20
@@ -46,11 +49,17 @@ function createChecklist(): KycChecklist {
   }
 }
 
-function parseDocumentUrls(value: string): string[] {
-  return value
-    .split(/[\n,]+/)
-    .map((url) => url.trim())
-    .filter(Boolean)
+// Mirrors REQUIRED_KYC_DOCUMENT_TYPES in backend/src/modules/admin/admin.service.ts —
+// KYC approval requires an APPROVED document of each of these types.
+const REQUIRED_DOC_TYPES = ["NATIONAL_ID_FRONT", "NATIONAL_ID_BACK", "KRA_PIN", "MEMBER_FORM"] as const
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  NATIONAL_ID_FRONT: "National ID (Front)",
+  NATIONAL_ID_BACK: "National ID (Back)",
+  KRA_PIN: "KRA PIN Certificate",
+  MEMBER_FORM: "Signed Member Form",
+  PASSPORT_PHOTO: "Passport Photo",
+  OTHER: "Other Document",
 }
 
 function formatDate(value?: string | null): string {
@@ -90,7 +99,9 @@ export default function PendingKycPage() {
   const [viewMember, setViewMember] = useState<PendingMember | null>(null)
   const [approveMember, setApproveMember] = useState<PendingMember | null>(null)
   const [rejectMember, setRejectMember] = useState<PendingMember | null>(null)
-  const [documentUrls, setDocumentUrls] = useState("")
+  const [approveDocuments, setApproveDocuments] = useState<KycDocument[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [reviewingDocId, setReviewingDocId] = useState<string | null>(null)
   const [approvalNotes, setApprovalNotes] = useState("")
   const [rejectReason, setRejectReason] = useState("")
   const [checklist, setChecklist] = useState<KycChecklist>(() => createChecklist())
@@ -135,19 +146,71 @@ export default function PendingKycPage() {
     return Math.round((passed / CHECKLIST_ITEMS.length) * 100)
   }, [checklist])
 
+  const loadApproveDocuments = useCallback(async (memberId: string) => {
+    setDocsLoading(true)
+    try {
+      const result = await adminApi.listKycDocuments({ memberId })
+      if (result.success) {
+        setApproveDocuments(result.data)
+      } else {
+        toast.error(result.error?.message ?? "Failed to load KYC documents")
+      }
+    } finally {
+      setDocsLoading(false)
+    }
+  }, [])
+
   const openApproveDialog = (member: PendingMember) => {
     setApproveMember(member)
-    setDocumentUrls(Array.isArray(member.kycDocumentUrls) ? member.kycDocumentUrls.join("\n") : "")
     setApprovalNotes("")
     setChecklist(createChecklist())
+    void loadApproveDocuments(member.id)
   }
 
   const closeApproveDialog = () => {
     setApproveMember(null)
-    setDocumentUrls("")
+    setApproveDocuments([])
     setApprovalNotes("")
     setChecklist(createChecklist())
   }
+
+  // Document review (POST /admin/kyc/documents/:id/review) is processed
+  // asynchronously via BullMQ — the status doesn't flip immediately, so poll
+  // briefly after triggering it rather than assuming it's done on response.
+  async function handleApproveDocument(doc: KycDocument) {
+    if (!approveMember) return
+    setReviewingDocId(doc.id)
+    try {
+      const result = await adminApi.enqueueDocReview(doc.id, { status: "APPROVED" })
+      if (!result.success) {
+        toast.error(result.error?.message ?? "Failed to queue document review")
+        return
+      }
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1200))
+        const refreshed = await adminApi.listKycDocuments({ memberId: approveMember.id })
+        if (refreshed.success) {
+          setApproveDocuments(refreshed.data)
+          const updated = refreshed.data.find((d) => d.id === doc.id)
+          if (updated?.status === "APPROVED") break
+        }
+      }
+    } finally {
+      setReviewingDocId(null)
+    }
+  }
+
+  const approvedDocumentIds = useMemo(
+    () => approveDocuments.filter((doc) => doc.status === "APPROVED").map((doc) => doc.id),
+    [approveDocuments],
+  )
+
+  const missingRequiredDocTypes = useMemo(() => {
+    const approvedTypes = new Set(
+      approveDocuments.filter((doc) => doc.status === "APPROVED").map((doc) => doc.type),
+    )
+    return REQUIRED_DOC_TYPES.filter((type) => !approvedTypes.has(type))
+  }, [approveDocuments])
 
   const openRejectDialog = (member: PendingMember) => {
     setRejectMember(member)
@@ -162,9 +225,10 @@ export default function PendingKycPage() {
   async function handleApprove() {
     if (!approveMember) return
 
-    const urls = parseDocumentUrls(documentUrls)
-    if (urls.length === 0) {
-      toast.error("Add at least one KYC document URL before approval")
+    if (missingRequiredDocTypes.length > 0) {
+      toast.error(
+        `Approve all required documents first: ${missingRequiredDocTypes.map((t) => DOC_TYPE_LABELS[t] ?? t).join(", ")}`,
+      )
       return
     }
 
@@ -178,7 +242,7 @@ export default function PendingKycPage() {
     try {
       const result = await adminApi.updateKyc(approveMember.id, {
         verified: true,
-        documentUrls: urls,
+        documentIds: approvedDocumentIds,
         checklist,
         notes: approvalNotes.trim() || undefined,
       })
@@ -474,7 +538,7 @@ export default function PendingKycPage() {
         open={!!approveMember}
         onOpenChange={(open) => { if (!isProcessing && !open) closeApproveDialog() }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Approve KYC</DialogTitle>
             <DialogDescription>
@@ -484,17 +548,76 @@ export default function PendingKycPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="documentUrls">Document URLs</Label>
-              <Textarea
-                id="documentUrls"
-                value={documentUrls}
-                onChange={(event) => setDocumentUrls(event.target.value)}
-                placeholder="https://storage.example.com/kyc/id-card.pdf"
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter one full URL per line. At least one document is required.
-              </p>
+              <div className="flex items-center justify-between">
+                <Label>KYC Documents</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => approveMember && loadApproveDocuments(approveMember.id)}
+                  disabled={docsLoading}
+                >
+                  <RefreshCw className={`mr-1 h-3 w-3 ${docsLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
+
+              {docsLoading && approveDocuments.length === 0 ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : approveDocuments.length === 0 ? (
+                <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  No documents uploaded for this member yet. Upload documents from the member's
+                  edit profile before approving KYC.
+                </p>
+              ) : (
+                <div className="space-y-2 rounded-md border p-2">
+                  {approveDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between rounded-md p-2 text-sm">
+                      <div>
+                        <p className="font-medium">{DOC_TYPE_LABELS[doc.type] ?? doc.type}</p>
+                        <p className="text-xs text-muted-foreground">{doc.originalFileName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded px-2 py-1 text-xs font-medium ${
+                            doc.status === "APPROVED"
+                              ? "bg-green-100 text-green-800"
+                              : doc.status === "REJECTED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {doc.status.replace(/_/g, " ")}
+                        </span>
+                        {doc.status !== "APPROVED" && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleApproveDocument(doc)}
+                            disabled={reviewingDocId === doc.id}
+                          >
+                            {reviewingDocId === doc.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!docsLoading && missingRequiredDocTypes.length > 0 && (
+                <p className="flex items-start gap-1.5 text-xs text-amber-700">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Missing approved: {missingRequiredDocTypes.map((t) => DOC_TYPE_LABELS[t] ?? t).join(", ")}
+                </p>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -540,7 +663,7 @@ export default function PendingKycPage() {
             <Button
               className="bg-green-600 text-white hover:bg-green-700"
               onClick={handleApprove}
-              disabled={isProcessing}
+              disabled={isProcessing || docsLoading || missingRequiredDocTypes.length > 0}
             >
               <FileCheck2 className="mr-1 h-4 w-4" />
               {isProcessing ? "Approving..." : "Confirm Approval"}

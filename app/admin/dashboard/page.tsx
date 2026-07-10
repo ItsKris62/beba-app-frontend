@@ -1,21 +1,26 @@
 'use client';
 
 /**
- * Sprint 3 – Admin Dashboard Page
+ * Admin Dashboard Page
  * Role: SUPER_ADMIN, TENANT_ADMIN, MANAGER, AUDITOR
+ *
+ * KPI tiles map directly to AdminService.getDashboardStats()
+ * (backend/src/modules/admin/admin.service.ts) — see AdminDashboardStats in
+ * lib/api-client.ts for the exact response shape. There is no repayment
+ * heatmap, welfare, or savings data behind this endpoint (that data model
+ * doesn't exist server-side) — don't reintroduce those tiles without a real
+ * backend field to back them.
  */
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { dashboardApi, type DashboardStats } from '@/lib/sprint3-api';
-import { adminApi } from '@/lib/api-client';
+import { adminApi, type AdminDashboardStats } from '@/lib/api-client';
 import { useAuth, isAdmin } from '@/lib/auth-context';
 
-// Kept short and uniform across the three queries below: this dashboard
+// Kept short and uniform across the two queries below: this dashboard
 // surfaces pending-approval counts staff act on, so 20s is "near real-time"
 // without hammering the API on every re-render.
 const ADMIN_DASHBOARD_STALE_TIME_MS = 20_000;
@@ -44,33 +49,6 @@ function KpiCard({
   );
 }
 
-function RepaymentHeatmap({
-  data,
-}: {
-  data: Array<{ dayNumber: number; totalPaid: number; count: number }>;
-}) {
-  const maxPaid = Math.max(...data.map((d) => d.totalPaid), 1);
-  const colors = ['bg-gray-100', 'bg-green-200', 'bg-green-400', 'bg-green-600', 'bg-green-800'];
-
-  return (
-    <div className="grid grid-cols-10 gap-1">
-      {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => {
-        const entry = data.find((d) => d.dayNumber === day);
-        const intensity = entry ? Math.min(4, Math.round((entry.totalPaid / maxPaid) * 4)) : 0;
-        return (
-          <div
-            key={day}
-            className={`${colors[intensity]} rounded text-center text-xs py-2 cursor-default`}
-            title={`Day ${day}: KES ${entry?.totalPaid.toLocaleString() ?? 0} (${entry?.count ?? 0} payments)`}
-          >
-            {day}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   // Gate the fetch itself, not just the rendered UI — the /admin route layout
@@ -81,7 +59,7 @@ export default function AdminDashboardPage() {
 
   const statsQuery = useQuery({
     queryKey: ['admin-dashboard-stats'],
-    queryFn: () => dashboardApi.getStats(),
+    queryFn: () => adminApi.getDashboardStats(),
     enabled: canViewAdminDashboard,
     staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
   });
@@ -91,27 +69,19 @@ export default function AdminDashboardPage() {
     enabled: canViewAdminDashboard,
     staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
   });
-  const pendingApprovalsQuery = useQuery({
-    queryKey: ['admin-dashboard-pending-approvals'],
-    queryFn: () => adminApi.getLoans({ status: 'PENDING_APPROVAL', limit: 1 }),
-    enabled: canViewAdminDashboard,
-    staleTime: ADMIN_DASHBOARD_STALE_TIME_MS,
-  });
 
-  const stats: DashboardStats | null = statsQuery.data ?? null;
+  const stats: AdminDashboardStats | null = statsQuery.data?.success ? statsQuery.data.data : null;
   const openTickets = ticketsQuery.data?.success ? ticketsQuery.data.data.length : null;
-  const pendingApprovals = pendingApprovalsQuery.data?.success
-    ? pendingApprovalsQuery.data.data?.meta?.total ?? 0
-    : null;
   const loading = canViewAdminDashboard && statsQuery.isLoading;
-  const error = statsQuery.isError
-    ? statsQuery.error instanceof Error ? statsQuery.error.message : 'Failed to load dashboard'
-    : null;
+  const error =
+    statsQuery.isError || (statsQuery.data && !statsQuery.data.success)
+      ? statsQuery.data?.error?.message ??
+        (statsQuery.error instanceof Error ? statsQuery.error.message : 'Failed to load dashboard')
+      : null;
 
   const refresh = () => {
     void statsQuery.refetch();
     void ticketsQuery.refetch();
-    void pendingApprovalsQuery.refetch();
   };
 
   const fmt = (n: number) => `KES ${n.toLocaleString('en-KE')}`;
@@ -130,13 +100,7 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Financial Dashboard</h1>
-          {stats && (
-            <p className="text-xs text-muted-foreground">
-              Updated: {new Date(stats.generatedAt).toLocaleTimeString()} · Cache until:{' '}
-              {new Date(stats.cachedUntil).toLocaleTimeString()}
-            </p>
-          )}
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         </div>
         <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
           {loading ? 'Loading…' : 'Refresh'}
@@ -146,31 +110,80 @@ export default function AdminDashboardPage() {
       {/* KPI Grid */}
       {loading || !stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 11 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+          {Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Total Members" value={(stats.totalMembers ?? 0).toLocaleString()} subtitle={`${stats.activeMembers ?? 0} active`} colorClass="text-blue-600" />
-          <KpiCard title="KYC Queue" value={(stats.pendingKyc ?? 0).toLocaleString()} subtitle="Awaiting staff review" colorClass={(stats.pendingKyc ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
-          <KpiCard title="Pending Loan Approvals" value={(pendingApprovals ?? 0).toLocaleString()} subtitle="Awaiting admin decision" colorClass={(pendingApprovals ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
-          <KpiCard title="Total Disbursed" value={fmt(stats.totalDisbursed ?? 0)} subtitle={`${stats.activeLoansCount ?? 0} active loans`} colorClass="text-green-600" />
-          <KpiCard title="Collection Rate" value={`${stats.collectionRate ?? 0}%`} subtitle={`${fmt(stats.totalRepaid ?? 0)} repaid`} colorClass={(stats.collectionRate ?? 0) >= 80 ? 'text-green-600' : 'text-yellow-600'} />
-          <KpiCard title="Default Rate" value={`${stats.defaultRate ?? 0}%`} subtitle={`${stats.defaultedLoans ?? 0} defaulted`} colorClass={(stats.defaultRate ?? 0) > 10 ? 'text-red-600' : 'text-green-600'} />
-          <KpiCard title="Outstanding" value={fmt(stats.outstandingBalance ?? 0)} colorClass="text-yellow-600" />
-          <KpiCard title="Total Savings" value={fmt(stats.totalSavings ?? 0)} colorClass="text-blue-600" />
-          <KpiCard title="Welfare Collected" value={fmt(stats.welfareCollected ?? 0)} colorClass="text-green-600" />
-          <KpiCard title="Welfare Deficit" value={fmt(stats.welfareDeficit ?? 0)} colorClass={(stats.welfareDeficit ?? 0) > 0 ? 'text-red-600' : 'text-green-600'} />
-          <KpiCard title="Open Support Tickets" value={(openTickets ?? 0).toLocaleString()} subtitle="Awaiting support action" colorClass={(openTickets ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'} />
+          <KpiCard
+            title="Total Members"
+            value={stats.members.total.toLocaleString()}
+            subtitle={`${stats.members.totalActiveAccounts} active accounts`}
+            colorClass="text-blue-600"
+          />
+          <KpiCard
+            title="KYC Queue"
+            value={stats.members.pendingKyc.toLocaleString()}
+            subtitle="Awaiting staff review"
+            colorClass={stats.members.pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'}
+          />
+          <KpiCard
+            title="Pending Loan Approvals"
+            value={stats.loans.pendingApprovals.toLocaleString()}
+            subtitle="Awaiting admin decision"
+            colorClass={stats.loans.pendingApprovals > 0 ? 'text-amber-600' : 'text-green-600'}
+          />
+          <KpiCard
+            title="Active Loans"
+            value={stats.loans.active.toLocaleString()}
+            subtitle={fmt(stats.loans.totalOutstandingAmount) + ' outstanding'}
+            colorClass="text-blue-600"
+          />
+          <KpiCard
+            title="Portfolio at Risk (30d+)"
+            value={`${stats.loans.portfolioAtRisk30d.percentOfActivePortfolio}%`}
+            subtitle={fmt(stats.loans.portfolioAtRisk30d.outstandingAmount)}
+            colorClass={stats.loans.portfolioAtRisk30d.percentOfActivePortfolio > 10 ? 'text-red-600' : 'text-green-600'}
+          />
+          <KpiCard
+            title="Default Rate"
+            value={`${stats.loans.defaultRatePercent}%`}
+            subtitle={`${stats.loans.defaulted} defaulted`}
+            colorClass={stats.loans.defaultRatePercent > 10 ? 'text-red-600' : 'text-green-600'}
+          />
+          <KpiCard
+            title="Disbursed This Month"
+            value={fmt(stats.loans.disbursements.thisMonth.totalAmount)}
+            subtitle={`${stats.loans.disbursements.thisMonth.count} loans`}
+            colorClass="text-green-600"
+          />
+          <KpiCard
+            title="Disbursed (All Time)"
+            value={fmt(stats.loans.disbursements.overall.totalAmount)}
+            subtitle={`${stats.loans.disbursements.overall.count} loans`}
+            colorClass="text-green-600"
+          />
+          <KpiCard
+            title="M-Pesa Deposits (7d)"
+            value={fmt(stats.mpesa.deposits7d.totalAmount)}
+            subtitle={`${stats.mpesa.deposits7d.count} transactions`}
+            colorClass="text-blue-600"
+          />
+          <KpiCard
+            title="Open Support Tickets"
+            value={(openTickets ?? 0).toLocaleString()}
+            subtitle="Awaiting support action"
+            colorClass={(openTickets ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'}
+          />
         </div>
       )}
 
-      {!loading && stats && stats.pendingKyc > 0 && (
+      {!loading && stats && stats.members.pendingKyc > 0 && (
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader className="flex flex-row items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base text-amber-900">KYC review needed</CardTitle>
               <p className="text-sm text-amber-800">
-                {stats.pendingKyc} member{stats.pendingKyc === 1 ? '' : 's'} cannot apply for loans until KYC is approved.
+                {stats.members.pendingKyc} member{stats.members.pendingKyc === 1 ? '' : 's'} cannot apply for loans until KYC is approved.
               </p>
             </div>
             <Link href="/admin/members/pending">
@@ -181,90 +194,6 @@ export default function AdminDashboardPage() {
           </CardHeader>
         </Card>
       )}
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Repayment Heatmap (30-Day)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="h-32" /> : <RepaymentHeatmap data={stats?.repaymentHeatmap ?? []} />}
-            <div className="flex gap-3 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-gray-100 rounded inline-block" /> None</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-400 rounded inline-block" /> Moderate</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-800 rounded inline-block" /> High</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Disbursements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="h-48" /> : (
-              <div className="space-y-2">
-                {(stats?.recentDisbursements ?? []).slice(0, 6).map((loan) => (
-                  <div key={loan.loanId} className="flex items-center justify-between text-sm border-b pb-1">
-                    <div>
-                      <span className="font-medium">{loan.memberNumber}</span>
-                      <span className="text-muted-foreground ml-2 text-xs">{new Date(loan.disbursedAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>KES {loan.principal.toLocaleString()}</span>
-                      <Badge variant={loan.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-xs">{loan.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-                {(stats?.recentDisbursements ?? []).length === 0 && (
-                  <p className="text-muted-foreground text-sm">No recent disbursements</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Stage Welfare Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Stage Welfare Collections</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? <Skeleton className="h-48" /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-muted-foreground text-xs">
-                    <th className="text-left py-2">Stage</th>
-                    <th className="text-right py-2">Week</th>
-                    <th className="text-right py-2">Collected</th>
-                    <th className="text-right py-2">Target</th>
-                    <th className="text-right py-2">Deficit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(stats?.stageWelfareTable ?? []).map((row, i) => (
-                    <tr key={i} className="border-b hover:bg-muted/50">
-                      <td className="py-2">{row.stageName}</td>
-                      <td className="text-right py-2">{row.weekNumber}</td>
-                      <td className="text-right py-2">KES {row.amountCollected.toLocaleString()}</td>
-                      <td className="text-right py-2">KES {row.weeklyTarget.toLocaleString()}</td>
-                      <td className={`text-right py-2 font-medium ${row.deficit > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {row.deficit > 0 ? `-KES ${row.deficit.toLocaleString()}` : '✓'}
-                      </td>
-                    </tr>
-                  ))}
-                  {(stats?.stageWelfareTable ?? []).length === 0 && (
-                    <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">No welfare data</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

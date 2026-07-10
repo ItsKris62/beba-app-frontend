@@ -1,52 +1,19 @@
 'use client';
 
-import { tokenStore } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
 import type { CreateTicketPayload, SupportTicket } from '@/lib/support/types';
 
-type ApiEnvelope<T> = {
-  success?: boolean;
-  data?: T;
-  error?: { message?: string } | null;
-};
-
-function apiBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
-}
-
-function tenantIdFromBrowser() {
-  return localStorage.getItem('beba_tenant_id') ?? '';
-}
-
+// Delegates to the shared apiFetch() (lib/api-client.ts) so this client
+// inherits the real RFC 7807 error parsing and 401→refresh→retry logic
+// instead of re-implementing them — see error-sanitizer.ts for the shape.
+// Callers here rely on a throw-on-error contract (unlike apiFetch's own
+// {success,data,error} return), so this wrapper unwraps that for them.
 async function supportFetch<T>(path: string, init: RequestInit): Promise<T> {
-  const token = tokenStore.getAccess();
-
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Tenant-ID': tenantIdFromBrowser(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers as Record<string, string> | undefined),
-    },
-  });
-
-  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | T | null;
-
-  if (!response.ok) {
-    const message =
-      body && typeof body === 'object' && 'error' in body ? body.error?.message : undefined;
-    throw new Error(message ?? 'Request failed. Please try again.');
+  const result = await apiFetch<T>(path, init);
+  if (!result.success) {
+    throw new Error(result.error?.message ?? 'Request failed. Please try again.');
   }
-
-  if (body && typeof body === 'object' && 'success' in body) {
-    if (body.success === false) {
-      throw new Error(body.error?.message ?? 'Request failed. Please try again.');
-    }
-    return body.data as T;
-  }
-
-  return body as T;
+  return result.data;
 }
 
 export function createSupportTicket(payload: CreateTicketPayload) {
@@ -81,4 +48,3 @@ export function searchActiveTickets(query: string) {
     method: 'GET',
   });
 }
-

@@ -16,8 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { dashboardApi, type DashboardReports } from '@/lib/sprint3-api';
-import { memberApi } from '@/lib/api-client';
+import { adminApi, memberApi, type AdminDashboardReports } from '@/lib/api-client';
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -69,7 +68,7 @@ function BarChart({
 }
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<DashboardReports | null>(null);
+  const [reports, setReports] = useState<AdminDashboardReports | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'FOSA' | 'BOSA'>('FOSA');
@@ -79,9 +78,15 @@ export default function AdminReportsPage() {
   const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
 
   useEffect(() => {
-    dashboardApi
-      .getReports()
-      .then(setReports)
+    adminApi
+      .getDashboardReports()
+      .then((res) => {
+        if (res.success) {
+          setReports(res.data);
+        } else {
+          setError(res.error?.message ?? 'Failed to load reports');
+        }
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load reports'))
       .finally(() => setLoading(false));
   }, []);

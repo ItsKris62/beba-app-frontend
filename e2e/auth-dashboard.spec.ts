@@ -158,9 +158,13 @@ test.describe('Auth & Dashboard', () => {
       });
     });
 
-    await page.route(`${API_BASE}/members/deposit/status/ws_CO_test_001`, (route) => {
+    // memberApi.getDepositStatus() calls the real backend route
+    // (GET /mpesa/transactions/:checkoutRequestId/status) — it previously
+    // pointed at a route that doesn't exist anywhere in the backend
+    // (/members/deposit/status/:id), which this mock was silently masking.
+    await page.route(`${API_BASE}/mpesa/transactions/ws_CO_test_001/status`, (route) => {
       pollCount += 1;
-      const status = pollCount < 2 ? 'PENDING' : 'SUCCESS';
+      const status = pollCount < 2 ? 'PENDING' : 'COMPLETED';
       route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -642,12 +642,6 @@ export interface StkPushResponse {
   mpesaTransactionId: string;
 }
 
-export interface DepositStatusResponse {
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
-  amount?: string;
-  completedAt?: string | null;
-}
-
 export interface DocumentUploadIntent {
   documentId: string;
   uploadUrl: string;
@@ -1371,10 +1365,15 @@ export const memberApi = {
       body: JSON.stringify({ phone, amount }),
     }),
 
-  // F7: Proper deposit status polling endpoint (B5 backend)
+  // F7: Proper deposit status polling endpoint.
+  // Was calling GET /members/deposit/status/:id, which does not exist
+  // anywhere in the backend (confirmed by grep — always 404s). The real,
+  // live status endpoint is GET /mpesa/transactions/:checkoutRequestId/status
+  // (same one mpesaApi.getStkStatus already calls) — every real deposit on
+  // this page was silently polling a dead route to the 100s timeout.
   getDepositStatus: (checkoutRequestId: string) =>
-    apiFetch<DepositStatusResponse>(
-      `/members/deposit/status/${encodeURIComponent(checkoutRequestId)}`,
+    apiFetch<StkStatusResponse>(
+      `/mpesa/transactions/${encodeURIComponent(checkoutRequestId)}/status`,
     ),
 
   patchProfile: (data: {

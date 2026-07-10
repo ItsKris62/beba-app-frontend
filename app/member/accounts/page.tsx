@@ -134,7 +134,7 @@ export default function AccountsPage() {
       if (res.success && res.data) {
         const status = res.data.status
 
-        if (status === "SUCCESS") {
+        if (status === "COMPLETED") {
           stopPolling()
           setDepositStatus("success")
           toast.success("Deposit confirmed! Your FOSA balance has been updated.")
@@ -145,7 +145,7 @@ export default function AccountsPage() {
           return
         }
 
-        if (status === "FAILED") {
+        if (status === "FAILED" || status === "REVERSED") {
           stopPolling()
           setDepositStatus("failed")
           toast.error("M-Pesa payment was not completed. Please try again.")

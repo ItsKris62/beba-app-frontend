@@ -2044,6 +2044,7 @@ export const usersApi = {
     apiFetch<{
       success: boolean;
       smsEnqueued: boolean;
+      emailEnqueued: boolean;
       user: StaffUser;
       message: string;
     }>('/users', {

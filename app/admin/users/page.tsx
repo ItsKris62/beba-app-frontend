@@ -24,16 +24,22 @@ const ASSIGNABLE_ROLES: Record<string, { value: string; label: string }[]> = {
   SUPER_ADMIN: [
     { value: "TENANT_ADMIN", label: "Tenant Admin" },
     { value: "MANAGER", label: "Manager" },
+    { value: "LOAN_OFFICER", label: "Loan Officer" },
+    { value: "ACCOUNTANT", label: "Accountant" },
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
   ],
   TENANT_ADMIN: [
     { value: "TENANT_ADMIN", label: "Tenant Admin" },
     { value: "MANAGER", label: "Manager" },
+    { value: "LOAN_OFFICER", label: "Loan Officer" },
+    { value: "ACCOUNTANT", label: "Accountant" },
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
   ],
   MANAGER: [
+    { value: "LOAN_OFFICER", label: "Loan Officer" },
+    { value: "ACCOUNTANT", label: "Accountant" },
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
   ],
@@ -43,6 +49,8 @@ const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: "bg-purple-100 text-purple-800",
   TENANT_ADMIN: "bg-blue-100 text-blue-800",
   MANAGER: "bg-green-100 text-green-800",
+  LOAN_OFFICER: "bg-indigo-100 text-indigo-800",
+  ACCOUNTANT: "bg-teal-100 text-teal-800",
   TELLER: "bg-yellow-100 text-yellow-800",
   AUDITOR: "bg-gray-100 text-gray-800",
   MEMBER: "bg-slate-100 text-slate-800",
@@ -53,6 +61,8 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   TENANT_ADMIN: "Tenant Admin",
   MANAGER: "Manager",
+  LOAN_OFFICER: "Loan Officer",
+  ACCOUNTANT: "Accountant",
   TELLER: "Teller",
   AUDITOR: "Auditor",
   MEMBER: "Member",
@@ -73,6 +83,7 @@ interface CreatedCredentials {
   email: string
   role: string
   smsEnqueued: boolean
+  emailEnqueued?: boolean
   mode: "created" | "regenerated"
 }
 
@@ -123,9 +134,30 @@ function CredentialsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!credentials.smsEnqueued && (
+        {credentials.mode === "created" && (
+          <div className="flex items-center gap-4 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <span className="flex items-center gap-1.5">
+              {credentials.smsEnqueued ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <span className="h-3.5 w-3.5 rounded-full bg-red-500" />
+              )}
+              SMS {credentials.smsEnqueued ? "queued" : "failed"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              {credentials.emailEnqueued ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <span className="h-3.5 w-3.5 rounded-full bg-red-500" />
+              )}
+              Email {credentials.emailEnqueued ? "queued" : "failed"}
+            </span>
+          </div>
+        )}
+
+        {!credentials.smsEnqueued && !credentials.emailEnqueued && (
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            <span>The user was created, but the temporary password could not be delivered via SMS. A Tenant Admin can retrieve it via Reveal Temp Password from this user&apos;s row menu.</span>
+            <span>The user was created, but the temporary password could not be delivered via SMS or email. A Tenant Admin can retrieve it via Reveal Temp Password from this user&apos;s row menu.</span>
           </div>
         )}
 
@@ -287,6 +319,7 @@ export default function AdminUsers() {
         email: form.email.trim().toLowerCase(),
         role: form.role,
         smsEnqueued: res.data.smsEnqueued,
+        emailEnqueued: res.data.emailEnqueued,
         mode: "created",
       })
       setIsCreateOpen(false)

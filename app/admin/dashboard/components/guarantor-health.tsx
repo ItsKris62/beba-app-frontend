@@ -5,8 +5,9 @@ import { Cell, Label, Pie, PieChart } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { adminApi } from '@/lib/api-client';
+import { adminApi, type GuarantorHealth as GuarantorHealthData } from '@/lib/api-client';
 import { GUARANTOR_HEALTH_CHART_CONFIG, coverageColor, riskColor } from '@/lib/chart-colors';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 
 export function GuarantorHealth() {
   const query = useQuery({
@@ -18,7 +19,9 @@ export function GuarantorHealth() {
     refetchOnReconnect: true,
   });
 
-  const health = query.data?.success ? query.data.data : null;
+  // Sticky: a transient failure on a background 10-min poll must not null
+  // this out and blank an already-rendered chart.
+  const health = useLastGoodData<GuarantorHealthData>(query.data);
   const loading = query.isLoading;
 
   const data = health

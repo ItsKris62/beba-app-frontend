@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { adminApi } from '@/lib/api-client';
+import { adminApi, type MpesaHeatmap as MpesaHeatmapData } from '@/lib/api-client';
 import { heatmapColor } from '@/lib/chart-colors';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 
 const DAYS = 7;
 const HOUR_LABELS = [0, 3, 6, 9, 12, 15, 18, 21];
@@ -44,7 +45,9 @@ export function MpesaHeatmap() {
     return () => observer.disconnect();
   }, []);
 
-  const heatmap = query.data?.success ? query.data.data : null;
+  // Sticky: a transient failure on a background 2-min poll must not null
+  // this out and blank an already-rendered heatmap.
+  const heatmap = useLastGoodData<MpesaHeatmapData>(query.data);
   const loading = query.isLoading;
 
   const { days, byCell, max } = useMemo(() => {

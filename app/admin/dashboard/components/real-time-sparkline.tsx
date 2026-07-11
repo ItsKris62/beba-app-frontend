@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { adminApi, type RealTimeAnalyticsSnapshot } from '@/lib/api-client';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 
 const POLL_INTERVAL_MS = 5_000;
 const MAX_POINTS = 60; // 5 min of history at 5s intervals
@@ -44,12 +45,19 @@ export function RealTimeSparkline() {
     staleTime: 0,
   });
 
-  const snapshot: RealTimeAnalyticsSnapshot | null = query.data?.success ? query.data.data : null;
+  // Sticky: a transient failed poll must not null the stat chips row back
+  // out — it should just keep showing the last good reading until the
+  // next successful poll arrives.
+  const snapshot = useLastGoodData<RealTimeAnalyticsSnapshot>(query.data);
 
   useEffect(() => {
-    if (query.status === 'success') {
+    // apiFetch() resolves rather than rejects on a network failure, so
+    // query.status never actually becomes 'error' for this call — the
+    // real signal is the resolved {success:false, error:{code:...}} shape.
+    const isNetworkError = query.data != null && !query.data.success && query.data.error?.code === 'NETWORK_ERROR';
+    if (query.data?.success) {
       errorStreakRef.current = 0;
-    } else if (query.status === 'error') {
+    } else if (isNetworkError) {
       errorStreakRef.current += 1;
     }
     const lost = errorStreakRef.current >= 3;
@@ -57,7 +65,7 @@ export function RealTimeSparkline() {
       if (prev === lost) return prev;
       return lost;
     });
-  }, [query.status, query.dataUpdatedAt, query.errorUpdatedAt]);
+  }, [query.data]);
 
   useEffect(() => {
     if (!snapshot || snapshot.timestamp === lastTimestampRef.current) return;

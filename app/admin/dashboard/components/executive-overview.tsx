@@ -6,8 +6,9 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { adminApi, type ExecutiveOverviewRange } from '@/lib/api-client';
+import { adminApi, type ExecutiveOverview as ExecutiveOverviewData, type ExecutiveOverviewRange } from '@/lib/api-client';
 import { EXECUTIVE_OVERVIEW_CHART_CONFIG, NEW_MEMBERS_CHART_CONFIG } from '@/lib/chart-colors';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 
 const RANGES: Array<{ value: ExecutiveOverviewRange; label: string }> = [
   { value: '30d', label: '30D' },
@@ -37,7 +38,13 @@ export function ExecutiveOverview() {
     placeholderData: keepPreviousData,
   });
 
-  const overview = query.data?.success ? query.data.data : null;
+  // Sticky (no resetKey): a transient failure on a background 5-min poll,
+  // or on the very first fetch after switching range, must not null this
+  // out and blank the chart — `placeholderData: keepPreviousData` above
+  // already keeps the previous range's data visible during a range
+  // switch, so staying sticky here just extends that same "never go
+  // blank" guarantee to cover a failed fetch too, not just an in-flight one.
+  const overview = useLastGoodData<ExecutiveOverviewData>(query.data);
 
   const moneyData = useMemo(() => {
     if (!overview) return [];

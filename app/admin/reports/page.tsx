@@ -26,6 +26,7 @@ import {
 import { adminApi, memberApi, type AdminDashboardReports } from '@/lib/api-client';
 import { LOAN_STATUS_CHART_CONFIG, SAVINGS_CHART_CONFIG, UNKNOWN_STATUS_COLOR } from '@/lib/chart-colors';
 import { useNetworkErrorAutoRetry } from '@/lib/use-network-error-retry';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 
 function LoansByStatusChart({ data }: { data: AdminDashboardReports['loansByStatus'] }) {
   if (data.length === 0) {
@@ -136,7 +137,10 @@ export default function AdminReportsPage() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
-  const reports: AdminDashboardReports | null = reportsQuery.data?.success ? reportsQuery.data.data : null;
+  // Sticky: only updates on an actually-successful response, so a
+  // transient failure on a background poll doesn't null this back out and
+  // tear down the already-rendered charts (see use-last-good-data.ts).
+  const reports = useLastGoodData<AdminDashboardReports>(reportsQuery.data);
 
   // Same reasoning as the admin dashboard page: apiFetch() resolves rather
   // than rejects on a network failure, so React Query's own `retry` never

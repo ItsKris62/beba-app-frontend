@@ -46,9 +46,10 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { adminApi, type AdminDashboardReports, type AdminDashboardStats } from '@/lib/api-client';
+import { adminApi, type AdminDashboardReports, type AdminDashboardStats, type SupportTicket } from '@/lib/api-client';
 import { useAuth, isAdmin } from '@/lib/auth-context';
 import { useNetworkErrorAutoRetry } from '@/lib/use-network-error-retry';
+import { useLastGoodData } from '@/lib/use-last-good-data';
 import { ExecutiveOverview } from './components/executive-overview';
 import { RealTimeSparkline } from './components/real-time-sparkline';
 import { GuarantorHealth } from './components/guarantor-health';
@@ -530,11 +531,16 @@ export default function AdminDashboardPage() {
       predicate: (q) => q.queryKey[0] !== 'admin-realtime-snapshot',
     }) > 0;
 
-  const stats: AdminDashboardStats | null = statsQuery.data?.success ? statsQuery.data.data : null;
-  const reports: AdminDashboardReports | null = reportsQuery.data?.success ? reportsQuery.data.data : null;
+  // Sticky: only updates on an actually-successful response. A transient
+  // failure on a background 60s poll must not null this back out — that
+  // would tear down every chart on screen and re-trigger the wake-up
+  // takeover even though nothing is wrong with the data already loaded.
+  const stats = useLastGoodData<AdminDashboardStats>(statsQuery.data);
+  const reports = useLastGoodData<AdminDashboardReports>(reportsQuery.data);
+  const openTicketsData = useLastGoodData<SupportTicket[]>(ticketsQuery.data);
   const loansByStatus = useMemo(() => reports?.loansByStatus ?? [], [reports]);
   const loanProductMix = useMemo(() => reports?.loanProductMix ?? [], [reports]);
-  const openTickets = ticketsQuery.data?.success ? ticketsQuery.data.data.length : null;
+  const openTickets = openTicketsData?.length ?? null;
 
   // A cold-started backend (Render free/starter tier spinning up from idle,
   // ~30-60s) fails the very first request. apiFetch() resolves rather than

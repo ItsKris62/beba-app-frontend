@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/chart';
 import { adminApi, type AdminDashboardReports, type AdminDashboardStats } from '@/lib/api-client';
 import { useAuth, isAdmin } from '@/lib/auth-context';
+import { useNetworkErrorAutoRetry } from '@/lib/use-network-error-retry';
 import { ExecutiveOverview } from './components/executive-overview';
 import { RealTimeSparkline } from './components/real-time-sparkline';
 import { GuarantorHealth } from './components/guarantor-health';
@@ -534,12 +535,30 @@ export default function AdminDashboardPage() {
   const loansByStatus = useMemo(() => reports?.loansByStatus ?? [], [reports]);
   const loanProductMix = useMemo(() => reports?.loanProductMix ?? [], [reports]);
   const openTickets = ticketsQuery.data?.success ? ticketsQuery.data.data.length : null;
-  const loading = canViewAdminDashboard && (statsQuery.isLoading || reportsQuery.isLoading);
-  // Only the *initial* fetch failing blanks the page — once `stats` has
-  // loaded once, a later background refetch failing just leaves the stale
-  // data on screen (per the "no error state on background failure" rule).
+
+  // A cold-started backend (Render free/starter tier spinning up from idle,
+  // ~30-60s) fails the very first request. apiFetch() resolves rather than
+  // rejects on that failure, so it looks like a normal "loaded" query to
+  // React Query — this hook drives its own backoff refetch loop until the
+  // service wakes up, instead of the page treating attempt #1 as final.
+  const statsNetworkError = statsQuery.data != null && !statsQuery.data.success && statsQuery.data.error?.code === 'NETWORK_ERROR';
+  const reportsNetworkError = reportsQuery.data != null && !reportsQuery.data.success && reportsQuery.data.error?.code === 'NETWORK_ERROR';
+  const statsRetry = useNetworkErrorAutoRetry(statsQuery.data, !!stats, statsQuery.refetch);
+  const reportsRetry = useNetworkErrorAutoRetry(reportsQuery.data, !!reports, reportsQuery.refetch);
+
+  const initialLoading = canViewAdminDashboard && (statsQuery.isLoading || reportsQuery.isLoading);
+  const wakingUp =
+    (!stats && statsNetworkError && !statsRetry.exhausted) ||
+    (!reports && reportsNetworkError && !reportsRetry.exhausted);
+  const loading = initialLoading || wakingUp;
+  const wakeUpAttempt = Math.max(statsRetry.attempt, reportsRetry.attempt);
+
+  // Only the *initial* fetch failing (and only once the wake-up retry loop
+  // has given up) blanks the page — once `stats` has loaded once, a later
+  // background refetch failing just leaves the stale data on screen (per
+  // the "no error state on background failure" rule).
   const error =
-    !stats && (statsQuery.isError || (statsQuery.data && !statsQuery.data.success))
+    !stats && !wakingUp && (statsQuery.isError || (statsQuery.data && !statsQuery.data.success))
       ? statsQuery.data?.error?.message ??
         (statsQuery.error instanceof Error ? statsQuery.error.message : 'Failed to load dashboard')
       : null;
@@ -552,10 +571,41 @@ export default function AdminDashboardPage() {
 
   const fmt = (n: number) => `KES ${n.toLocaleString('en-KE')}`;
 
+  if (wakingUp) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="bg-blue-50 border border-blue-200 text-blue-900 p-4 rounded flex items-center gap-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+          <div>
+            <p className="font-medium">Waking up the server…</p>
+            <p className="text-sm text-blue-800">
+              This can take up to a minute if the service has been idle. Retrying automatically
+              (attempt {wakeUpAttempt + 1} of 6)…
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="p-6">
-        <div className="text-red-600 bg-red-50 p-4 rounded">{error}</div>
+        <div className="text-red-600 bg-red-50 p-4 rounded">
+          {statsNetworkError ? (
+            <>
+              <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
+              <p className="text-sm mt-1">
+                This usually means it&apos;s still waking up from being idle — wait a moment and try again.
+              </p>
+            </>
+          ) : (
+            error
+          )}
+        </div>
         <Button className="mt-4" onClick={refresh}>Retry</Button>
       </div>
     );

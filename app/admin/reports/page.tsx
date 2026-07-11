@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/chart';
 import { adminApi, memberApi, type AdminDashboardReports } from '@/lib/api-client';
 import { LOAN_STATUS_CHART_CONFIG, SAVINGS_CHART_CONFIG, UNKNOWN_STATUS_COLOR } from '@/lib/chart-colors';
+import { useNetworkErrorAutoRetry } from '@/lib/use-network-error-retry';
 
 function LoansByStatusChart({ data }: { data: AdminDashboardReports['loansByStatus'] }) {
   if (data.length === 0) {
@@ -136,11 +137,22 @@ export default function AdminReportsPage() {
     refetchOnReconnect: true,
   });
   const reports: AdminDashboardReports | null = reportsQuery.data?.success ? reportsQuery.data.data : null;
-  const loading = reportsQuery.isLoading;
-  // Only the initial fetch failing blanks the page — a later background
-  // refetch failing leaves the last-good report data on screen.
+
+  // Same reasoning as the admin dashboard page: apiFetch() resolves rather
+  // than rejects on a network failure, so React Query's own `retry` never
+  // engages here — this hook drives its own backoff loop so a Render
+  // cold-started backend (~30-60s to wake) doesn't strand the page on the
+  // very first failed attempt.
+  const reportsNetworkError = reportsQuery.data != null && !reportsQuery.data.success && reportsQuery.data.error?.code === 'NETWORK_ERROR';
+  const reportsRetry = useNetworkErrorAutoRetry(reportsQuery.data, !!reports, reportsQuery.refetch);
+  const wakingUp = !reports && reportsNetworkError && !reportsRetry.exhausted;
+  const loading = reportsQuery.isLoading || wakingUp;
+
+  // Only the initial fetch failing (and only once the wake-up retry loop
+  // has given up) blanks the page — a later background refetch failing
+  // leaves the last-good report data on screen.
   const loadError =
-    !reports && (reportsQuery.isError || (reportsQuery.data && !reportsQuery.data.success))
+    !reports && !wakingUp && (reportsQuery.isError || (reportsQuery.data && !reportsQuery.data.success))
       ? reportsQuery.data?.error?.message ??
         (reportsQuery.error instanceof Error ? reportsQuery.error.message : 'Failed to load reports')
       : null;
@@ -166,10 +178,39 @@ export default function AdminReportsPage() {
     }
   };
 
+  if (wakingUp) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="bg-blue-50 border border-blue-200 text-blue-900 p-4 rounded flex items-center gap-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+          <div>
+            <p className="font-medium">Waking up the server…</p>
+            <p className="text-sm text-blue-800">
+              This can take up to a minute if the service has been idle. Retrying automatically
+              (attempt {reportsRetry.attempt + 1} of 6)…
+            </p>
+          </div>
+        </div>
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
   if (loadError) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 text-red-700 p-4 rounded">{loadError}</div>
+        <div className="bg-red-50 text-red-700 p-4 rounded">
+          {reportsNetworkError ? (
+            <>
+              <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
+              <p className="text-sm mt-1">
+                This usually means it&apos;s still waking up from being idle — wait a moment and try again.
+              </p>
+            </>
+          ) : (
+            loadError
+          )}
+        </div>
       </div>
     );
   }

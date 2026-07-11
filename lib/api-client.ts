@@ -1645,13 +1645,72 @@ export interface AdminDashboardStats {
     deposits7d: { count: number; totalAmount: number };
     deposits30d: { count: number; totalAmount: number };
   };
+  // NOTE: no `shareCapital` field exists anywhere in the backend schema (verified
+  // against prisma/schema.prisma) — don't add one here without a real backing field.
+  liquidity: {
+    totalFosaLiquidity: number;
+    totalBosaSavings: number;
+    fosa: { totalBalance: number; accountCount: number; avgBalance: number };
+    bosa: { totalBalance: number; accountCount: number; avgBalance: number };
+  };
 }
 
 export interface AdminDashboardReports {
   loansByStatus: Array<{ status: string; count: number; totalAmount: number }>;
   savingsByWeek: Array<{ weekNumber: number; totalAmount: number; memberCount: number }>;
   topDefaulters: Array<{ memberNumber: string; outstandingBalance: number; arrearsDays: number }>;
+  // Loan products are per-tenant rows (name-based), not a fixed enum — this is
+  // whatever products the tenant actually has, not a hardcoded pair.
+  loanProductMix: Array<{ productId: string; productName: string; count: number; totalDisbursed: number; avgLoanSize: number }>;
+  agingBuckets: {
+    current: number;
+    days1to30: number;
+    days31to60: number;
+    days61to90: number;
+    days90Plus: number;
+  };
   generatedAt: string;
+}
+
+export type ExecutiveOverviewRange = '30d' | '90d' | '1y';
+
+// No `delinquency` series — the backend has no historical PAR/delinquency
+// snapshot table to trend (see dashboard.service.ts doc comment). Don't add
+// a delinquency line here without a real backing time series.
+export interface ExecutiveOverview {
+  range: ExecutiveOverviewRange;
+  revenue: Array<{ date: string; amount: number }>;
+  disbursements: Array<{ date: string; amount: number }>;
+  newMembers: Array<{ date: string; count: number }>;
+}
+
+export interface GuarantorHealth {
+  totalLoansWithGuarantors: number;
+  totalActiveLoans: number;
+  coveragePercent: number;
+  loansWithPartialCoverage: number;
+  loansWithFullCoverage: number;
+  loansWithNoGuarantors: number;
+  guarantorDefaultRate: number;
+  averageGuarantorsPerLoan: number;
+}
+
+export interface MpesaHeatmap {
+  days: number;
+  buckets: Array<{ day: string; hour: number; totalAmount: number; transactionCount: number }>;
+}
+
+// Shape emitted by admin/analytics/real-time — same payload whether read via
+// the JSON-snapshot fallback (what this app polls) or the SSE stream.
+export interface RealTimeAnalyticsSnapshot {
+  tenantId: string;
+  timestamp: string;
+  totalDepositsToday: number;
+  activeLoans: number;
+  pendingApplications: number;
+  nplRatio: number;
+  liquidityRatio: number;
+  memberCount: number;
 }
 
 export interface FinancialPreviewResponse {
@@ -1686,6 +1745,26 @@ export const adminApi = {
   getDashboardStats: () => apiFetch<AdminDashboardStats>('/admin/dashboard/stats'),
 
   getDashboardReports: () => apiFetch<AdminDashboardReports>('/admin/dashboard/reports'),
+
+  getExecutiveOverview: (range: ExecutiveOverviewRange) =>
+    apiFetch<ExecutiveOverview>(`/admin/dashboard/executive-overview?range=${range}`),
+
+  getGuarantorHealth: () => apiFetch<GuarantorHealth>('/admin/dashboard/guarantor-health'),
+
+  getMpesaHeatmap: (days = 7) =>
+    apiFetch<MpesaHeatmap>(`/admin/dashboard/mpesa-heatmap?days=${days}`),
+
+  // Deliberately NOT a browser EventSource — that endpoint requires an
+  // Authorization header + X-Tenant-ID header neither EventSource nor cookies
+  // can carry here (no cookie/query-token auth path exists on that route),
+  // and the backend's broadcast trigger is never invoked anywhere in this
+  // codebase today, so a real SSE connection would only ever emit one event.
+  // The controller already has a documented non-SSE JSON-snapshot fallback
+  // (triggered by not sending `Accept: text/event-stream`, which apiFetch
+  // never does) — polling that via React Query gives the same live-feeling
+  // UX without any backend auth workaround.
+  getRealTimeAnalyticsSnapshot: () =>
+    apiFetch<RealTimeAnalyticsSnapshot>('/admin/analytics/real-time'),
 
   previewFinancialImport: (file: File, sheetType: string) => {
     const form = new FormData();

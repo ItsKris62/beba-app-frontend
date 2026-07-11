@@ -11,89 +11,143 @@
  * - Compliance audit viewer
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Bar, BarChart as RechartsBarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 import { adminApi, memberApi, type AdminDashboardReports } from '@/lib/api-client';
+import { LOAN_STATUS_CHART_CONFIG, SAVINGS_CHART_CONFIG, UNKNOWN_STATUS_COLOR } from '@/lib/chart-colors';
 
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  DISBURSED: 'bg-blue-100 text-blue-800',
-  ACTIVE: 'bg-green-100 text-green-800',
-  PAID_OFF: 'bg-gray-100 text-gray-800',
-  DEFAULTED: 'bg-red-100 text-red-800',
-  WRITTEN_OFF: 'bg-red-200 text-red-900',
-};
-
-function BarChart({
-  data,
-  valueKey,
-  labelKey,
-  color = '#22c55e',
-}: {
-  data: Array<Record<string, number | string>>;
-  valueKey: string;
-  labelKey: string;
-  color?: string;
-}) {
-  const max = Math.max(...data.map((d) => Number(d[valueKey])), 1);
+function LoansByStatusChart({ data }: { data: AdminDashboardReports['loansByStatus'] }) {
+  if (data.length === 0) {
+    return <p className="text-muted-foreground text-sm">No loan data</p>;
+  }
   return (
-    <div className="space-y-2">
-      {data.map((item, i) => {
-        const value = Number(item[valueKey]);
-        const pct = (value / max) * 100;
-        return (
-          <div key={i} className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-20 text-right shrink-0">
-              {String(item[labelKey])}
-            </span>
-            <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
-              <div
-                className="h-full rounded transition-all"
-                style={{ width: `${pct}%`, backgroundColor: color }}
-              />
-            </div>
-            <span className="text-xs font-medium w-24 shrink-0">
-              {typeof value === 'number' && value > 1000
-                ? `KES ${value.toLocaleString()}`
-                : value.toLocaleString()}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+    <ChartContainer config={LOAN_STATUS_CHART_CONFIG} className="h-[240px] w-full">
+      <RechartsBarChart accessibilityLayer aria-label="Loan count by status" data={data} layout="vertical" margin={{ left: 12 }}>
+        <CartesianGrid horizontal={false} />
+        <XAxis type="number" dataKey="count" hide />
+        <YAxis
+          type="category"
+          dataKey="status"
+          tickLine={false}
+          axisLine={false}
+          width={90}
+          tickFormatter={(status: string) => LOAN_STATUS_CHART_CONFIG[status]?.label as string ?? status}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              hideLabel
+              nameKey="status"
+              formatter={(value, name, item) => {
+                const amount = (item.payload as { totalAmount: number }).totalAmount;
+                return (
+                  <div className="flex w-full justify-between gap-3">
+                    <span className="text-muted-foreground">
+                      {LOAN_STATUS_CHART_CONFIG[name as string]?.label ?? String(name)}
+                    </span>
+                    <span className="font-mono font-medium">
+                      {value.toLocaleString()} loans · KES {amount.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              }}
+            />
+          }
+        />
+        <Bar dataKey="count" radius={4}>
+          {data.map((entry) => (
+            <Cell
+              key={entry.status}
+              fill={
+                entry.status in LOAN_STATUS_CHART_CONFIG
+                  ? `var(--color-${entry.status})`
+                  : UNKNOWN_STATUS_COLOR.light
+              }
+            />
+          ))}
+        </Bar>
+      </RechartsBarChart>
+    </ChartContainer>
+  );
+}
+
+function SavingsByWeekChart({ data }: { data: AdminDashboardReports['savingsByWeek'] }) {
+  if (data.length === 0) {
+    return <p className="text-muted-foreground text-sm">No savings data</p>;
+  }
+  const chartData = data.map((w) => ({ week: `Wk ${w.weekNumber}`, amount: w.totalAmount, memberCount: w.memberCount }));
+  return (
+    <ChartContainer config={SAVINGS_CHART_CONFIG} className="h-[240px] w-full">
+      <RechartsBarChart accessibilityLayer aria-label="Savings deposited by week" data={chartData} margin={{ left: 12 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="week" tickLine={false} axisLine={false} />
+        <YAxis tickLine={false} axisLine={false} tickFormatter={(v: number) => `KES ${(v / 1000).toLocaleString()}k`} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              nameKey="amount"
+              formatter={(value, _name, item) => {
+                const memberCount = (item.payload as { memberCount: number }).memberCount;
+                return (
+                  <div className="flex w-full justify-between gap-3">
+                    <span className="text-muted-foreground">Savings</span>
+                    <span className="font-mono font-medium">
+                      KES {value.toLocaleString()} · {memberCount} members
+                    </span>
+                  </div>
+                );
+              }}
+            />
+          }
+        />
+        <Bar dataKey="amount" fill="var(--color-amount)" radius={4} />
+      </RechartsBarChart>
+    </ChartContainer>
   );
 }
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<AdminDashboardReports | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'FOSA' | 'BOSA'>('FOSA');
   const [exportMemberId, setExportMemberId] = useState('');
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
   const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  useEffect(() => {
-    adminApi
-      .getDashboardReports()
-      .then((res) => {
-        if (res.success) {
-          setReports(res.data);
-        } else {
-          setError(res.error?.message ?? 'Failed to load reports');
-        }
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load reports'))
-      .finally(() => setLoading(false));
-  }, []);
+  // Silent background refresh, 60s cadence — same reasoning as the admin
+  // dashboard page: isLoading (initial-fetch-only in v5) gates the skeleton,
+  // so a background refetchInterval tick never flashes stale charts away.
+  const reportsQuery = useQuery({
+    queryKey: ['admin-dashboard-reports'],
+    queryFn: () => adminApi.getDashboardReports(),
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+  const reports: AdminDashboardReports | null = reportsQuery.data?.success ? reportsQuery.data.data : null;
+  const loading = reportsQuery.isLoading;
+  // Only the initial fetch failing blanks the page — a later background
+  // refetch failing leaves the last-good report data on screen.
+  const loadError =
+    !reports && (reportsQuery.isError || (reportsQuery.data && !reportsQuery.data.success))
+      ? reportsQuery.data?.error?.message ??
+        (reportsQuery.error instanceof Error ? reportsQuery.error.message : 'Failed to load reports')
+      : null;
 
   const handleExport = async (format: 'pdf' | 'csv') => {
     if (!exportMemberId.trim()) {
-      setError('Member ID is required to export a statement.');
+      setExportError('Member ID is required to export a statement.');
       return;
     }
     setExporting(format);
@@ -106,16 +160,16 @@ export default function AdminReportsPage() {
       if (format === 'pdf') await memberApi.downloadStatementPdf(exportType, params);
       else await memberApi.downloadStatementCsv(exportType, params);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to export statement');
+      setExportError(e instanceof Error ? e.message : 'Failed to export statement');
     } finally {
       setExporting(null);
     }
   };
 
-  if (error) {
+  if (loadError) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 text-red-700 p-4 rounded">{error}</div>
+        <div className="bg-red-50 text-red-700 p-4 rounded">{loadError}</div>
       </div>
     );
   }
@@ -194,6 +248,7 @@ export default function AdminReportsPage() {
             PDF includes SACCO header, transaction table, audit hash, ODPC disclaimer, and
             CONFIDENTIAL watermark. Generated server-side.
           </p>
+          {exportError && <p className="text-xs text-red-600 mt-2">{exportError}</p>}
         </CardContent>
       </Card>
 
@@ -208,22 +263,7 @@ export default function AdminReportsPage() {
             {loading ? (
               <Skeleton className="h-48" />
             ) : (
-              <div className="space-y-3">
-                {(reports?.loansByStatus ?? []).map((item) => (
-                  <div key={item.status} className="flex items-center justify-between">
-                    <Badge className={STATUS_COLORS[item.status] ?? 'bg-gray-100'}>
-                      {item.status}
-                    </Badge>
-                    <div className="flex gap-4 text-sm">
-                      <span className="text-muted-foreground">{item.count} loans</span>
-                      <span className="font-medium">KES {item.totalAmount.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-                {(reports?.loansByStatus ?? []).length === 0 && (
-                  <p className="text-muted-foreground text-sm">No loan data</p>
-                )}
-              </div>
+              <LoansByStatusChart data={reports?.loansByStatus ?? []} />
             )}
           </CardContent>
         </Card>
@@ -237,14 +277,8 @@ export default function AdminReportsPage() {
             {loading ? (
               <Skeleton className="h-48" />
             ) : (
-              <BarChart
-                data={(reports?.savingsByWeek ?? []).map((w) => ({
-                  label: `Wk ${w.weekNumber}`,
-                  amount: w.totalAmount,
-                }))}
-                labelKey="label"
-                valueKey="amount"
-                color="#3b82f6"
+              <SavingsByWeekChart
+                data={reports?.savingsByWeek ?? []}
               />
             )}
           </CardContent>

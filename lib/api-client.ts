@@ -8,33 +8,38 @@
  * - Retries on 5xx (max 2 attempts)
  */
 
-import { sanitizeHttpError, sanitizeThrownError, type SanitizedApiError } from './error-sanitizer';
+import {
+  sanitizeHttpError,
+  sanitizeThrownError,
+  type SanitizedApiError,
+} from "./error-sanitizer";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 const AUTH_BASE = `${API_BASE}/auth`;
 
 export const authClient = {
-  baseURL: '/api/auth',
+  baseURL: "/api/auth",
   withCredentials: true,
   post: (path: string, body?: unknown) =>
     fetch(`${AUTH_BASE}${path}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': getTenantId(),
+        "Content-Type": "application/json",
+        "X-Tenant-ID": getTenantId(),
       },
-      credentials: 'include',
+      credentials: "include",
       body: JSON.stringify(body ?? {}),
     }),
   get: (path: string, accessToken?: string | null) =>
     fetch(`${AUTH_BASE}${path}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': getTenantId(),
+        "Content-Type": "application/json",
+        "X-Tenant-ID": getTenantId(),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
-      credentials: 'include',
+      credentials: "include",
     }),
 };
 
@@ -43,10 +48,10 @@ function getTenantId(): string {
   if (process.env.NEXT_PUBLIC_TENANT_ID) {
     return process.env.NEXT_PUBLIC_TENANT_ID;
   }
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('beba_tenant_id') ?? '';
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("beba_tenant_id") ?? "";
   }
-  return '';
+  return "";
 }
 
 // ─── Standard response envelope ──────────────────────────────────────────────
@@ -102,7 +107,7 @@ export interface MemberDashboard {
     phone?: string | null;
     profileImageKey?: string | null;
     updatedAt?: string;
-    kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | string;
+    kycStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | string;
     kycRejectionReason?: string | null;
   };
   balances: {
@@ -268,7 +273,7 @@ export interface GuarantorLookupResult {
   memberId: string;
   maskedName: string;
   maskedMemberNumber?: string;
-  kycStatus: 'KYC_VERIFIED';
+  kycStatus: "KYC_VERIFIED";
   eligible: boolean;
   reason?: string;
 }
@@ -300,7 +305,7 @@ export interface AdminMember {
     email: string;
     phone: string | null;
     role: string;
-    accountStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
+    accountStatus: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
     emailVerified: boolean;
     lastLoginAt: string | null;
   };
@@ -424,23 +429,19 @@ export interface LogoUploadUrlResponse {
 }
 
 export type TransactionType =
-  | 'DEPOSIT'
-  | 'WITHDRAWAL'
-  | 'LOAN_DISBURSEMENT'
-  | 'LOAN_REPAYMENT'
-  | 'INTEREST_EARNED'
-  | 'INTEREST_ACCRUAL'
-  | 'PENALTY'
-  | 'DIVIDEND_PAYOUT'
-  | 'FEE_CHARGE'
-  | 'TRANSFER';
+  | "DEPOSIT"
+  | "WITHDRAWAL"
+  | "LOAN_DISBURSEMENT"
+  | "LOAN_REPAYMENT"
+  | "INTEREST_EARNED"
+  | "INTEREST_ACCRUAL"
+  | "PENALTY"
+  | "DIVIDEND_PAYOUT"
+  | "FEE_CHARGE"
+  | "TRANSFER";
 
 export type TransactionStatus =
-  | 'PENDING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'REVERSED'
-  | 'RECON_PENDING';
+  "PENDING" | "COMPLETED" | "FAILED" | "REVERSED" | "RECON_PENDING";
 
 export interface AdminTransaction {
   id: string;
@@ -460,7 +461,7 @@ export interface AdminTransaction {
   account: {
     id: string;
     accountNumber: string;
-    accountType: 'FOSA' | 'BOSA';
+    accountType: "FOSA" | "BOSA";
     member: {
       id: string;
       memberNumber: string;
@@ -478,21 +479,22 @@ export interface TransactionStats {
   periodEnd: string | null;
 }
 
-export type JournalEntryStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'POSTED';
+export type JournalEntryStatus =
+  "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "POSTED";
 export type JournalEntryType =
-  | 'MANUAL'
-  | 'LOAN_DISBURSEMENT'
-  | 'LOAN_REPAYMENT'
-  | 'FEE_CHARGE'
-  | 'FEE_REVERSAL'
-  | 'MPESA_DEPOSIT'
-  | 'INTEREST_ACCRUAL';
+  | "MANUAL"
+  | "LOAN_DISBURSEMENT"
+  | "LOAN_REPAYMENT"
+  | "FEE_CHARGE"
+  | "FEE_REVERSAL"
+  | "MPESA_DEPOSIT"
+  | "INTEREST_ACCRUAL";
 
 export interface GLAccount {
   id: string;
   code: string;
   name: string;
-  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+  type: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
   parentId: string | null;
   isSystemAccount: boolean;
   isActive: boolean;
@@ -549,16 +551,31 @@ export interface JournalEntry {
   approvalNotes?: string | null;
   postedAt?: string | null;
   createdAt: string;
-  createdBy?: { id: string; firstName: string; lastName: string; email: string };
-  approvedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
-  rejectedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  approvedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  } | null;
+  rejectedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  } | null;
   postings: {
     id: string;
     amount: number;
     description?: string | null;
     postingDate: string;
-    debitAccount: Pick<GLAccount, 'id' | 'code' | 'name' | 'type'>;
-    creditAccount: Pick<GLAccount, 'id' | 'code' | 'name' | 'type'>;
+    debitAccount: Pick<GLAccount, "id" | "code" | "name" | "type">;
+    creditAccount: Pick<GLAccount, "id" | "code" | "name" | "type">;
   }[];
 }
 
@@ -582,7 +599,7 @@ export interface StaffUser {
   lastName: string;
   phone: string | null;
   role: string;
-  accountStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
+  accountStatus: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   emailVerified: boolean;
@@ -601,7 +618,7 @@ export interface PendingMember {
   kycDocumentUrls?: string[] | null;
   kycChecklist?: Record<string, boolean> | null;
   kycReviewNotes?: string | null;
-  kycStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  kycStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED";
   joinedAt: string;
   user: {
     id: string;
@@ -617,7 +634,13 @@ export interface KycDocument {
   id: string;
   memberId: string;
   type: string;
-  status: 'PENDING_UPLOAD' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'QUARANTINE' | 'DELETED';
+  status:
+    | "PENDING_UPLOAD"
+    | "PENDING_REVIEW"
+    | "APPROVED"
+    | "REJECTED"
+    | "QUARANTINE"
+    | "DELETED";
   originalFileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -633,7 +656,12 @@ export interface KycDocument {
     id: string;
     memberNumber: string;
     kycStatus: string;
-    user: { firstName: string; lastName: string; email: string; phone: string | null };
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string | null;
+    };
   };
 }
 
@@ -656,7 +684,7 @@ export interface DocumentUploadIntent {
 
 export interface StkStatusResponse {
   checkoutRequestId: string;
-  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED' | 'RECON_PENDING';
+  status: "PENDING" | "COMPLETED" | "FAILED" | "REVERSED" | "RECON_PENDING";
   amount: string;
   lastUpdated: string;
   failureReason?: string;
@@ -668,10 +696,10 @@ export interface LoanProductPayload {
   minAmount: number;
   maxAmount: number;
   interestRate: number;
-  interestType: 'FLAT' | 'REDUCING_BALANCE';
+  interestType: "FLAT" | "REDUCING_BALANCE";
   maxTenureMonths: number;
   processingFeeRate?: number;
-  requiredAccountType?: 'FOSA' | 'BOSA';
+  requiredAccountType?: "FOSA" | "BOSA";
   savingsMultiplier?: number;
   minGuarantors?: number;
   maxGuarantors?: number;
@@ -683,15 +711,16 @@ export interface LoanProductPayload {
   isActive?: boolean;
 }
 
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_MEMBER' | 'RESOLVED' | 'CLOSED';
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TicketStatus =
+  "OPEN" | "IN_PROGRESS" | "WAITING_ON_MEMBER" | "RESOLVED" | "CLOSED";
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type TicketCategory =
-  | 'LOAN_QUERY'
-  | 'MPESA_ISSUE'
-  | 'ACCOUNT_ACCESS'
-  | 'KYC_UPDATE'
-  | 'GUARANTOR_DISPUTE'
-  | 'GENERAL';
+  | "LOAN_QUERY"
+  | "MPESA_ISSUE"
+  | "ACCOUNT_ACCESS"
+  | "KYC_UPDATE"
+  | "GUARANTOR_DISPUTE"
+  | "GENERAL";
 
 export interface TicketMessage {
   id: string;
@@ -753,10 +782,10 @@ export interface SupportTicketFilters {
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
 
-const TOKEN_KEY = 'beba_access_token';
-const REFRESH_KEY = 'beba_refresh_token';
-const USER_KEY = 'beba_user';
-const TENANT_KEY = 'beba_tenant_id';
+const TOKEN_KEY = "beba_access_token";
+const REFRESH_KEY = "beba_refresh_token";
+const USER_KEY = "beba_user";
+const TENANT_KEY = "beba_tenant_id";
 
 // ─── In-memory access token ────────────────────────────────────────────────────
 // Phase 4 security: the access token is held ONLY in this module-level variable.
@@ -781,9 +810,9 @@ function setMemAccessToken(token: string | null): void {
 // uses SameSite=Lax so top-level portal navigation carries it.
 function getJwtMaxAgeSeconds(token: string): number {
   try {
-    const [, payload] = token.split('.');
+    const [, payload] = token.split(".");
     if (!payload) return 15 * 60;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
     const decoded = JSON.parse(atob(normalized)) as { exp?: number };
     if (!decoded.exp) return 15 * 60;
     return Math.max(0, decoded.exp - Math.floor(Date.now() / 1000));
@@ -793,18 +822,18 @@ function getJwtMaxAgeSeconds(token: string): number {
 }
 
 function getCookieSecurityAttributes(): string {
-  if (typeof window === 'undefined') return '';
-  return window.location.protocol === 'https:' ? '; Secure' : '';
+  if (typeof window === "undefined") return "";
+  return window.location.protocol === "https:" ? "; Secure" : "";
 }
 
 function setCookie(name: string, value: string, maxAgeSeconds: number): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === "undefined") return;
   const maxAge = Math.max(0, Math.floor(maxAgeSeconds));
   document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; path=/; SameSite=Lax${getCookieSecurityAttributes()}`;
 }
 
 function clearCookie(name: string): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === "undefined") return;
   document.cookie = `${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax${getCookieSecurityAttributes()}`;
 }
 
@@ -812,25 +841,29 @@ export const tokenStore = {
   /** Returns the in-memory access token (never reads localStorage). */
   getAccess: (): string | null => _memAccessToken,
   getRefresh: (): string | null => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     return localStorage.getItem(REFRESH_KEY);
   },
-  getUser: (): LoginResponse['user'] | null => {
-    if (typeof window === 'undefined') return null;
+  getUser: (): LoginResponse["user"] | null => {
+    if (typeof window === "undefined") return null;
     const raw = localStorage.getItem(USER_KEY);
     if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   },
   set: (
     access: string,
     refresh: string,
-    user: LoginResponse['user'],
+    user: LoginResponse["user"],
     options: TokenStoreOptions = {},
   ) => {
     const persistRefresh = options.persistRefresh ?? true;
-    setMemAccessToken(access);                     // access token: memory only
+    setMemAccessToken(access); // access token: memory only
     if (persistRefresh) {
-      localStorage.setItem(REFRESH_KEY, refresh);  // transition fallback only
+      localStorage.setItem(REFRESH_KEY, refresh); // transition fallback only
     } else {
       localStorage.removeItem(REFRESH_KEY);
     }
@@ -856,7 +889,7 @@ async function doRefresh(): Promise<string | null> {
   const legacyRefreshToken = tokenStore.getRefresh();
 
   const refreshRequest = (refreshToken?: string) =>
-    authClient.post('/refresh', refreshToken ? { refreshToken } : {});
+    authClient.post("/refresh", refreshToken ? { refreshToken } : {});
 
   try {
     let usedLegacyFallback = false;
@@ -869,7 +902,10 @@ async function doRefresh(): Promise<string | null> {
       tokenStore.clear();
       return null;
     }
-    const json = (await res.json()) as ApiResponse<{ accessToken: string; refreshToken: string }>;
+    const json = (await res.json()) as ApiResponse<{
+      accessToken: string;
+      refreshToken: string;
+    }>;
     if (!json.success || !json.data) {
       tokenStore.clear();
       return null;
@@ -902,8 +938,8 @@ export const refreshAccessToken = doRefresh;
 // resubmit the same mutation a second time. Endpoints that need retry-safety
 // for a real user-initiated resubmit carry their own X-Idempotency-Key instead.
 function isSafeToAutoRetry(method?: string): boolean {
-  const m = (method ?? 'GET').toUpperCase();
-  return m === 'GET' || m === 'HEAD';
+  const m = (method ?? "GET").toUpperCase();
+  return m === "GET" || m === "HEAD";
 }
 
 async function rawApiFetch<T>(
@@ -915,22 +951,23 @@ async function rawApiFetch<T>(
 
   // Skip Content-Type for FormData bodies — the browser must generate its own
   // multipart boundary; forcing application/json here would corrupt the upload.
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    'X-Tenant-ID': getTenantId(),
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    "X-Tenant-ID": getTenantId(),
     ...(options.headers as Record<string, string>),
   };
 
   if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+    headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[api-request]', {
-      endpoint: path.split('?')[0],
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[api-request]", {
+      endpoint: path.split("?")[0],
       hasAuthorization: Boolean(headers.Authorization),
-      hasTenantId: Boolean(headers['X-Tenant-ID']),
+      hasTenantId: Boolean(headers["X-Tenant-ID"]),
     });
   }
 
@@ -938,18 +975,22 @@ async function rawApiFetch<T>(
 
   let response: Response;
   try {
-    response = await fetch(url, { ...options, headers, credentials: 'include' });
+    response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
   } catch {
     if (retries > 0 && isSafeToAutoRetry(options.method)) {
       await new Promise((r) => setTimeout(r, 500));
       return rawApiFetch<T>(path, options, retries - 1);
     }
-    throw new Error('Network error – please check your connection');
+    throw new Error("Network error – please check your connection");
   }
 
   // Handle 429 – rate limited; parse Retry-After header and back off
   if (response.status === 429) {
-    const retryAfter = response.headers.get('Retry-After');
+    const retryAfter = response.headers.get("Retry-After");
     const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
     if (retries > 0) {
       await new Promise((r) => setTimeout(r, Math.min(delayMs, 8000)));
@@ -960,9 +1001,9 @@ async function rawApiFetch<T>(
       data: null as T,
       error: sanitizeHttpError({
         response,
-        body: { errorCode: 'HTTP_429' },
+        body: { errorCode: "HTTP_429" },
         endpoint: path,
-        method: options.method ?? 'GET',
+        method: options.method ?? "GET",
       }),
     };
   }
@@ -972,7 +1013,9 @@ async function rawApiFetch<T>(
   // "phone verification required") carry extra signal fields callers need
   // to branch on, not just a generic permission-denied message.
   if (response.status === 403) {
-    const body403 = await response.json().catch(() => ({ errorCode: 'HTTP_403' }));
+    const body403 = await response
+      .json()
+      .catch(() => ({ errorCode: "HTTP_403" }));
     return {
       success: false,
       data: null as T,
@@ -980,7 +1023,7 @@ async function rawApiFetch<T>(
         response,
         body: body403,
         endpoint: path,
-        method: options.method ?? 'GET',
+        method: options.method ?? "GET",
       }),
     };
   }
@@ -991,25 +1034,25 @@ async function rawApiFetch<T>(
       isRefreshing = true;
       const newToken = await doRefresh();
       isRefreshing = false;
-      refreshQueue.forEach((cb) => cb(newToken ?? ''));
+      refreshQueue.forEach((cb) => cb(newToken ?? ""));
       refreshQueue = [];
 
       if (newToken) {
         return rawApiFetch<T>(path, options, 0);
       }
       // Redirect to login
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         tokenStore.clear();
-        window.location.href = '/login';
+        window.location.href = "/login";
       }
       return {
         success: false,
         data: null as T,
         error: sanitizeHttpError({
           response,
-          body: { errorCode: 'AUTH_401_EXPIRED' },
+          body: { errorCode: "AUTH_401_EXPIRED" },
           endpoint: path,
-          method: options.method ?? 'GET',
+          method: options.method ?? "GET",
         }),
       };
     }
@@ -1025,9 +1068,9 @@ async function rawApiFetch<T>(
             data: null as T,
             error: sanitizeHttpError({
               response,
-              body: { errorCode: 'AUTH_401_EXPIRED' },
+              body: { errorCode: "AUTH_401_EXPIRED" },
               endpoint: path,
-              method: options.method ?? 'GET',
+              method: options.method ?? "GET",
             }),
           });
         }
@@ -1036,7 +1079,11 @@ async function rawApiFetch<T>(
   }
 
   // Retry on 5xx — only for requests that are safe to repeat (see isSafeToAutoRetry)
-  if (response.status >= 500 && retries > 0 && isSafeToAutoRetry(options.method)) {
+  if (
+    response.status >= 500 &&
+    retries > 0 &&
+    isSafeToAutoRetry(options.method)
+  ) {
     await new Promise((r) => setTimeout(r, 1000));
     return rawApiFetch<T>(path, options, retries - 1);
   }
@@ -1049,7 +1096,7 @@ async function rawApiFetch<T>(
   const json = await response.json().catch(() => ({
     success: false,
     data: null,
-    error: { code: 'PARSE_ERROR', message: 'Invalid response from server' },
+    error: { code: "PARSE_ERROR", message: "Invalid response from server" },
   }));
 
   if (!response.ok) {
@@ -1060,14 +1107,19 @@ async function rawApiFetch<T>(
         response,
         body: json,
         endpoint: path,
-        method: options.method ?? 'GET',
+        method: options.method ?? "GET",
       }),
     };
   }
 
   // Normalize: if the backend returns a raw object (no success/error fields),
   // wrap it so callers can use res.success and res.data consistently.
-  if (json && typeof json === 'object' && !('success' in json) && !('error' in json)) {
+  if (
+    json &&
+    typeof json === "object" &&
+    !("success" in json) &&
+    !("error" in json)
+  ) {
     return { success: true, data: json as T, error: null };
   }
 
@@ -1075,9 +1127,9 @@ async function rawApiFetch<T>(
   if (
     maybeEnvelope.success &&
     maybeEnvelope.data &&
-    typeof maybeEnvelope.data === 'object' &&
-    'migrateRefreshToken' in maybeEnvelope.data &&
-    typeof window !== 'undefined'
+    typeof maybeEnvelope.data === "object" &&
+    "migrateRefreshToken" in maybeEnvelope.data &&
+    typeof window !== "undefined"
   ) {
     localStorage.removeItem(REFRESH_KEY);
   }
@@ -1100,8 +1152,8 @@ export async function apiFetch<T>(
     const sanitized = sanitizeThrownError({
       error,
       endpoint: path,
-      method: options.method ?? 'GET',
-      code: 'NETWORK_ERROR',
+      method: options.method ?? "GET",
+      code: "NETWORK_ERROR",
       status: 0,
     });
     return { success: false, data: null as T, error: sanitized };
@@ -1111,20 +1163,25 @@ export async function apiFetch<T>(
 // ─── Auth endpoints ───────────────────────────────────────────────────────────
 
 export const authApi = {
-  login: (identifier: string, password: string, totpToken?: string, backupCode?: string) => {
-    const cleaned = identifier.replace(/\s+/g, '');
+  login: (
+    identifier: string,
+    password: string,
+    totpToken?: string,
+    backupCode?: string,
+  ) => {
+    const cleaned = identifier.replace(/\s+/g, "");
     // Treat as phone if it's 9–15 digits with an optional leading '+'.
     // Strip the '+' so the backend always receives the '254...' format.
     const isPhone = /^\+?[0-9]{9,15}$/.test(cleaned);
-    const normalizedPhone = isPhone ? cleaned.replace(/^\+/, '') : cleaned;
+    const normalizedPhone = isPhone ? cleaned.replace(/^\+/, "") : cleaned;
     const payload = {
       ...(isPhone ? { phone: normalizedPhone } : { email: cleaned }),
       password,
       ...(totpToken ? { totpToken } : {}),
       ...(backupCode ? { backupCode } : {}),
     };
-    return apiFetch<LoginResponse>('/auth/login', {
-      method: 'POST',
+    return apiFetch<LoginResponse>("/auth/login", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
   },
@@ -1136,23 +1193,22 @@ export const authApi = {
     lastName: string;
     phone?: string;
   }) =>
-    apiFetch<LoginResponse>('/auth/register', {
-      method: 'POST',
+    apiFetch<LoginResponse>("/auth/register", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
-  logout: () =>
-    apiFetch<void>('/auth/logout', { method: 'POST' }),
+  logout: () => apiFetch<void>("/auth/logout", { method: "POST" }),
 
   generate2FA: (setupToken: string) =>
-    apiFetch<{ qrCodeUrl: string; secret: string }>('/auth/2fa/generate', {
-      method: 'POST',
+    apiFetch<{ qrCodeUrl: string; secret: string }>("/auth/2fa/generate", {
+      method: "POST",
       headers: { Authorization: `Bearer ${setupToken}` },
     }),
 
   verify2FA: (setupToken: string, secret: string, token: string) =>
-    apiFetch<LoginResponse & { backupCodes: string[] }>('/auth/2fa/verify', {
-      method: 'POST',
+    apiFetch<LoginResponse & { backupCodes: string[] }>("/auth/2fa/verify", {
+      method: "POST",
       headers: { Authorization: `Bearer ${setupToken}` },
       body: JSON.stringify({ secret, token }),
     }),
@@ -1160,9 +1216,13 @@ export const authApi = {
   // F1 (auth): backend uses PATCH for change-password.
   // currentPassword is optional — PIN-onboarded accounts have none yet and the
   // backend ignores it if sent; confirmPassword is required and must match newPassword.
-  changePassword: (newPassword: string, confirmPassword: string, currentPassword?: string) =>
-    apiFetch<void>('/auth/change-password', {
-      method: 'PATCH',
+  changePassword: (
+    newPassword: string,
+    confirmPassword: string,
+    currentPassword?: string,
+  ) =>
+    apiFetch<void>("/auth/change-password", {
+      method: "PATCH",
       body: JSON.stringify({
         ...(currentPassword ? { currentPassword } : {}),
         newPassword,
@@ -1175,9 +1235,9 @@ export const authApi = {
    * See backend/docs/PIN_AUTH_FLOW.md Flow 2.
    */
   verifyPin: (phone: string, pin: string) =>
-    apiFetch<LoginResponse>('/auth/verify-pin', {
-      method: 'POST',
-      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), pin }),
+    apiFetch<LoginResponse>("/auth/verify-pin", {
+      method: "POST",
+      body: JSON.stringify({ phone: phone.replace(/^\+/, ""), pin }),
     }),
 
   /**
@@ -1186,16 +1246,16 @@ export const authApi = {
    * response envelope as login().
    */
   verifyLoginOtp: (phone: string, otp: string) =>
-    apiFetch<LoginResponse>('/auth/verify-login-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), otp }),
+    apiFetch<LoginResponse>("/auth/verify-login-otp", {
+      method: "POST",
+      body: JSON.stringify({ phone: phone.replace(/^\+/, ""), otp }),
     }),
 
   /** Resend the phone-verification OTP. Always returns a generic success message. */
   resendLoginOtp: (phone: string) =>
-    apiFetch<{ success: boolean; message: string }>('/auth/resend-login-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone: phone.replace(/^\+/, '') }),
+    apiFetch<{ success: boolean; message: string }>("/auth/resend-login-otp", {
+      method: "POST",
+      body: JSON.stringify({ phone: phone.replace(/^\+/, "") }),
     }),
 
   /**
@@ -1204,28 +1264,44 @@ export const authApi = {
    * See backend/docs/PIN_AUTH_FLOW.md Flow 3.
    */
   requestPasswordReset: (phone: string) =>
-    apiFetch<{ success: boolean; message: string }>('/auth/request-password-reset', {
-      method: 'POST',
-      body: JSON.stringify({ phone: phone.replace(/^\+/, '') }),
-    }),
+    apiFetch<{ success: boolean; message: string }>(
+      "/auth/request-password-reset",
+      {
+        method: "POST",
+        body: JSON.stringify({ phone: phone.replace(/^\+/, "") }),
+      },
+    ),
 
   /**
    * Confirm the SMS PIN + set a new password. No tokens issued — log in afterward.
    * See backend/docs/PIN_AUTH_FLOW.md Flow 3.
    */
-  resetPasswordConfirm: (phone: string, pin: string, newPassword: string, confirmPassword: string) =>
-    apiFetch<{ success: boolean; message: string }>('/auth/reset-password/confirm', {
-      method: 'POST',
-      body: JSON.stringify({ phone: phone.replace(/^\+/, ''), pin, newPassword, confirmPassword }),
-    }),
+  resetPasswordConfirm: (
+    phone: string,
+    pin: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) =>
+    apiFetch<{ success: boolean; message: string }>(
+      "/auth/reset-password/confirm",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          phone: phone.replace(/^\+/, ""),
+          pin,
+          newPassword,
+          confirmPassword,
+        }),
+      },
+    ),
 
   /**
    * Legacy email-link password reset — kept for the existing /reset-password page.
    * Do not build new frontend work against this; use requestPasswordReset/resetPasswordConfirm.
    */
   forgotPassword: (email: string) =>
-    apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', {
-      method: 'POST',
+    apiFetch<{ success: boolean; message: string }>("/auth/forgot-password", {
+      method: "POST",
       body: JSON.stringify({ email }),
     }),
 
@@ -1234,8 +1310,8 @@ export const authApi = {
    * Do not build new frontend work against this; use requestPasswordReset/resetPasswordConfirm.
    */
   resetPassword: (token: string, newPassword: string) =>
-    apiFetch<{ success: boolean; message: string }>('/auth/reset-password', {
-      method: 'POST',
+    apiFetch<{ success: boolean; message: string }>("/auth/reset-password", {
+      method: "POST",
       body: JSON.stringify({ token, newPassword }),
     }),
 };
@@ -1243,14 +1319,16 @@ export const authApi = {
 // ─── Compliance / consent endpoints ───────────────────────────────────────────
 
 export const complianceApi = {
-  getConsents: () => apiFetch<ConsentRecord[]>('/compliance/consent'),
+  getConsents: () => apiFetch<ConsentRecord[]>("/compliance/consent"),
 
   checkConsents: () =>
-    apiFetch<{ hasRequiredConsents: boolean }>('/compliance/consent/check'),
+    apiFetch<{ hasRequiredConsents: boolean }>("/compliance/consent/check"),
 
-  acceptConsent: (consentType: 'DATA_PROCESSING' | 'STATEMENT_EXPORT' | 'LOAN_TERMS') =>
-    apiFetch<{ id: string; acceptedAt: string }>('/compliance/consent/accept', {
-      method: 'POST',
+  acceptConsent: (
+    consentType: "DATA_PROCESSING" | "STATEMENT_EXPORT" | "LOAN_TERMS",
+  ) =>
+    apiFetch<{ id: string; acceptedAt: string }>("/compliance/consent/accept", {
+      method: "POST",
       body: JSON.stringify({ consentType }),
     }),
 };
@@ -1258,63 +1336,93 @@ export const complianceApi = {
 // ─── Member portal endpoints ──────────────────────────────────────────────────
 
 export const memberApi = {
-  getDashboard: () =>
-    apiFetch<MemberDashboard>('/members/dashboard'),
+  getDashboard: () => apiFetch<MemberDashboard>("/members/dashboard"),
 
-  withdrawMpesa: (data: { phoneNumber: string; amount: number }, idempotencyKey: string) =>
-    apiFetch<{ message: string; transactionId: string }>('/members/withdraw/mpesa', {
-      method: 'POST',
-      headers: { 'X-Idempotency-Key': idempotencyKey },
-      body: JSON.stringify(data),
-    }),
+  withdrawMpesa: (
+    data: { phoneNumber: string; amount: number },
+    idempotencyKey: string,
+  ) =>
+    apiFetch<{ message: string; transactionId: string }>(
+      "/members/withdraw/mpesa",
+      {
+        method: "POST",
+        headers: { "X-Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(data),
+      },
+    ),
 
-  getFosaStatement: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
+  getFosaStatement: (params?: {
+    memberId?: string;
+    periodFrom?: string;
+    periodTo?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.memberId) q.set('memberId', params.memberId);
-    if (params?.periodFrom) q.set('periodFrom', params.periodFrom);
-    if (params?.periodTo) q.set('periodTo', params.periodTo);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.memberId) q.set("memberId", params.memberId);
+    if (params?.periodFrom) q.set("periodFrom", params.periodFrom);
+    if (params?.periodTo) q.set("periodTo", params.periodTo);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
     return apiFetch<FosaStatement>(`/members/statement/fosa?${q}`);
   },
 
-  getBosaStatement: (params?: { memberId?: string; periodFrom?: string; periodTo?: string; page?: number; limit?: number }) => {
+  getBosaStatement: (params?: {
+    memberId?: string;
+    periodFrom?: string;
+    periodTo?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.memberId) q.set('memberId', params.memberId);
-    if (params?.periodFrom) q.set('periodFrom', params.periodFrom);
-    if (params?.periodTo) q.set('periodTo', params.periodTo);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.memberId) q.set("memberId", params.memberId);
+    if (params?.periodFrom) q.set("periodFrom", params.periodFrom);
+    if (params?.periodTo) q.set("periodTo", params.periodTo);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
     return apiFetch<BosaStatement>(`/members/statement/bosa?${q}`);
   },
 
-  downloadStatementPdf: (type: 'FOSA' | 'BOSA', params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+  downloadStatementPdf: (
+    type: "FOSA" | "BOSA",
+    params?: { memberId?: string; periodFrom?: string; periodTo?: string },
+  ) => {
     const q = new URLSearchParams({
       type,
-      ...Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][]),
+      ...Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
+      ),
     });
     return downloadAuthenticatedFile(`/statements/export/pdf?${q}`);
   },
 
-  downloadStatementCsv: (type: 'FOSA' | 'BOSA', params?: { memberId?: string; periodFrom?: string; periodTo?: string }) => {
+  downloadStatementCsv: (
+    type: "FOSA" | "BOSA",
+    params?: { memberId?: string; periodFrom?: string; periodTo?: string },
+  ) => {
     const q = new URLSearchParams({
       type,
-      ...Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][]),
+      ...Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
+      ),
     });
     return downloadAuthenticatedFile(`/statements/export/csv?${q}`);
   },
 
-  applyForLoan: (data: {
-    loanProductId: string;
-    principalAmount: number;
-    tenureMonths: number;
-    purpose?: string;
-    notes?: string;
-    guarantorIds?: string[];
-  }, idempotencyKey: string) =>
-    apiFetch<Loan>('/members/loans/apply', {
-      method: 'POST',
-      headers: { 'X-Idempotency-Key': idempotencyKey },
+  applyForLoan: (
+    data: {
+      loanProductId: string;
+      principalAmount: number;
+      tenureMonths: number;
+      purpose?: string;
+      notes?: string;
+      guarantorIds?: string[];
+    },
+    idempotencyKey: string,
+  ) =>
+    apiFetch<Loan>("/members/loans/apply", {
+      method: "POST",
+      headers: { "X-Idempotency-Key": idempotencyKey },
       body: JSON.stringify(data),
     }),
 
@@ -1325,20 +1433,29 @@ export const memberApi = {
       totalGuaranteedAmount: number;
       minimumCoverageRequired: number;
       coverageMet: boolean;
-      results: Array<{ memberId: string; guaranteedAmount: number; status: 'invited' | 'skipped'; reason?: string }>;
+      results: Array<{
+        memberId: string;
+        guaranteedAmount: number;
+        status: "invited" | "skipped";
+        reason?: string;
+      }>;
     }>(`/members/loans/${loanId}/guarantors/request`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ guarantorIds }),
     }),
 
-  searchGuarantors: (query: string, requiredAmount: number, loanProductId?: string) =>
-    apiFetch<GuarantorLookupResult[]>('/members/guarantors/search', {
-      method: 'POST',
+  searchGuarantors: (
+    query: string,
+    requiredAmount: number,
+    loanProductId?: string,
+  ) =>
+    apiFetch<GuarantorLookupResult[]>("/members/guarantors/search", {
+      method: "POST",
       body: JSON.stringify({ query, requiredAmount, loanProductId }),
     }),
 
   getGuarantorRequests: () =>
-    apiFetch<GuarantorRequest[]>('/members/guarantor/requests'),
+    apiFetch<GuarantorRequest[]>("/members/guarantor/requests"),
 
   // digitalAcknowledgment is a required field on the backend DTO (no @IsOptional()) —
   // omitting it fails validation for both actions, and for ACCEPT specifically the
@@ -1347,7 +1464,7 @@ export const memberApi = {
   // hardcoded true.
   respondToGuarantor: (
     loanId: string,
-    action: 'ACCEPT' | 'DECLINE',
+    action: "ACCEPT" | "DECLINE",
     notes: string | undefined,
     digitalAcknowledgment: boolean,
     idempotencyKey: string,
@@ -1355,16 +1472,16 @@ export const memberApi = {
     apiFetch<{ loanId: string; memberId: string; status: string }>(
       `/members/loans/${loanId}/guarantor-response`,
       {
-        method: 'POST',
-        headers: { 'X-Idempotency-Key': idempotencyKey },
+        method: "POST",
+        headers: { "X-Idempotency-Key": idempotencyKey },
         body: JSON.stringify({ action, notes, digitalAcknowledgment }),
       },
     ),
 
   initiateDeposit: (phone: string, amount: number, idempotencyKey: string) =>
-    apiFetch<StkPushResponse>('/members/deposit/mpesa', {
-      method: 'POST',
-      headers: { 'X-Idempotency-Key': idempotencyKey },
+    apiFetch<StkPushResponse>("/members/deposit/mpesa", {
+      method: "POST",
+      headers: { "X-Idempotency-Key": idempotencyKey },
       body: JSON.stringify({ phone, amount }),
     }),
 
@@ -1390,25 +1507,28 @@ export const memberApi = {
     apiFetch<{
       id: string;
       user?: { profileImageKey?: string | null; updatedAt?: string };
-    }>('/members/profile', {
-      method: 'PATCH',
+    }>("/members/profile", {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   requestProfileImageUploadUrl: (fileName: string) =>
-    apiFetch<{ uploadUrl: string; fileKey: string; contentType: string; expiresIn: number }>(
-      '/members/profile/image-url',
-      {
-        method: 'POST',
-        body: JSON.stringify({ fileName }),
-      },
-    ),
+    apiFetch<{
+      uploadUrl: string;
+      fileKey: string;
+      contentType: string;
+      expiresIn: number;
+    }>("/members/profile/image-url", {
+      method: "POST",
+      body: JSON.stringify({ fileName }),
+    }),
 
   getProfileImageUrl: () =>
-    apiFetch<{ imageUrl: string | null; fileKey: string | null }>('/members/profile/image-url'),
+    apiFetch<{ imageUrl: string | null; fileKey: string | null }>(
+      "/members/profile/image-url",
+    ),
 
-  listDocuments: () =>
-    apiFetch<KycDocument[]>('/members/documents'),
+  listDocuments: () => apiFetch<KycDocument[]>("/members/documents"),
 
   requestDocUploadUrl: (data: {
     type: string;
@@ -1417,43 +1537,49 @@ export const memberApi = {
     originalFileName?: string;
     checksum?: string;
   }) =>
-    apiFetch<DocumentUploadIntent>(
-      '/members/documents/upload-url',
-      { method: 'POST', body: JSON.stringify(data) },
-    ),
+    apiFetch<DocumentUploadIntent>("/members/documents/upload-url", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
-  confirmDocUpload: (data: { documentId: string; checksum?: string; uploadToken?: string }) =>
-    apiFetch<KycDocument>('/members/documents/confirm', {
-      method: 'POST',
+  confirmDocUpload: (data: {
+    documentId: string;
+    checksum?: string;
+    uploadToken?: string;
+  }) =>
+    apiFetch<KycDocument>("/members/documents/confirm", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   requestUploadUrl: (fileName: string, contentType: string) =>
     apiFetch<{ uploadUrl: string; objectKey: string; expiresAt: string }>(
-      '/members/documents/upload-url',
+      "/members/documents/upload-url",
       {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ fileName, contentType }),
       },
     ),
 
   createTicket: (data: CreateSupportTicketPayload) =>
-    apiFetch<SupportTicket>('/support/tickets', {
-      method: 'POST',
+    apiFetch<SupportTicket>("/support/tickets", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
-  getMyTickets: () =>
-    apiFetch<SupportTicket[]>('/support/tickets'),
+  getMyTickets: () => apiFetch<SupportTicket[]>("/support/tickets"),
 
   getTicketById: (id: string) =>
     apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`),
 
   addMessageToTicket: (id: string, message: AddTicketMessagePayload) =>
-    apiFetch<TicketMessage>(`/support/tickets/${encodeURIComponent(id)}/messages`, {
-      method: 'POST',
-      body: JSON.stringify(message),
-    }),
+    apiFetch<TicketMessage>(
+      `/support/tickets/${encodeURIComponent(id)}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify(message),
+      },
+    ),
 };
 
 // ─── Loan products (public-ish) ───────────────────────────────────────────────
@@ -1467,39 +1593,40 @@ export const mpesaApi = {
 
 export const loansApi = {
   getProducts: (includeInactive = false) =>
-    apiFetch<LoanProduct[]>(`/loans/products${includeInactive ? '?includeInactive=true' : ''}`),
+    apiFetch<LoanProduct[]>(
+      `/loans/products${includeInactive ? "?includeInactive=true" : ""}`,
+    ),
 
   /** Unauthenticated feed for the public marketing site and loan calculator. Always active-only. */
-  getPublicProducts: () => apiFetch<LoanProduct[]>('/loans/products/public'),
+  getPublicProducts: () => apiFetch<LoanProduct[]>("/loans/products/public"),
 
   createProduct: (data: LoanProductPayload) =>
-    apiFetch<LoanProduct>('/loans/products', {
-      method: 'POST',
+    apiFetch<LoanProduct>("/loans/products", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateProduct: (id: string, data: Partial<LoanProductPayload>) =>
     apiFetch<LoanProduct>(`/loans/products/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   deactivateProduct: (id: string) =>
     apiFetch<LoanProduct>(`/loans/products/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
 
   // F2: Member self-service loan list → /members/loans (not /loans)
   getMyLoans: (params?: { status?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.status) q.set('status', params.status);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
     return apiFetch<{ data: Loan[]; meta: ApiMeta }>(`/members/loans?${q}`);
   },
 
-  getLoan: (id: string) =>
-    apiFetch<Loan>(`/loans/${id}`),
+  getLoan: (id: string) => apiFetch<Loan>(`/loans/${id}`),
 
   getGuarantors: (loanId: string) =>
     apiFetch<GuarantorRecord[]>(`/loans/${loanId}/guarantors`),
@@ -1507,41 +1634,46 @@ export const loansApi = {
   // Admin actions — F1: backend uses PATCH for these state transitions
   approveLoan: (id: string, comment?: string) =>
     apiFetch<Loan>(`/loans/${id}/approve`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify({ comment }),
     }),
 
   rejectLoan: (id: string, reason: string) =>
     apiFetch<Loan>(`/loans/${id}/reject`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify({ reason }),
     }),
 
   disburseLoan: (id: string) =>
     apiFetch<{ loan: Loan; newBalance: number }>(`/loans/${id}/disburse`, {
-      method: 'PATCH',
+      method: "PATCH",
     }),
 
   // 4-eyes disbursement gate for loans >= DUAL_APPROVAL_THRESHOLD_KES (lib/loan-math.ts).
   // Restricted to MANAGER/TELLER server-side; the same person cannot fill both slots.
   signApprovalChain: (id: string, approve: boolean, notes?: string) =>
-    apiFetch<{ chainComplete: boolean; allApproved: boolean }>(`/loans/${id}/approval-chain/sign`, {
-      method: 'PATCH',
-      body: JSON.stringify({ approve, notes }),
-    }),
+    apiFetch<{ chainComplete: boolean; allApproved: boolean }>(
+      `/loans/${id}/approval-chain/sign`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ approve, notes }),
+      },
+    ),
 };
 
 // ─── Admin endpoints ──────────────────────────────────────────────────────────
 
 export const accountingApi = {
   getDashboardStats: () =>
-    apiFetch<AccountingDashboardStats>('/admin/accounting/dashboard-stats'),
+    apiFetch<AccountingDashboardStats>("/admin/accounting/dashboard-stats"),
 
   getPendingApprovals: () =>
-    apiFetch<{ items: PendingApproval[]; total: number }>('/admin/accounting/pending-approvals'),
+    apiFetch<{ items: PendingApproval[]; total: number }>(
+      "/admin/accounting/pending-approvals",
+    ),
 
   getGLAccounts: () =>
-    apiFetch<{ data: GLAccount[] }>('/admin/accounting/gl-accounts'),
+    apiFetch<{ data: GLAccount[] }>("/admin/accounting/gl-accounts"),
 
   getJournalEntries: (params?: {
     page?: number;
@@ -1553,33 +1685,41 @@ export const accountingApi = {
     search?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.status) q.set('status', params.status);
-    if (params?.type) q.set('type', params.type);
-    if (params?.startDate) q.set('startDate', params.startDate);
-    if (params?.endDate) q.set('endDate', params.endDate);
-    if (params?.search) q.set('search', params.search);
-    return apiFetch<{ data: JournalEntry[]; meta: ApiMeta }>(`/admin/accounting/journal-entries?${q}`);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.type) q.set("type", params.type);
+    if (params?.startDate) q.set("startDate", params.startDate);
+    if (params?.endDate) q.set("endDate", params.endDate);
+    if (params?.search) q.set("search", params.search);
+    return apiFetch<{ data: JournalEntry[]; meta: ApiMeta }>(
+      `/admin/accounting/journal-entries?${q}`,
+    );
   },
 
   createJournalEntry: (data: CreateJournalEntryPayload) =>
-    apiFetch<JournalEntry>('/admin/accounting/journal-entries', {
-      method: 'POST',
+    apiFetch<JournalEntry>("/admin/accounting/journal-entries", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   approveJournalEntry: (id: string, notes?: string) =>
-    apiFetch<JournalEntry>(`/admin/accounting/journal-entries/${encodeURIComponent(id)}/approve`, {
-      method: 'PATCH',
-      body: JSON.stringify({ notes }),
-    }),
+    apiFetch<JournalEntry>(
+      `/admin/accounting/journal-entries/${encodeURIComponent(id)}/approve`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+      },
+    ),
 
   rejectJournalEntry: (id: string, notes?: string) =>
-    apiFetch<JournalEntry>(`/admin/accounting/journal-entries/${encodeURIComponent(id)}/reject`, {
-      method: 'PATCH',
-      body: JSON.stringify({ notes }),
-    }),
+    apiFetch<JournalEntry>(
+      `/admin/accounting/journal-entries/${encodeURIComponent(id)}/reject`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+      },
+    ),
 
   getUnmatchedMpesa: (params?: {
     page?: number;
@@ -1589,12 +1729,14 @@ export const accountingApi = {
     search?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
-    if (params?.dateTo) q.set('dateTo', params.dateTo);
-    if (params?.search) q.set('search', params.search);
-    return apiFetch<{ data: UnmatchedMpesaTransaction[]; meta: ApiMeta }>(`/admin/accounting/mpesa/unmatched?${q}`);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.dateFrom) q.set("dateFrom", params.dateFrom);
+    if (params?.dateTo) q.set("dateTo", params.dateTo);
+    if (params?.search) q.set("search", params.search);
+    return apiFetch<{ data: UnmatchedMpesaTransaction[]; meta: ApiMeta }>(
+      `/admin/accounting/mpesa/unmatched?${q}`,
+    );
   },
 
   matchMpesa: (id: string, data: { accountId: string; note?: string }) =>
@@ -1607,13 +1749,13 @@ export const accountingApi = {
       accountNumber: string;
       memberName: string;
     }>(`/admin/accounting/mpesa/${encodeURIComponent(id)}/match`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   exportGL: (params?: { startDate?: string; endDate?: string }) =>
-    downloadAuthenticatedFile('/admin/accounting/export-gl', {
-      method: 'POST',
+    downloadAuthenticatedFile("/admin/accounting/export-gl", {
+      method: "POST",
       body: JSON.stringify(params ?? {}),
     }),
 };
@@ -1657,11 +1799,25 @@ export interface AdminDashboardStats {
 
 export interface AdminDashboardReports {
   loansByStatus: Array<{ status: string; count: number; totalAmount: number }>;
-  savingsByWeek: Array<{ weekNumber: number; totalAmount: number; memberCount: number }>;
-  topDefaulters: Array<{ memberNumber: string; outstandingBalance: number; arrearsDays: number }>;
+  savingsByWeek: Array<{
+    weekNumber: number;
+    totalAmount: number;
+    memberCount: number;
+  }>;
+  topDefaulters: Array<{
+    memberNumber: string;
+    outstandingBalance: number;
+    arrearsDays: number;
+  }>;
   // Loan products are per-tenant rows (name-based), not a fixed enum — this is
   // whatever products the tenant actually has, not a hardcoded pair.
-  loanProductMix: Array<{ productId: string; productName: string; count: number; totalDisbursed: number; avgLoanSize: number }>;
+  loanProductMix: Array<{
+    productId: string;
+    productName: string;
+    count: number;
+    totalDisbursed: number;
+    avgLoanSize: number;
+  }>;
   agingBuckets: {
     current: number;
     days1to30: number;
@@ -1672,7 +1828,7 @@ export interface AdminDashboardReports {
   generatedAt: string;
 }
 
-export type ExecutiveOverviewRange = '30d' | '90d' | '1y';
+export type ExecutiveOverviewRange = "30d" | "90d" | "1y";
 
 // No `delinquency` series — the backend has no historical PAR/delinquency
 // snapshot table to trend (see dashboard.service.ts doc comment). Don't add
@@ -1697,7 +1853,12 @@ export interface GuarantorHealth {
 
 export interface MpesaHeatmap {
   days: number;
-  buckets: Array<{ day: string; hour: number; totalAmount: number; transactionCount: number }>;
+  buckets: Array<{
+    day: string;
+    hour: number;
+    totalAmount: number;
+    transactionCount: number;
+  }>;
 }
 
 export interface DelinquencyTrendPoint {
@@ -1740,7 +1901,8 @@ export interface GuarantorCorrelation {
   defaultEvidenceDefinition: string;
 }
 
-export type DashboardDrilldownSource = 'transaction' | 'mpesa' | 'loan' | 'guarantor' | 'member' | 'journal';
+export type DashboardDrilldownSource =
+  "transaction" | "mpesa" | "loan" | "guarantor" | "member" | "journal";
 
 export interface DashboardDrilldownParams {
   source: DashboardDrilldownSource;
@@ -1749,7 +1911,7 @@ export interface DashboardDrilldownParams {
   type?: string;
   status?: string;
   mpesaType?: string;
-  accountType?: 'FOSA' | 'BOSA';
+  accountType?: "FOSA" | "BOSA";
   loanStatus?: string;
   loanStaging?: string;
   guarantorStatus?: string;
@@ -1759,7 +1921,7 @@ export interface DashboardDrilldownParams {
   from?: string;
   to?: string;
   loanProductId?: string;
-  loanDateField?: 'createdAt' | 'appliedAt' | 'disbursedAt';
+  loanDateField?: "createdAt" | "appliedAt" | "disbursedAt";
   snapshotDate?: string;
   search?: string;
   agingBucket?: string;
@@ -1794,7 +1956,7 @@ export interface FinancialPreviewResponse {
   errorRows: number;
   rows: Array<{
     rowNumber: number;
-    status: 'VALID' | 'WARNING' | 'ERROR';
+    status: "VALID" | "WARNING" | "ERROR";
     message?: string;
     resolvedMemberId?: string;
     data: Record<string, unknown>;
@@ -1815,42 +1977,57 @@ export interface FinancialExecuteResponse {
 }
 
 export const adminApi = {
-  getDashboardStats: () => apiFetch<AdminDashboardStats>('/admin/dashboard/stats'),
+  getDashboardStats: () =>
+    apiFetch<AdminDashboardStats>("/admin/dashboard/stats"),
 
-  getDashboardReports: () => apiFetch<AdminDashboardReports>('/admin/dashboard/reports'),
+  getDashboardReports: () =>
+    apiFetch<AdminDashboardReports>("/admin/dashboard/reports"),
 
   getExecutiveOverview: (range: ExecutiveOverviewRange) =>
-    apiFetch<ExecutiveOverview>(`/admin/dashboard/executive-overview?range=${range}`),
+    apiFetch<ExecutiveOverview>(
+      `/admin/dashboard/executive-overview?range=${range}`,
+    ),
 
-  getGuarantorHealth: () => apiFetch<GuarantorHealth>('/admin/dashboard/guarantor-health'),
+  getGuarantorHealth: () =>
+    apiFetch<GuarantorHealth>("/admin/dashboard/guarantor-health"),
 
   getMpesaHeatmap: (days = 7) =>
     apiFetch<MpesaHeatmap>(`/admin/dashboard/mpesa-heatmap?days=${days}`),
 
-  getDelinquencyTrends: (params?: { from?: string; to?: string; loanProductId?: string }) => {
+  getDelinquencyTrends: (params?: {
+    from?: string;
+    to?: string;
+    loanProductId?: string;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
-    if (params?.loanProductId) q.set('loanProductId', params.loanProductId);
-    return apiFetch<DelinquencyTrends>(`/admin/dashboard/delinquency-trends${q.size ? `?${q}` : ''}`);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.loanProductId) q.set("loanProductId", params.loanProductId);
+    return apiFetch<DelinquencyTrends>(
+      `/admin/dashboard/delinquency-trends${q.size ? `?${q}` : ""}`,
+    );
   },
 
   getGuarantorCorrelation: (params?: { includeBelowThreshold?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.includeBelowThreshold !== undefined) {
-      q.set('includeBelowThreshold', String(params.includeBelowThreshold));
+      q.set("includeBelowThreshold", String(params.includeBelowThreshold));
     }
-    return apiFetch<GuarantorCorrelation>(`/admin/dashboard/guarantor-correlation${q.size ? `?${q}` : ''}`);
+    return apiFetch<GuarantorCorrelation>(
+      `/admin/dashboard/guarantor-correlation${q.size ? `?${q}` : ""}`,
+    );
   },
 
   getDashboardDrilldown: (params: DashboardDrilldownParams) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null && value !== "") {
         q.set(key, String(value));
       }
     });
-    return apiFetch<DashboardDrilldownResponse>(`/admin/dashboard/drilldown?${q}`);
+    return apiFetch<DashboardDrilldownResponse>(
+      `/admin/dashboard/drilldown?${q}`,
+    );
   },
 
   // Deliberately NOT a browser EventSource — that endpoint requires an
@@ -1863,84 +2040,113 @@ export const adminApi = {
   // never does) — polling that via React Query gives the same live-feeling
   // UX without any backend auth workaround.
   getRealTimeAnalyticsSnapshot: () =>
-    apiFetch<RealTimeAnalyticsSnapshot>('/admin/analytics/real-time'),
+    apiFetch<RealTimeAnalyticsSnapshot>("/admin/analytics/real-time"),
 
   previewFinancialImport: (file: File, sheetType: string) => {
     const form = new FormData();
-    form.append('file', file);
-    form.append('sheetType', sheetType);
-    return apiFetch<FinancialPreviewResponse>('/admin/data-import/financial-preview', {
-      method: 'POST',
-      body: form,
-    });
+    form.append("file", file);
+    form.append("sheetType", sheetType);
+    return apiFetch<FinancialPreviewResponse>(
+      "/admin/data-import/financial-preview",
+      {
+        method: "POST",
+        body: form,
+      },
+    );
   },
 
-  executeFinancialImport: (file: File, sheetType: string, importBatchId?: string) => {
+  executeFinancialImport: (
+    file: File,
+    sheetType: string,
+    importBatchId?: string,
+  ) => {
     const form = new FormData();
-    form.append('file', file);
-    form.append('sheetType', sheetType);
-    if (importBatchId) form.append('importBatchId', importBatchId);
-    return apiFetch<FinancialExecuteResponse>('/admin/data-import/execute-financial', {
-      method: 'POST',
-      body: form,
-    });
+    form.append("file", file);
+    form.append("sheetType", sheetType);
+    if (importBatchId) form.append("importBatchId", importBatchId);
+    return apiFetch<FinancialExecuteResponse>(
+      "/admin/data-import/execute-financial",
+      {
+        method: "POST",
+        body: form,
+      },
+    );
   },
 
   getMembers: (params?: {
     search?: string;
     page?: number;
     limit?: number;
-    accountStatus?: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
+    accountStatus?: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
     recentlyActive?: boolean;
     role?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.search) q.set('search', params.search);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.accountStatus) q.set('accountStatus', params.accountStatus);
-    if (params?.recentlyActive !== undefined) q.set('recentlyActive', String(params.recentlyActive));
-    if (params?.role) q.set('role', params.role);
-    return apiFetch<{ data: AdminMember[]; meta: ApiMeta }>(`/admin/members?${q}`);
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.accountStatus) q.set("accountStatus", params.accountStatus);
+    if (params?.recentlyActive !== undefined)
+      q.set("recentlyActive", String(params.recentlyActive));
+    if (params?.role) q.set("role", params.role);
+    return apiFetch<{ data: AdminMember[]; meta: ApiMeta }>(
+      `/admin/members?${q}`,
+    );
   },
 
   getMember: (memberId: string) =>
     apiFetch<AdminMemberDetail>(`/members/${memberId}`),
 
-  updateKyc: (memberId: string, data: {
-    nationalId?: string;
-    kraPin?: string;
-    employer?: string;
-    occupation?: string;
-    dateOfBirth?: string;
-    phone?: string;
-    documentIds?: string[];
-    verified?: boolean;
-    notes?: string;
-    checklist?: Record<string, boolean>;
-  }) =>
+  updateKyc: (
+    memberId: string,
+    data: {
+      nationalId?: string;
+      kraPin?: string;
+      employer?: string;
+      occupation?: string;
+      dateOfBirth?: string;
+      phone?: string;
+      documentIds?: string[];
+      verified?: boolean;
+      notes?: string;
+      checklist?: Record<string, boolean>;
+    },
+  ) =>
     apiFetch<AdminMember>(`/admin/members/${memberId}/kyc`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
-  getLoans: (params?: { status?: string; page?: number; limit?: number; search?: string }) => {
+  getLoans: (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.status) q.set('status', params.status);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.search) q.set('search', params.search ?? '');
+    if (params?.status) q.set("status", params.status);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search ?? "");
     return apiFetch<{ data: Loan[]; meta: ApiMeta }>(`/loans?${q}`);
   },
 
-  overrideGuarantor: (loanId: string, guarantorId: string, action: 'ACCEPT' | 'DECLINE', reason: string) =>
-    apiFetch<{ loanId: string; guarantorId: string; memberId: string; status: string; loanStatus: string }>(
-      `/admin/loans/${loanId}/guarantors/${guarantorId}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ action, reason }),
-      },
-    ),
+  overrideGuarantor: (
+    loanId: string,
+    guarantorId: string,
+    action: "ACCEPT" | "DECLINE",
+    reason: string,
+  ) =>
+    apiFetch<{
+      loanId: string;
+      guarantorId: string;
+      memberId: string;
+      status: string;
+      loanStatus: string;
+    }>(`/admin/loans/${loanId}/guarantors/${guarantorId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ action, reason }),
+    }),
 
   getAuditLogs: (params?: {
     page?: number;
@@ -1952,18 +2158,18 @@ export const adminApi = {
     to?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.action) q.set('action', params.action);
-    if (params?.entityType) q.set('entityType', params.entityType);
-    if (params?.actorId) q.set('actorId', params.actorId);
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.action) q.set("action", params.action);
+    if (params?.entityType) q.set("entityType", params.entityType);
+    if (params?.actorId) q.set("actorId", params.actorId);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
     return apiFetch<{ data: AuditLog[]; meta: ApiMeta }>(`/audit?${q}`);
   },
 
   exportAuditLogs: (params?: {
-    format?: 'csv' | 'pdf';
+    format?: "csv" | "pdf";
     action?: string;
     entityType?: string;
     actorId?: string;
@@ -1971,21 +2177,27 @@ export const adminApi = {
     to?: string;
   }) => {
     const q = new URLSearchParams();
-    q.set('format', params?.format ?? 'csv');
-    if (params?.action) q.set('action', params.action);
-    if (params?.entityType) q.set('entityType', params.entityType);
-    if (params?.actorId) q.set('actorId', params.actorId);
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
+    q.set("format", params?.format ?? "csv");
+    if (params?.action) q.set("action", params.action);
+    if (params?.entityType) q.set("entityType", params.entityType);
+    if (params?.actorId) q.set("actorId", params.actorId);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
     return downloadAuthenticatedFile(`/audit/export?${q}`);
   },
 
-  getPendingMembers: (params?: { search?: string; page?: number; limit?: number }) => {
+  getPendingMembers: (params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.search) q.set('search', params.search);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    return apiFetch<{ data: PendingMember[]; meta: ApiMeta }>(`/admin/members/pending?${q}`);
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return apiFetch<{ data: PendingMember[]; meta: ApiMeta }>(
+      `/admin/members/pending?${q}`,
+    );
   },
 
   getTransactions: (params?: {
@@ -1998,14 +2210,16 @@ export const adminApi = {
     limit?: number;
   }) => {
     const q = new URLSearchParams();
-    if (params?.type) q.set('type', params.type);
-    if (params?.status) q.set('status', params.status);
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
-    if (params?.search) q.set('search', params.search);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    return apiFetch<{ data: AdminTransaction[]; meta: ApiMeta }>(`/admin/transactions?${q}`);
+    if (params?.type) q.set("type", params.type);
+    if (params?.status) q.set("status", params.status);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return apiFetch<{ data: AdminTransaction[]; meta: ApiMeta }>(
+      `/admin/transactions?${q}`,
+    );
   },
 
   getTransactionStats: (params?: {
@@ -2014,57 +2228,81 @@ export const adminApi = {
     search?: string;
   }) => {
     const q = new URLSearchParams();
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
-    if (params?.search) q.set('search', params.search);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.search) q.set("search", params.search);
     return apiFetch<TransactionStats>(`/admin/transactions/stats?${q}`);
   },
 
   getAllTickets: (filters?: SupportTicketFilters) => {
     const q = new URLSearchParams();
-    if (filters?.status) q.set('status', filters.status);
-    return apiFetch<SupportTicket[]>(`/support/tickets${q.size ? `?${q}` : ''}`);
+    if (filters?.status) q.set("status", filters.status);
+    return apiFetch<SupportTicket[]>(
+      `/support/tickets${q.size ? `?${q}` : ""}`,
+    );
   },
 
   getTicketById: (id: string) =>
     apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`),
 
   addMessageToTicket: (id: string, message: AddTicketMessagePayload) =>
-    apiFetch<TicketMessage>(`/support/tickets/${encodeURIComponent(id)}/messages`, {
-      method: 'POST',
-      body: JSON.stringify(message),
-    }),
+    apiFetch<TicketMessage>(
+      `/support/tickets/${encodeURIComponent(id)}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify(message),
+      },
+    ),
 
   updateTicketStatus: (
     id: string,
-    data: { status?: TicketStatus; priority?: TicketPriority; assignedTo?: string; note?: string },
+    data: {
+      status?: TicketStatus;
+      priority?: TicketPriority;
+      assignedTo?: string;
+      note?: string;
+    },
   ) =>
     apiFetch<SupportTicket>(`/support/tickets/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
-  reviewMember: (memberId: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string }) =>
-    apiFetch<{ success: boolean; action: string }>(`/admin/members/${memberId}/review`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
+  reviewMember: (
+    memberId: string,
+    data: { action: "APPROVE" | "REJECT"; reason?: string },
+  ) =>
+    apiFetch<{ success: boolean; action: string }>(
+      `/admin/members/${memberId}/review`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    ),
 
   listKycDocuments: (params?: { status?: string; memberId?: string }) => {
     const q = new URLSearchParams();
-    if (params?.status) q.set('status', params.status);
-    if (params?.memberId) q.set('memberId', params.memberId);
+    if (params?.status) q.set("status", params.status);
+    if (params?.memberId) q.set("memberId", params.memberId);
     return apiFetch<KycDocument[]>(`/admin/kyc/documents?${q}`);
   },
 
-  enqueueDocReview: (docId: string, data: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string }) =>
-    apiFetch<{ status: 'QUEUED'; jobId: string | undefined }>(`/admin/kyc/documents/${docId}/review`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  enqueueDocReview: (
+    docId: string,
+    data: { status: "APPROVED" | "REJECTED"; rejectionReason?: string },
+  ) =>
+    apiFetch<{ status: "QUEUED"; jobId: string | undefined }>(
+      `/admin/kyc/documents/${docId}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    ),
 
   getDocDownloadUrl: (docId: string) =>
-    apiFetch<{ downloadUrl: string; expiresIn: number }>(`/admin/kyc/documents/${docId}/download`),
+    apiFetch<{ downloadUrl: string; expiresIn: number }>(
+      `/admin/kyc/documents/${docId}/download`,
+    ),
 
   requestUploadUrl: (data: {
     memberId: string;
@@ -2074,14 +2312,19 @@ export const adminApi = {
     originalFileName?: string;
     checksum?: string;
   }) =>
-    apiFetch<DocumentUploadIntent>(
-      '/admin/kyc/documents/upload-url',
-      { method: 'POST', body: JSON.stringify(data) },
-    ),
+    apiFetch<DocumentUploadIntent>("/admin/kyc/documents/upload-url", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
-  confirmUpload: (data: { documentId: string; memberId: string; checksum?: string; uploadToken?: string }) =>
+  confirmUpload: (data: {
+    documentId: string;
+    memberId: string;
+    checksum?: string;
+    uploadToken?: string;
+  }) =>
     apiFetch<KycDocument>(`/admin/kyc/documents/${data.documentId}/confirm`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         memberId: data.memberId,
         checksum: data.checksum,
@@ -2112,10 +2355,12 @@ export interface AdminStage {
 export const stagesAdminApi = {
   list: (params?: { page?: number; limit?: number; search?: string }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.search) q.set('search', params.search);
-    return apiFetch<{ data: AdminStage[]; meta: ApiMeta }>(`/admin/stages?${q}`);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    return apiFetch<{ data: AdminStage[]; meta: ApiMeta }>(
+      `/admin/stages?${q}`,
+    );
   },
 };
 
@@ -2124,7 +2369,7 @@ export const stagesAdminApi = {
 export interface SystemServiceStatus {
   id: string;
   name: string;
-  status: 'online' | 'degraded' | 'offline';
+  status: "online" | "degraded" | "offline";
   latencyMs: number | null;
   uptime: number | null;
   lastCheckedAt: string;
@@ -2133,7 +2378,7 @@ export interface SystemServiceStatus {
 
 export interface SystemErrorLog {
   id: string;
-  level: 'INFO' | 'WARN' | 'ERROR' | 'FATAL';
+  level: "INFO" | "WARN" | "ERROR" | "FATAL";
   source: string;
   message: string;
   timestamp: string;
@@ -2149,7 +2394,7 @@ export interface SystemBackgroundJob {
   completed: number;
   failed: number;
   delayed: number;
-  status: 'idle' | 'running' | 'failed';
+  status: "idle" | "running" | "failed";
 }
 
 export interface SystemBlockedIP {
@@ -2169,46 +2414,60 @@ export interface SystemFailedLogin {
 }
 
 export const systemHealthApi = {
-  getServices: () =>
-    apiFetch<SystemServiceStatus[]>('/admin/health/services'),
+  getServices: () => apiFetch<SystemServiceStatus[]>("/admin/health/services"),
 
   testService: (serviceId: string) =>
-    apiFetch<SystemServiceStatus>(`/admin/health/services/${serviceId}/test`, { method: 'POST' }),
+    apiFetch<SystemServiceStatus>(`/admin/health/services/${serviceId}/test`, {
+      method: "POST",
+    }),
 
-  getErrorLogs: (params?: { level?: string; page?: number; limit?: number }) => {
+  getErrorLogs: (params?: {
+    level?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.level) q.set('level', params.level);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    return apiFetch<{ data: SystemErrorLog[]; total: number }>(`/admin/health/error-logs?${q}`);
+    if (params?.level) q.set("level", params.level);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return apiFetch<{ data: SystemErrorLog[]; total: number }>(
+      `/admin/health/error-logs?${q}`,
+    );
   },
 
   getBackgroundJobs: () =>
-    apiFetch<SystemBackgroundJob[]>('/admin/health/background-jobs'),
+    apiFetch<SystemBackgroundJob[]>("/admin/health/background-jobs"),
 
   getBlockedIPs: (params?: { page?: number; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    return apiFetch<{ data: SystemBlockedIP[]; total: number }>(`/admin/health/blocked-ips?${q}`);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return apiFetch<{ data: SystemBlockedIP[]; total: number }>(
+      `/admin/health/blocked-ips?${q}`,
+    );
   },
 
   unblockIP: (id: string) =>
-    apiFetch<void>(`/admin/health/blocked-ips/${id}`, { method: 'DELETE' }),
+    apiFetch<void>(`/admin/health/blocked-ips/${id}`, { method: "DELETE" }),
 
   getFailedLogins: () =>
-    apiFetch<SystemFailedLogin[]>('/admin/health/failed-logins'),
+    apiFetch<SystemFailedLogin[]>("/admin/health/failed-logins"),
 };
 
 // ─── Staff user management endpoints ─────────────────────────────────────────
 
 export const usersApi = {
-  list: (params?: { page?: number; limit?: number; search?: string; role?: string }) => {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+  }) => {
     const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    if (params?.search) q.set('search', params.search);
-    if (params?.role) q.set('role', params.role);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    if (params?.role) q.set("role", params.role);
     return apiFetch<{ data: StaffUser[]; meta: ApiMeta }>(`/users?${q}`);
   },
 
@@ -2216,42 +2475,46 @@ export const usersApi = {
     email: string;
     firstName: string;
     lastName: string;
-    phone: string;
+    phone?: string;
     role: string;
   }) =>
     apiFetch<{
       success: boolean;
-      smsEnqueued: boolean;
       emailEnqueued: boolean;
+      tempPasswordExpiresAt?: string;
       user: StaffUser;
       message: string;
-    }>('/users', {
-      method: 'POST',
+    }>("/users", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   approveUser: (id: string) =>
     apiFetch<{ success: boolean; user: StaffUser }>(`/users/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'APPROVED' }),
+      method: "PATCH",
+      body: JSON.stringify({ status: "APPROVED" }),
     }),
 
   deactivate: (id: string) =>
-    apiFetch<StaffUser>(`/users/${id}/deactivate`, { method: 'PATCH' }),
+    apiFetch<StaffUser>(`/users/${id}/deactivate`, { method: "PATCH" }),
 
   forcePasswordReset: (id: string) =>
-    apiFetch<{ success: boolean; message: string }>(`/users/${id}/force-password-reset`, {
-      method: 'PATCH',
-    }),
+    apiFetch<{ success: boolean; message: string }>(
+      `/users/${id}/force-password-reset`,
+      {
+        method: "PATCH",
+      },
+    ),
 
   generateTemporaryPassword: (id: string) =>
     apiFetch<{
       success: boolean;
-      smsEnqueued: boolean;
-      user: Pick<StaffUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'>;
+      emailEnqueued: boolean;
+      tempPasswordExpiresAt?: string;
+      user: Pick<StaffUser, "id" | "email" | "firstName" | "lastName" | "role">;
       message: string;
     }>(`/users/${id}/generate-temporary-password`, {
-      method: 'PATCH',
+      method: "PATCH",
     }),
 
   /**
@@ -2262,67 +2525,66 @@ export const usersApi = {
    * explanation inline instead of a generic error toast.
    */
   revealTemporaryPassword: (id: string) =>
-    apiFetch<{ temporaryPassword: string }>(`/users/${id}/reveal-temp-password`),
+    apiFetch<{ temporaryPassword: string }>(
+      `/users/${id}/reveal-temp-password`,
+    ),
 };
 
 // ─── Tenants endpoints (SUPER_ADMIN only) ────────────────────────────────────
 
 export const tenantsApi = {
-  list: () =>
-    apiFetch<Tenant[]>('/tenants'),
+  list: () => apiFetch<Tenant[]>("/tenants"),
 
   suspend: (id: string) =>
-    apiFetch<Tenant>(`/tenants/${id}/suspend`, { method: 'PATCH' }),
+    apiFetch<Tenant>(`/tenants/${id}/suspend`, { method: "PATCH" }),
 
   activate: (id: string) =>
-    apiFetch<Tenant>(`/tenants/${id}/activate`, { method: 'PATCH' }),
+    apiFetch<Tenant>(`/tenants/${id}/activate`, { method: "PATCH" }),
 
-  getSettings: () =>
-    apiFetch<TenantSettings>('/tenants/settings'),
+  getSettings: () => apiFetch<TenantSettings>("/tenants/settings"),
 
   updateSettings: (payload: UpdateTenantSettingsPayload) =>
-    apiFetch<TenantSettings>('/tenants/settings', {
-      method: 'PATCH',
+    apiFetch<TenantSettings>("/tenants/settings", {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 
   requestLogoUploadUrl: (fileName: string, contentType: string) =>
-    apiFetch<LogoUploadUrlResponse>('/tenants/logo/upload-url', {
-      method: 'POST',
+    apiFetch<LogoUploadUrlResponse>("/tenants/logo/upload-url", {
+      method: "POST",
       body: JSON.stringify({ fileName, contentType }),
     }),
 
   /** Unauthenticated feed for the public marketing site (footer, about, contact pages). */
-  getPublicInfo: () =>
-    apiFetch<TenantPublicInfo>('/tenants/public-info'),
+  getPublicInfo: () => apiFetch<TenantPublicInfo>("/tenants/public-info"),
 };
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-KE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  return new Date(iso).toLocaleDateString("en-KE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }
 
 export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-KE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Date(iso).toLocaleString("en-KE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -2337,8 +2599,8 @@ async function downloadAuthenticatedFile(
 ): Promise<void> {
   const accessToken = tokenStore.getAccess();
   const headers: Record<string, string> = {
-    'X-Tenant-ID': getTenantId(),
-    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    "X-Tenant-ID": getTenantId(),
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string> | undefined),
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -2348,14 +2610,14 @@ async function downloadAuthenticatedFile(
     response = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers,
-      credentials: 'include',
+      credentials: "include",
     });
   } catch (error) {
     throw sanitizeThrownError({
       error,
       endpoint: path,
-      method: options.method ?? 'GET',
-      code: 'NETWORK_ERROR',
+      method: options.method ?? "GET",
+      code: "NETWORK_ERROR",
       status: 0,
     });
   }
@@ -2367,27 +2629,29 @@ async function downloadAuthenticatedFile(
     if (newToken) {
       return downloadAuthenticatedFile(path, options, false);
     }
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       tokenStore.clear();
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({ errorCode: `HTTP_${response.status}` }));
+    const body = await response
+      .json()
+      .catch(() => ({ errorCode: `HTTP_${response.status}` }));
     throw sanitizeHttpError({
       response,
       body,
       endpoint: path,
-      method: options.method ?? 'GET',
+      method: options.method ?? "GET",
     });
   }
 
   const blob = await response.blob();
-  const disposition = response.headers.get('content-disposition') ?? '';
-  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'export';
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "export";
   const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  const link = document.createElement("a");
   link.href = blobUrl;
   link.download = filename;
   link.click();

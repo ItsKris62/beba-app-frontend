@@ -1,24 +1,62 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
-  Search, MoreHorizontal, Plus, UserX, KeyRound, Users,
-  Eye, EyeOff, Copy, Check, RefreshCw, ShieldCheck, CheckCircle2,
-} from "lucide-react"
-import { toast } from "sonner"
-import { usersApi, formatDate, type StaffUser } from "@/lib/api-client"
-import { RevealTempPasswordModal } from "@/components/RevealTempPasswordModal"
-import { useAuth, canRevealTempPassword } from "@/lib/auth-context"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Search,
+  MoreHorizontal,
+  Plus,
+  UserX,
+  KeyRound,
+  Users,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  RefreshCw,
+  ShieldCheck,
+  CheckCircle2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { usersApi, formatDate, type StaffUser } from "@/lib/api-client";
+import { RevealTempPasswordModal } from "@/components/RevealTempPasswordModal";
+import { useAuth, canRevealTempPassword } from "@/lib/auth-context";
 
 const ASSIGNABLE_ROLES: Record<string, { value: string; label: string }[]> = {
   SUPER_ADMIN: [
@@ -43,7 +81,7 @@ const ASSIGNABLE_ROLES: Record<string, { value: string; label: string }[]> = {
     { value: "TELLER", label: "Teller" },
     { value: "AUDITOR", label: "Auditor" },
   ],
-}
+};
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: "bg-purple-100 text-purple-800",
@@ -55,7 +93,7 @@ const ROLE_COLORS: Record<string, string> = {
   AUDITOR: "bg-gray-100 text-gray-800",
   MEMBER: "bg-slate-100 text-slate-800",
   CHAIRMAN: "bg-orange-100 text-orange-800",
-}
+};
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -67,24 +105,24 @@ const ROLE_LABELS: Record<string, string> = {
   AUDITOR: "Auditor",
   MEMBER: "Member",
   CHAIRMAN: "Chairman",
-}
+};
 
 interface CreateForm {
-  email: string
-  firstName: string
-  lastName: string
-  phone: string
-  role: string
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: string;
 }
 
 interface CreatedCredentials {
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-  smsEnqueued: boolean
-  emailEnqueued?: boolean
-  mode: "created" | "regenerated"
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  emailEnqueued: boolean;
+  tempPasswordExpiresAt?: string;
+  mode: "created" | "regenerated";
 }
 
 const EMPTY_FORM: CreateForm = {
@@ -93,9 +131,9 @@ const EMPTY_FORM: CreateForm = {
   lastName: "",
   phone: "",
   role: "",
-}
+};
 
-const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/
+const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/;
 
 // ─── Credentials Dialog ───────────────────────────────────────────────────────
 
@@ -103,47 +141,55 @@ function CredentialsDialog({
   credentials,
   onClose,
 }: {
-  credentials: CreatedCredentials | null
-  onClose: () => void
+  credentials: CreatedCredentials | null;
+  onClose: () => void;
 }) {
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  if (!credentials) return null
-  const regenerated = credentials.mode === "regenerated"
+  if (!credentials) return null;
+  const regenerated = credentials.mode === "regenerated";
+  const expiryText = credentials.tempPasswordExpiresAt
+    ? new Intl.DateTimeFormat("en-KE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Africa/Nairobi",
+      }).format(new Date(credentials.tempPasswordExpiresAt))
+    : "24 hours";
 
   const copy = (value: string, field: string) => {
     navigator.clipboard.writeText(value).then(() => {
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    })
-  }
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
 
   return (
-    <Dialog open={!!credentials} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Dialog
+      open={!!credentials}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <DialogTitle>{regenerated ? "Temporary Password Generated" : "Account Created Successfully"}</DialogTitle>
+            <DialogTitle>
+              {regenerated
+                ? "Temporary Password Generated"
+                : "Account Created Successfully"}
+            </DialogTitle>
           </div>
           <DialogDescription>
-            {credentials.smsEnqueued
-              ? "A temporary password has been queued for SMS delivery to the user."
-              : `SMS delivery of the temporary password failed for ${credentials.firstName} ${credentials.lastName}.`}
-            {" "}They must change their password on next login.
+            {credentials.emailEnqueued
+              ? `A temporary password has been emailed to ${credentials.email}.`
+              : `Email delivery of the temporary password failed for ${credentials.firstName} ${credentials.lastName}.`}{" "}
+            They must change it on first login.
           </DialogDescription>
         </DialogHeader>
 
         {credentials.mode === "created" && (
           <div className="flex items-center gap-4 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <span className="flex items-center gap-1.5">
-              {credentials.smsEnqueued ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-              ) : (
-                <span className="h-3.5 w-3.5 rounded-full bg-red-500" />
-              )}
-              SMS {credentials.smsEnqueued ? "queued" : "failed"}
-            </span>
             <span className="flex items-center gap-1.5">
               {credentials.emailEnqueued ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
@@ -155,9 +201,13 @@ function CredentialsDialog({
           </div>
         )}
 
-        {!credentials.smsEnqueued && !credentials.emailEnqueued && (
+        {!credentials.emailEnqueued && (
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            <span>The user was created, but the temporary password could not be delivered via SMS or email. A Tenant Admin can retrieve it via Reveal Temp Password from this user&apos;s row menu.</span>
+            <span>
+              The user was created, but the temporary password could not be
+              emailed. A Tenant Admin can retrieve it via Reveal Temp Password
+              from this user&apos;s row menu before it expires.
+            </span>
           </div>
         )}
 
@@ -183,14 +233,23 @@ function CredentialsDialog({
             copiedField={copiedField}
             onCopy={copy}
           />
+          <CredentialRow
+            label="Temporary password expires"
+            value={expiryText}
+            fieldKey="expiry"
+            copiedField={copiedField}
+            onCopy={copy}
+          />
         </div>
 
         <DialogFooter>
-          <Button onClick={onClose} className="w-full">Done</Button>
+          <Button onClick={onClose} className="w-full">
+            Done
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function CredentialRow({
@@ -201,15 +260,15 @@ function CredentialRow({
   onCopy,
   isPassword = false,
 }: {
-  label: string
-  value: string
-  fieldKey: string
-  copiedField: string | null
-  onCopy: (v: string, k: string) => void
-  isPassword?: boolean
+  label: string;
+  value: string;
+  fieldKey: string;
+  copiedField: string | null;
+  onCopy: (v: string, k: string) => void;
+  isPassword?: boolean;
 }) {
-  const [show, setShow] = useState(!isPassword)
-  const copied = copiedField === fieldKey
+  const [show, setShow] = useState(!isPassword);
+  const copied = copiedField === fieldKey;
 
   return (
     <div className="flex items-center justify-between gap-2">
@@ -221,8 +280,17 @@ function CredentialRow({
       </div>
       <div className="flex shrink-0 gap-1">
         {isPassword && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShow((s) => !s)}>
-            {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShow((s) => !s)}
+          >
+            {show ? (
+              <EyeOff className="h-3.5 w-3.5" />
+            ) : (
+              <Eye className="h-3.5 w-3.5" />
+            )}
           </Button>
         )}
         <Button
@@ -231,135 +299,143 @@ function CredentialRow({
           className="h-7 w-7"
           onClick={() => onCopy(value, fieldKey)}
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminUsers() {
-  const { user } = useAuth()
-  const assignableRoles = ASSIGNABLE_ROLES[user?.role ?? ""] ?? []
-  const canReveal = canRevealTempPassword(user?.role)
+  const { user } = useAuth();
+  const assignableRoles = ASSIGNABLE_ROLES[user?.role ?? ""] ?? [];
+  const canReveal = canRevealTempPassword(user?.role);
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [roleFilter, setRoleFilter] = useState("")
-  const [users, setUsers] = useState<StaffUser[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [users, setUsers] = useState<StaffUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formErrors, setFormErrors] = useState<Partial<CreateForm>>({})
-  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null)
-  const [revealUser, setRevealUser] = useState<StaffUser | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Partial<CreateForm>>({});
+  const [createdCredentials, setCreatedCredentials] =
+    useState<CreatedCredentials | null>(null);
+  const [revealUser, setRevealUser] = useState<StaffUser | null>(null);
 
   const [confirmAction, setConfirmAction] = useState<{
-    type: "deactivate" | "force-reset" | "generate-temp-password" | "approve"
-    user: StaffUser
-  } | null>(null)
-  const [isConfirming, setIsConfirming] = useState(false)
+    type: "deactivate" | "force-reset" | "generate-temp-password" | "approve";
+    user: StaffUser;
+  } | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const loadUsers = async (p = 1) => {
-    setIsLoading(true)
+    setIsLoading(true);
     const res = await usersApi.list({
       search: searchQuery || undefined,
       role: roleFilter || undefined,
       page: p,
       limit: 20,
-    })
+    });
     if (res.success && res.data) {
-      setUsers(res.data.data ?? [])
-      setTotal(res.data.meta?.total ?? 0)
-      setPage(p)
+      setUsers(res.data.data ?? []);
+      setTotal(res.data.meta?.total ?? 0);
+      setPage(p);
     } else {
-      toast.error(res.error?.message ?? "Failed to load users")
+      toast.error(res.error?.message ?? "Failed to load users");
     }
-    setIsLoading(false)
-  }
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    loadUsers(1)
+    loadUsers(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, roleFilter])
+  }, [searchQuery, roleFilter]);
 
-  // ─── Create user ────────────────────────────────────────────────────────────
-
+  // Create user
   function validateForm(): boolean {
-    const errors: Partial<CreateForm> = {}
-    if (!form.firstName.trim()) errors.firstName = "Required"
-    if (!form.lastName.trim()) errors.lastName = "Required"
-    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) errors.email = "Valid email required"
-    if (!form.phone.trim()) errors.phone = "Required — the temporary password is sent to this number"
-    else if (!KENYA_PHONE_REGEX.test(form.phone.trim())) errors.phone = "Enter a valid Kenyan number (e.g. 0712345678)"
-    if (!form.role) errors.role = "Required"
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
+    const errors: Partial<CreateForm> = {};
+    if (!form.firstName.trim()) errors.firstName = "Required";
+    if (!form.lastName.trim()) errors.lastName = "Required";
+    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
+      errors.email = "Valid email required";
+    const phone = form.phone?.trim() ?? "";
+    if (phone && !KENYA_PHONE_REGEX.test(phone)) {
+      errors.phone = "Enter a valid Kenyan number (e.g. 0712345678)";
+    }
+    if (!form.role) errors.role = "Required";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function handleCreate() {
-    if (!validateForm()) return
-    setIsSubmitting(true)
+    if (!validateForm()) return;
+    setIsSubmitting(true);
     const res = await usersApi.create({
       email: form.email.trim().toLowerCase(),
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
-      phone: form.phone.trim(),
+      ...(form.phone?.trim() && { phone: form.phone.trim() }),
       role: form.role,
-    })
+    });
     if (res.success && res.data) {
       setCreatedCredentials({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim().toLowerCase(),
         role: form.role,
-        smsEnqueued: res.data.smsEnqueued,
         emailEnqueued: res.data.emailEnqueued,
+        tempPasswordExpiresAt: res.data.tempPasswordExpiresAt,
         mode: "created",
-      })
-      setIsCreateOpen(false)
-      setForm(EMPTY_FORM)
-      setFormErrors({})
-      loadUsers(1)
+      });
+      setIsCreateOpen(false);
+      setForm(EMPTY_FORM);
+      setFormErrors({});
+      loadUsers(1);
     } else {
-      toast.error(res.error?.message ?? "Failed to create user")
+      toast.error(res.error?.message ?? "Failed to create user");
     }
-    setIsSubmitting(false)
+    setIsSubmitting(false);
   }
 
   // ─── Confirm actions ─────────────────────────────────────────────────────────
 
   async function handleConfirmAction() {
-    if (!confirmAction) return
-    setIsConfirming(true)
+    if (!confirmAction) return;
+    setIsConfirming(true);
 
-    let res: { success: boolean; error?: { message: string } | null }
+    let res: { success: boolean; error?: { message: string } | null };
 
     if (confirmAction.type === "approve") {
-      const r = await usersApi.approveUser(confirmAction.user.id)
-      res = r
+      const r = await usersApi.approveUser(confirmAction.user.id);
+      res = r;
     } else if (confirmAction.type === "deactivate") {
-      res = await usersApi.deactivate(confirmAction.user.id)
+      res = await usersApi.deactivate(confirmAction.user.id);
     } else if (confirmAction.type === "generate-temp-password") {
-      const r = await usersApi.generateTemporaryPassword(confirmAction.user.id)
-      res = r
+      const r = await usersApi.generateTemporaryPassword(confirmAction.user.id);
+      res = r;
       if (r.success && r.data) {
         setCreatedCredentials({
           firstName: r.data.user.firstName,
           lastName: r.data.user.lastName,
           email: r.data.user.email,
           role: r.data.user.role,
-          smsEnqueued: r.data.smsEnqueued,
+          emailEnqueued: r.data.emailEnqueued,
+          tempPasswordExpiresAt: r.data.tempPasswordExpiresAt,
           mode: "regenerated",
-        })
+        });
       }
     } else {
-      res = await usersApi.forcePasswordReset(confirmAction.user.id)
+      res = await usersApi.forcePasswordReset(confirmAction.user.id);
     }
 
     if (res.success) {
@@ -367,22 +443,24 @@ export default function AdminUsers() {
         confirmAction.type === "approve"
           ? `${confirmAction.user.firstName}'s account has been approved.`
           : confirmAction.type === "deactivate"
-          ? `${confirmAction.user.firstName} has been deactivated.`
-          : confirmAction.type === "generate-temp-password"
-          ? `Temporary password generated for ${confirmAction.user.firstName}.`
-          : `Password reset forced for ${confirmAction.user.firstName}.`
-      toast.success(msg)
-      setConfirmAction(null)
-      loadUsers(page)
+            ? `${confirmAction.user.firstName} has been deactivated.`
+            : confirmAction.type === "generate-temp-password"
+              ? `Temporary password generated for ${confirmAction.user.firstName}.`
+              : `Password reset forced for ${confirmAction.user.firstName}.`;
+      toast.success(msg);
+      setConfirmAction(null);
+      loadUsers(page);
     } else {
-      toast.error(res.error?.message ?? "Action failed")
+      toast.error(res.error?.message ?? "Action failed");
     }
-    setIsConfirming(false)
+    setIsConfirming(false);
   }
 
-  const totalPages = Math.ceil(total / 20)
-  const activeCount = users.filter((u) => u.accountStatus === 'ACTIVE').length
-  const pendingCount = users.filter((u) => u.accountStatus === 'PENDING').length
+  const totalPages = Math.ceil(total / 20);
+  const activeCount = users.filter((u) => u.accountStatus === "ACTIVE").length;
+  const pendingCount = users.filter(
+    (u) => u.accountStatus === "PENDING",
+  ).length;
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -390,14 +468,16 @@ export default function AdminUsers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground">All staff and member accounts in this tenant.</p>
+          <p className="text-muted-foreground">
+            All staff and member accounts in this tenant.
+          </p>
         </div>
         {assignableRoles.length > 0 && (
           <Button
             onClick={() => {
-              setForm(EMPTY_FORM)
-              setFormErrors({})
-              setIsCreateOpen(true)
+              setForm(EMPTY_FORM);
+              setFormErrors({});
+              setIsCreateOpen(true);
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -423,16 +503,22 @@ export default function AdminUsers() {
             <Users className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{activeCount}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {activeCount}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Approval
+            </CardTitle>
             <Users className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{pendingCount}</div>
+            <div className="text-2xl font-bold text-amber-600">
+              {pendingCount}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -450,14 +536,22 @@ export default function AdminUsers() {
                 className="pl-9"
               />
             </div>
-            <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v === "ALL" ? "" : v); setPage(1) }}>
+            <Select
+              value={roleFilter}
+              onValueChange={(v) => {
+                setRoleFilter(v === "ALL" ? "" : v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="All roles" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All roles</SelectItem>
                 {Object.entries(ROLE_LABELS).map(([v, l]) => (
-                  <SelectItem key={v} value={v}>{l}</SelectItem>
+                  <SelectItem key={v} value={v}>
+                    {l}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -471,7 +565,9 @@ export default function AdminUsers() {
               ))}
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">No users found.</div>
+            <div className="text-center py-12 text-muted-foreground">
+              No users found.
+            </div>
           ) : (
             <>
               <Table>
@@ -492,25 +588,42 @@ export default function AdminUsers() {
                       <TableCell className="font-medium">
                         {u.firstName} {u.lastName}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {u.email}
+                      </TableCell>
                       <TableCell>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[u.role] ?? "bg-gray-100 text-gray-800"}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[u.role] ?? "bg-gray-100 text-gray-800"}`}
+                        >
                           {ROLE_LABELS[u.role] ?? u.role}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={u.accountStatus === 'ACTIVE' ? "default" : u.accountStatus === 'PENDING' ? "outline" : "secondary"}>
+                        <Badge
+                          variant={
+                            u.accountStatus === "ACTIVE"
+                              ? "default"
+                              : u.accountStatus === "PENDING"
+                                ? "outline"
+                                : "secondary"
+                          }
+                        >
                           {u.accountStatus}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {u.mustChangePassword && (
-                          <Badge variant="outline" className="text-amber-600 border-amber-300">
+                          <Badge
+                            variant="outline"
+                            className="text-amber-600 border-amber-300"
+                          >
                             Pending
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(u.createdAt)}
+                      </TableCell>
                       <TableCell className="text-right">
                         {u.id !== user?.id && u.role !== "SUPER_ADMIN" && (
                           <DropdownMenu>
@@ -522,38 +635,60 @@ export default function AdminUsers() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {u.accountStatus === 'PENDING' && (
+                              {u.accountStatus === "PENDING" && (
                                 <DropdownMenuItem
                                   className="text-green-700"
-                                  onClick={() => setConfirmAction({ type: "approve", user: u })}
+                                  onClick={() =>
+                                    setConfirmAction({
+                                      type: "approve",
+                                      user: u,
+                                    })
+                                  }
                                 >
                                   <ShieldCheck className="mr-2 h-4 w-4" />
                                   Approve Account
                                 </DropdownMenuItem>
                               )}
-                              {u.accountStatus === 'ACTIVE' && (
+                              {u.accountStatus === "ACTIVE" && (
                                 <DropdownMenuItem
                                   className="text-destructive"
-                                  onClick={() => setConfirmAction({ type: "deactivate", user: u })}
+                                  onClick={() =>
+                                    setConfirmAction({
+                                      type: "deactivate",
+                                      user: u,
+                                    })
+                                  }
                                 >
                                   <UserX className="mr-2 h-4 w-4" />
                                   Deactivate
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
-                                onClick={() => setConfirmAction({ type: "force-reset", user: u })}
+                                onClick={() =>
+                                  setConfirmAction({
+                                    type: "force-reset",
+                                    user: u,
+                                  })
+                                }
                               >
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 Force Password Reset
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => setConfirmAction({ type: "generate-temp-password", user: u })}
+                                onClick={() =>
+                                  setConfirmAction({
+                                    type: "generate-temp-password",
+                                    user: u,
+                                  })
+                                }
                               >
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Generate Temp Password
                               </DropdownMenuItem>
                               {canReveal && (
-                                <DropdownMenuItem onClick={() => setRevealUser(u)}>
+                                <DropdownMenuItem
+                                  onClick={() => setRevealUser(u)}
+                                >
                                   <Eye className="mr-2 h-4 w-4" />
                                   Reveal Temp Password
                                 </DropdownMenuItem>
@@ -573,10 +708,20 @@ export default function AdminUsers() {
                     Page {page} of {totalPages} · {total} users
                   </p>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => loadUsers(page - 1)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page <= 1}
+                      onClick={() => loadUsers(page - 1)}
+                    >
                       Previous
                     </Button>
-                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => loadUsers(page + 1)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= totalPages}
+                      onClick={() => loadUsers(page + 1)}
+                    >
                       Next
                     </Button>
                   </div>
@@ -588,14 +733,20 @@ export default function AdminUsers() {
       </Card>
 
       {/* Create User Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={(o) => { if (!isSubmitting) setIsCreateOpen(o) }}>
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(o) => {
+          if (!isSubmitting) setIsCreateOpen(o);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create Staff Account</DialogTitle>
             <DialogDescription>
-              Creates a staff account (Admin, Manager, Teller, or Auditor). The temporary password
-              is auto-generated — the user must change it on first login. To add a SACCO member,
-              use <strong>Members Management → Create Member</strong>.
+              Creates a staff account (Admin, Manager, Teller, or Auditor). The
+              temporary password is auto-generated — the user must change it on
+              first login. To add a SACCO member, use{" "}
+              <strong>Members Management → Create Member</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -605,33 +756,45 @@ export default function AdminUsers() {
                 <Input
                   id="firstName"
                   value={form.firstName}
-                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, firstName: e.target.value }))
+                  }
                   className={formErrors.firstName ? "border-red-500" : ""}
                 />
-                {formErrors.firstName && <p className="text-xs text-red-500">{formErrors.firstName}</p>}
+                {formErrors.firstName && (
+                  <p className="text-xs text-red-500">{formErrors.firstName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
                   value={form.lastName}
-                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, lastName: e.target.value }))
+                  }
                   className={formErrors.lastName ? "border-red-500" : ""}
                 />
-                {formErrors.lastName && <p className="text-xs text-red-500">{formErrors.lastName}</p>}
+                {formErrors.lastName && (
+                  <p className="text-xs text-red-500">{formErrors.lastName}</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, email: e.target.value }))
+                }
                 className={formErrors.email ? "border-red-500" : ""}
               />
-              {formErrors.email && <p className="text-xs text-red-500">{formErrors.email}</p>}
+              {formErrors.email && (
+                <p className="text-xs text-red-500">{formErrors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -639,14 +802,20 @@ export default function AdminUsers() {
               <Input
                 id="phone"
                 type="tel"
-                required
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: e.target.value }))
+                }
                 placeholder="+254712345678"
                 className={formErrors.phone ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">The temporary password is sent to this number via SMS.</p>
-              {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
+              <p className="text-xs text-muted-foreground">
+                Optional. The temporary password is sent to the staff email
+                address.
+              </p>
+              {formErrors.phone && (
+                <p className="text-xs text-red-500">{formErrors.phone}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -655,7 +824,10 @@ export default function AdminUsers() {
                 value={form.role}
                 onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}
               >
-                <SelectTrigger id="role" className={formErrors.role ? "border-red-500" : ""}>
+                <SelectTrigger
+                  id="role"
+                  className={formErrors.role ? "border-red-500" : ""}
+                >
                   <SelectValue placeholder="Select role…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -666,11 +838,17 @@ export default function AdminUsers() {
                   ))}
                 </SelectContent>
               </Select>
-              {formErrors.role && <p className="text-xs text-red-500">{formErrors.role}</p>}
+              {formErrors.role && (
+                <p className="text-xs text-red-500">{formErrors.role}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isSubmitting}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateOpen(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={isSubmitting}>
@@ -688,43 +866,58 @@ export default function AdminUsers() {
 
       {/* Reveal Temp Password Modal */}
       <RevealTempPasswordModal
-        target={revealUser ? {
-          userId: revealUser.id,
-          name: `${revealUser.firstName} ${revealUser.lastName}`,
-          detail: ROLE_LABELS[revealUser.role] ?? revealUser.role,
-        } : null}
+        target={
+          revealUser
+            ? {
+                userId: revealUser.id,
+                name: `${revealUser.firstName} ${revealUser.lastName}`,
+                detail: ROLE_LABELS[revealUser.role] ?? revealUser.role,
+              }
+            : null
+        }
         onClose={() => setRevealUser(null)}
       />
 
       {/* Confirm Action Dialog */}
-      <Dialog open={!!confirmAction} onOpenChange={(o) => { if (!isConfirming && !o) setConfirmAction(null) }}>
+      <Dialog
+        open={!!confirmAction}
+        onOpenChange={(o) => {
+          if (!isConfirming && !o) setConfirmAction(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {confirmAction?.type === "approve"
                 ? "Approve Account"
                 : confirmAction?.type === "deactivate"
-                ? "Deactivate User"
-                : confirmAction?.type === "generate-temp-password"
-                ? "Generate Temporary Password"
-                : "Force Password Reset"}
+                  ? "Deactivate User"
+                  : confirmAction?.type === "generate-temp-password"
+                    ? "Generate Temporary Password"
+                    : "Force Password Reset"}
             </DialogTitle>
             <DialogDescription>
               {confirmAction?.type === "approve"
                 ? `This will approve ${confirmAction.user.firstName} ${confirmAction.user.lastName}'s account, allowing them to log in.`
                 : confirmAction?.type === "deactivate"
-                ? `This will immediately revoke all sessions for ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} and mark their account inactive.`
-                : confirmAction?.type === "generate-temp-password"
-                ? `This will replace ${confirmAction?.user.firstName} ${confirmAction?.user.lastName}'s current password with a new temporary password, invalidate sessions, and show the new value once.`
-                : `This will force ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} to set a new password on next login and invalidate all current sessions.`}
+                  ? `This will immediately revoke all sessions for ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} and mark their account inactive.`
+                  : confirmAction?.type === "generate-temp-password"
+                    ? `This will replace ${confirmAction?.user.firstName} ${confirmAction?.user.lastName}'s current password with a new temporary password, invalidate sessions, and show the new value once.`
+                    : `This will force ${confirmAction?.user.firstName} ${confirmAction?.user.lastName} to set a new password on next login and invalidate all current sessions.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={isConfirming}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmAction(null)}
+              disabled={isConfirming}
+            >
               Cancel
             </Button>
             <Button
-              variant={confirmAction?.type === "deactivate" ? "destructive" : "default"}
+              variant={
+                confirmAction?.type === "deactivate" ? "destructive" : "default"
+              }
               onClick={handleConfirmAction}
               disabled={isConfirming}
             >
@@ -734,5 +927,5 @@ export default function AdminUsers() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

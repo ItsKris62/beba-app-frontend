@@ -8,8 +8,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import { adminApi, type GuarantorHealth as GuarantorHealthData } from '@/lib/api-client';
 import { GUARANTOR_HEALTH_CHART_CONFIG, coverageColor, riskColor } from '@/lib/chart-colors';
 import { useLastGoodData } from '@/lib/use-last-good-data';
+import type { DashboardDrilldownSelection } from './drilldown-dialog';
 
-export function GuarantorHealth() {
+export function GuarantorHealth({ onDrilldown }: { onDrilldown: (selection: DashboardDrilldownSelection) => void }) {
   const query = useQuery({
     queryKey: ['admin-guarantor-health'],
     queryFn: () => adminApi.getGuarantorHealth(),
@@ -52,7 +53,27 @@ export function GuarantorHealth() {
             <ChartContainer config={GUARANTOR_HEALTH_CHART_CONFIG} className="w-full max-w-[220px] aspect-square mx-auto">
               <PieChart accessibilityLayer aria-label="Guarantor coverage: full, partial, none">
                 <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="key" />} />
-                <Pie data={data} dataKey="value" nameKey="key" innerRadius={55} outerRadius={85} strokeWidth={2}>
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="key"
+                  innerRadius={55}
+                  outerRadius={85}
+                  strokeWidth={2}
+                  onClick={(entry) => {
+                    const row = entry as { key?: string };
+                    if (!row.key) return;
+                    onDrilldown({
+                      title: `Guarantor coverage: ${row.key}`,
+                      description:
+                        row.key === 'none'
+                          ? 'Active loans with no accepted guarantors.'
+                          : 'Accepted guarantor records on active loans in the selected coverage bucket.',
+                      query: row.key === 'none' ? { source: 'loan', coverage: row.key } : { source: 'guarantor', coverage: row.key },
+                    });
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   {data.map((entry) => (
                     <Cell key={entry.key} fill={`var(--color-${entry.key})`} />
                   ))}

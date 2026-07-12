@@ -17,7 +17,7 @@
  * instead of donut segments.
  */
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useIsFetching } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
@@ -51,9 +51,12 @@ import { useAuth, isAdmin } from '@/lib/auth-context';
 import { useNetworkErrorAutoRetry } from '@/lib/use-network-error-retry';
 import { useLastGoodData } from '@/lib/use-last-good-data';
 import { ExecutiveOverview } from './components/executive-overview';
+import { DelinquencyTrends } from './components/delinquency-trends';
 import { RealTimeSparkline } from './components/real-time-sparkline';
 import { GuarantorHealth } from './components/guarantor-health';
+import { GuarantorCorrelation } from './components/guarantor-correlation';
 import { MpesaHeatmap } from './components/mpesa-heatmap';
+import { DrilldownDialog, type DashboardDrilldownSelection } from './components/drilldown-dialog';
 import {
   AGING_BUCKET_CHART_CONFIG,
   FOSA_BOSA_CHART_CONFIG,
@@ -69,6 +72,8 @@ import {
 // pending-approval counts staff act on, so 20s is "near real-time" without
 // hammering the API on every re-render.
 const ADMIN_DASHBOARD_STALE_TIME_MS = 20_000;
+
+type OnDashboardDrilldown = (selection: DashboardDrilldownSelection) => void;
 
 function KpiCard({
   title,
@@ -94,7 +99,13 @@ function KpiCard({
   );
 }
 
-function LoanPortfolioDonut({ loansByStatus }: { loansByStatus: Array<{ status: string; count: number; totalAmount: number }> }) {
+function LoanPortfolioDonut({
+  loansByStatus,
+  onDrilldown,
+}: {
+  loansByStatus: Array<{ status: string; count: number; totalAmount: number }>;
+  onDrilldown: OnDashboardDrilldown;
+}) {
   const data = loansByStatus.filter((s) => s.count > 0);
   const total = data.reduce((sum, s) => sum + s.count, 0);
 
@@ -130,7 +141,24 @@ function LoanPortfolioDonut({ loansByStatus }: { loansByStatus: Array<{ status: 
                   />
                 }
               />
-              <Pie data={data} dataKey="count" nameKey="status" innerRadius={65} outerRadius={95} strokeWidth={2}>
+              <Pie
+                data={data}
+                dataKey="count"
+                nameKey="status"
+                innerRadius={65}
+                outerRadius={95}
+                strokeWidth={2}
+                onClick={(entry) => {
+                  const row = entry as { status?: string };
+                  if (!row.status) return;
+                  onDrilldown({
+                    title: `Loans: ${row.status}`,
+                    description: 'Loans matching the selected portfolio status.',
+                    query: { source: 'loan', loanStatus: row.status },
+                  });
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 {data.map((entry) => (
                   <Cell
                     key={entry.status}
@@ -168,7 +196,7 @@ function LoanPortfolioDonut({ loansByStatus }: { loansByStatus: Array<{ status: 
   );
 }
 
-function MembershipDonut({ members }: { members: AdminDashboardStats['members'] }) {
+function MembershipDonut({ members, onDrilldown }: { members: AdminDashboardStats['members']; onDrilldown: OnDashboardDrilldown }) {
   const other = Math.max(members.total - members.totalActiveAccounts - members.pendingKyc, 0);
   const data = [
     { key: 'active', label: 'Active Accounts', value: members.totalActiveAccounts },
@@ -185,7 +213,24 @@ function MembershipDonut({ members }: { members: AdminDashboardStats['members'] 
         <ChartContainer config={MEMBERSHIP_CHART_CONFIG} className="mx-auto aspect-square max-h-[260px]">
           <PieChart accessibilityLayer aria-label="Membership composition: active, pending KYC, other">
             <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="key" />} />
-            <Pie data={data} dataKey="value" nameKey="key" innerRadius={65} outerRadius={95} strokeWidth={2}>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="key"
+              innerRadius={65}
+              outerRadius={95}
+              strokeWidth={2}
+              onClick={(entry) => {
+                const row = entry as { key?: string; label?: string };
+                if (!row.key) return;
+                onDrilldown({
+                  title: row.label ?? 'Members',
+                  description: 'Members matching the selected membership segment.',
+                  query: { source: 'member', membershipSegment: row.key },
+                });
+              }}
+              style={{ cursor: 'pointer' }}
+            >
               {data.map((entry) => (
                 <Cell key={entry.key} fill={`var(--color-${entry.key})`} />
               ))}
@@ -215,7 +260,7 @@ function MembershipDonut({ members }: { members: AdminDashboardStats['members'] 
   );
 }
 
-function PortfolioRiskGauge({ loans }: { loans: AdminDashboardStats['loans'] }) {
+function PortfolioRiskGauge({ loans, onDrilldown }: { loans: AdminDashboardStats['loans']; onDrilldown: OnDashboardDrilldown }) {
   const pct = loans.portfolioAtRisk30d.percentOfActivePortfolio;
   const color = riskColor(pct);
   const gaugeData = [{ metric: 'par30', value: Math.min(pct, 100) }];
@@ -226,7 +271,29 @@ function PortfolioRiskGauge({ loans }: { loans: AdminDashboardStats['loans'] }) 
         <CardTitle className="text-base">Portfolio at Risk (30d+)</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={{ value: { label: 'PAR30' } }} className="mx-auto aspect-square max-h-[220px]">
+        <ChartContainer
+          config={{ value: { label: 'PAR30' } }}
+          className="mx-auto aspect-square max-h-[220px] cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-label="Open loans at portfolio risk"
+          onClick={() =>
+            onDrilldown({
+              title: 'Portfolio at Risk (30d+)',
+              description: 'Active loans staged as WATCHLIST or NPL.',
+              query: { source: 'loan', agingBucket: 'par30' },
+            })
+          }
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            onDrilldown({
+              title: 'Portfolio at Risk (30d+)',
+              description: 'Active loans staged as WATCHLIST or NPL.',
+              query: { source: 'loan', agingBucket: 'par30' },
+            });
+          }}
+        >
           <RadialBarChart
             accessibilityLayer
             aria-label={`Portfolio at risk 30 days or more: ${pct}%, ${riskLabel(pct)}`}
@@ -273,7 +340,13 @@ function PortfolioRiskGauge({ loans }: { loans: AdminDashboardStats['loans'] }) 
   );
 }
 
-function FosaBosaComposition({ liquidity }: { liquidity: AdminDashboardStats['liquidity'] }) {
+function FosaBosaComposition({
+  liquidity,
+  onDrilldown,
+}: {
+  liquidity: AdminDashboardStats['liquidity'];
+  onDrilldown: OnDashboardDrilldown;
+}) {
   const data = [
     { key: 'fosa', ...liquidity.fosa },
     { key: 'bosa', ...liquidity.bosa },
@@ -314,7 +387,25 @@ function FosaBosaComposition({ liquidity }: { liquidity: AdminDashboardStats['li
                     />
                   }
                 />
-                <Pie data={data} dataKey="totalBalance" nameKey="key" innerRadius={60} outerRadius={90} strokeWidth={2}>
+                <Pie
+                  data={data}
+                  dataKey="totalBalance"
+                  nameKey="key"
+                  innerRadius={60}
+                  outerRadius={90}
+                  strokeWidth={2}
+                  onClick={(entry) => {
+                    const row = entry as { key?: string };
+                    const accountType = row.key?.toUpperCase();
+                    if (accountType !== 'FOSA' && accountType !== 'BOSA') return;
+                    onDrilldown({
+                      title: `${accountType} transactions`,
+                      description: 'Transactions posted to accounts in the selected account type.',
+                      query: { source: 'transaction', accountType },
+                    });
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   {data.map((entry) => (
                     <Cell key={entry.key} fill={`var(--color-${entry.key})`} />
                   ))}
@@ -367,7 +458,7 @@ function FosaBosaComposition({ liquidity }: { liquidity: AdminDashboardStats['li
   );
 }
 
-function LoanProductMix({ products }: { products: AdminDashboardReports['loanProductMix'] }) {
+function LoanProductMix({ products, onDrilldown }: { products: AdminDashboardReports['loanProductMix']; onDrilldown: OnDashboardDrilldown }) {
   const config: ChartConfig = useMemo(
     () =>
       Object.fromEntries(
@@ -413,7 +504,20 @@ function LoanProductMix({ products }: { products: AdminDashboardReports['loanPro
                   />
                 }
               />
-              <Bar dataKey="totalDisbursed" radius={4}>
+              <Bar
+                dataKey="totalDisbursed"
+                radius={4}
+                onClick={(entry) => {
+                  const row = entry as { productId?: string; productName?: string };
+                  if (!row.productId) return;
+                  onDrilldown({
+                    title: row.productName ?? 'Loan product',
+                    description: 'Active loans for the selected product.',
+                    query: { source: 'loan', loanStatus: 'ACTIVE', loanProductId: row.productId },
+                  });
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 {products.map((p) => (
                   <Cell key={p.productId} fill={`var(--color-${p.productId})`} />
                 ))}
@@ -426,7 +530,13 @@ function LoanProductMix({ products }: { products: AdminDashboardReports['loanPro
   );
 }
 
-function DelinquencyAging({ agingBuckets }: { agingBuckets: AdminDashboardReports['agingBuckets'] }) {
+function DelinquencyAging({
+  agingBuckets,
+  onDrilldown,
+}: {
+  agingBuckets: AdminDashboardReports['agingBuckets'];
+  onDrilldown: OnDashboardDrilldown;
+}) {
   const total =
     agingBuckets.current + agingBuckets.days1to30 + agingBuckets.days31to60 + agingBuckets.days61to90 + agingBuckets.days90Plus;
   const data = [{ name: 'Active Loan Book', ...agingBuckets }];
@@ -454,7 +564,21 @@ function DelinquencyAging({ agingBuckets }: { agingBuckets: AdminDashboardReport
                 <YAxis type="category" dataKey="name" hide />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 {(Object.keys(AGING_BUCKET_CHART_CONFIG) as Array<keyof typeof agingBuckets>).map((key) => (
-                  <Bar key={key} dataKey={key} stackId="risk" fill={`var(--color-${key})`} radius={0} />
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    stackId="risk"
+                    fill={`var(--color-${key})`}
+                    radius={0}
+                    onClick={() =>
+                      onDrilldown({
+                        title: String(AGING_BUCKET_CHART_CONFIG[key].label ?? key),
+                        description: 'Loans matching the selected delinquency aging bucket.',
+                        query: { source: 'loan', agingBucket: key },
+                      })
+                    }
+                    style={{ cursor: 'pointer' }}
+                  />
                 ))}
               </BarChart>
             </ChartContainer>
@@ -483,6 +607,7 @@ function DelinquencyAging({ agingBuckets }: { agingBuckets: AdminDashboardReport
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const [drilldown, setDrilldown] = useState<DashboardDrilldownSelection | null>(null);
   // Gate the fetch itself, not just the rendered UI — the /admin route layout
   // already redirects non-admin roles away, but that redirect runs in its own
   // effect on the same mount as this page's, so without this the dashboard
@@ -635,7 +760,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <RealTimeSparkline />
+      <RealTimeSparkline onDrilldown={setDrilldown} />
 
       {loading || !stats ? (
         <>
@@ -684,22 +809,24 @@ export default function AdminDashboardPage() {
 
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <LoanPortfolioDonut loansByStatus={loansByStatus} />
-            <MembershipDonut members={stats.members} />
-            <PortfolioRiskGauge loans={stats.loans} />
+            <LoanPortfolioDonut loansByStatus={loansByStatus} onDrilldown={setDrilldown} />
+            <MembershipDonut members={stats.members} onDrilldown={setDrilldown} />
+            <PortfolioRiskGauge loans={stats.loans} onDrilldown={setDrilldown} />
           </div>
 
           {/* SACCO-specific composition */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FosaBosaComposition liquidity={stats.liquidity} />
-            <LoanProductMix products={loanProductMix} />
+            <FosaBosaComposition liquidity={stats.liquidity} onDrilldown={setDrilldown} />
+            <LoanProductMix products={loanProductMix} onDrilldown={setDrilldown} />
           </div>
 
-          {reports && <DelinquencyAging agingBuckets={reports.agingBuckets} />}
+          {reports && <DelinquencyAging agingBuckets={reports.agingBuckets} onDrilldown={setDrilldown} />}
 
-          <ExecutiveOverview />
-          <GuarantorHealth />
-          <MpesaHeatmap />
+          <DelinquencyTrends onDrilldown={setDrilldown} />
+          <ExecutiveOverview onDrilldown={setDrilldown} />
+          <GuarantorHealth onDrilldown={setDrilldown} />
+          <GuarantorCorrelation />
+          <MpesaHeatmap onDrilldown={setDrilldown} />
         </>
       )}
 
@@ -720,6 +847,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
         </Card>
       )}
+      <DrilldownDialog selection={drilldown} onClose={() => setDrilldown(null)} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { adminApi, type MpesaHeatmap as MpesaHeatmapData } from '@/lib/api-client';
 import { heatmapColor } from '@/lib/chart-colors';
 import { useLastGoodData } from '@/lib/use-last-good-data';
+import type { DashboardDrilldownSelection } from './drilldown-dialog';
 
 const DAYS = 7;
 const HOUR_LABELS = [0, 3, 6, 9, 12, 15, 18, 21];
@@ -22,7 +23,14 @@ function lastNDays(n: number): string[] {
   return out;
 }
 
-export function MpesaHeatmap() {
+function hourRange(day: string, hour: number): { from: string; to: string } {
+  const from = new Date(`${day}T${String(hour).padStart(2, '0')}:00:00`);
+  const to = new Date(from);
+  to.setMinutes(59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+export function MpesaHeatmap({ onDrilldown }: { onDrilldown: (selection: DashboardDrilldownSelection) => void }) {
   const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
   const query = useQuery({
     queryKey: ['admin-mpesa-heatmap', DAYS],
@@ -105,11 +113,31 @@ export function MpesaHeatmap() {
                         <td
                           key={hour}
                           title={`${dayLabel(day)} ${hour}:00 — KES ${amount.toLocaleString('en-KE')} (${cell?.transactionCount ?? 0} txns)`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Open M-Pesa deposits for ${dayLabel(day)} at ${hour}:00`}
+                          onClick={() =>
+                            onDrilldown({
+                              title: `M-Pesa deposits: ${dayLabel(day)} ${hour}:00`,
+                              description: 'Completed M-Pesa transactions in the selected hour.',
+                              query: { source: 'mpesa', status: 'COMPLETED', ...hourRange(day, hour) },
+                            })
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            onDrilldown({
+                              title: `M-Pesa deposits: ${dayLabel(day)} ${hour}:00`,
+                              description: 'Completed M-Pesa transactions in the selected hour.',
+                              query: { source: 'mpesa', status: 'COMPLETED', ...hourRange(day, hour) },
+                            });
+                          }}
                           style={{
                             backgroundColor: heatmapColor(amount, max, isDark),
                             width: 22,
                             height: 22,
                             border: '1px solid var(--border)',
+                            cursor: 'pointer',
                           }}
                         />
                       );

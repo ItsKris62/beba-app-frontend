@@ -25,6 +25,7 @@ import {
   formatCurrency,
   formatDate,
   formatDateTime,
+  generateIdempotencyKey,
   type MemberDashboard,
 } from '@/lib/api-client';
 import { getFormattedStatusLabel, isKycVerified } from '@/lib/kyc-status';
@@ -129,7 +130,10 @@ export default function MemberDashboardPage() {
 
     setWithdrawing(true);
     try {
-      const res = await memberApi.withdrawMpesa({ amount: amountNum, phoneNumber: withdrawPhone });
+      const res = await memberApi.withdrawMpesa(
+        { amount: amountNum, phoneNumber: withdrawPhone },
+        generateIdempotencyKey(),
+      );
       if (res.success) {
         // There is no status-polling endpoint for FOSA-to-M-Pesa withdrawals
         // (unlike the deposit STK flow) — don't imply we can track it here.

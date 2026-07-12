@@ -27,7 +27,10 @@ describe('api client retry policy', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const resultPromise = memberApi.withdrawMpesa({ phoneNumber: '254700000000', amount: 500 });
+    const resultPromise = memberApi.withdrawMpesa(
+      { phoneNumber: '254700000000', amount: 500 },
+      'test-idem-key-1',
+    );
     await vi.runAllTimersAsync();
     const result = await resultPromise;
 
@@ -44,7 +47,10 @@ describe('api client retry policy', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const resultPromise = memberApi.withdrawMpesa({ phoneNumber: '254700000000', amount: 500 });
+    const resultPromise = memberApi.withdrawMpesa(
+      { phoneNumber: '254700000000', amount: 500 },
+      'test-idem-key-2',
+    );
     await vi.runAllTimersAsync();
     const result = await resultPromise;
 

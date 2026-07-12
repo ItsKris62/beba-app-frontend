@@ -9,6 +9,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import { adminApi, type ExecutiveOverview as ExecutiveOverviewData, type ExecutiveOverviewRange } from '@/lib/api-client';
 import { EXECUTIVE_OVERVIEW_CHART_CONFIG, NEW_MEMBERS_CHART_CONFIG } from '@/lib/chart-colors';
 import { useLastGoodData } from '@/lib/use-last-good-data';
+import type { DashboardDrilldownSelection } from './drilldown-dialog';
 
 const RANGES: Array<{ value: ExecutiveOverviewRange; label: string }> = [
   { value: '30d', label: '30D' },
@@ -23,7 +24,16 @@ function formatBucketDate(iso: string, range: ExecutiveOverviewRange): string {
     : d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' });
 }
 
-export function ExecutiveOverview() {
+function bucketRange(iso: string, range: ExecutiveOverviewRange): { from: string; to: string } {
+  const from = new Date(iso);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setDate(to.getDate() + (range === '1y' ? 6 : 0));
+  to.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+export function ExecutiveOverview({ onDrilldown }: { onDrilldown: (selection: DashboardDrilldownSelection) => void }) {
   const [range, setRange] = useState<ExecutiveOverviewRange>('30d');
 
   const query = useQuery({
@@ -72,6 +82,33 @@ export function ExecutiveOverview() {
   );
 
   const fmt = (n: number) => `KES ${n.toLocaleString('en-KE')}`;
+  const openMoneyDrilldown = (kind: 'revenue' | 'disbursements', point: unknown) => {
+    const row = point as { payload?: { date?: string; label?: string } };
+    if (!row.payload?.date) return;
+    const rangeFilter = bucketRange(row.payload.date, range);
+    onDrilldown(
+      kind === 'revenue'
+        ? {
+            title: `Revenue: ${row.payload.label ?? ''}`,
+            description: 'Posted journal entries with revenue GL credit postings in the selected bucket.',
+            query: { source: 'journal', journalStatus: 'POSTED', creditAccountType: 'REVENUE', ...rangeFilter },
+          }
+        : {
+            title: `Disbursements: ${row.payload.label ?? ''}`,
+            description: 'Loans disbursed in the selected bucket.',
+            query: { source: 'loan', loanDateField: 'disbursedAt', ...rangeFilter },
+          },
+    );
+  };
+  const openMemberDrilldown = (point: unknown) => {
+    const row = point as { payload?: { date?: string; label?: string } };
+    if (!row.payload?.date) return;
+    onDrilldown({
+      title: `New Members: ${row.payload.label ?? ''}`,
+      description: 'Members who joined in the selected bucket.',
+      query: { source: 'member', ...bucketRange(row.payload.date, range) },
+    });
+  };
   const loading = query.isLoading;
   const hasData = moneyData.some((d) => d.revenue > 0 || d.disbursements > 0) || memberData.some((d) => d.count > 0);
 
@@ -127,7 +164,16 @@ export function ExecutiveOverview() {
                     }
                   />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} dot={false} isAnimationActive />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="var(--color-revenue)"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive
+                    onClick={(point) => openMoneyDrilldown('revenue', point)}
+                    style={{ cursor: 'pointer' }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="disbursements"
@@ -135,6 +181,8 @@ export function ExecutiveOverview() {
                     strokeWidth={2}
                     dot={false}
                     isAnimationActive
+                    onClick={(point) => openMoneyDrilldown('disbursements', point)}
+                    style={{ cursor: 'pointer' }}
                   />
                 </LineChart>
               </ChartContainer>
@@ -155,6 +203,8 @@ export function ExecutiveOverview() {
                     strokeWidth={2}
                     dot={false}
                     isAnimationActive
+                    onClick={openMemberDrilldown}
+                    style={{ cursor: 'pointer' }}
                   />
                 </LineChart>
               </ChartContainer>

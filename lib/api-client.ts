@@ -1700,6 +1700,79 @@ export interface MpesaHeatmap {
   buckets: Array<{ day: string; hour: number; totalAmount: number; transactionCount: number }>;
 }
 
+export interface DelinquencyTrendPoint {
+  date: string;
+  totalLoans: number;
+  delinquentLoans: number;
+  watchlistLoans: number;
+  nplLoans: number;
+  averageArrearsDays: number;
+  par30Rate: number;
+}
+
+export interface DelinquencyTrends {
+  from: string;
+  to: string;
+  loanProductId?: string;
+  points: DelinquencyTrendPoint[];
+}
+
+export interface GuarantorCorrelationRow {
+  memberId: string;
+  memberNumber: string;
+  name: string;
+  totalGuarantees: number;
+  defaultedGuarantees: number;
+  defaultCorrelationRate: number;
+  totalGuaranteedAmount: number;
+  recoveredAmount: number;
+  activeGuarantees: number;
+  defaultedActiveGuarantees: number;
+  closedGuarantees: number;
+}
+
+export interface GuarantorCorrelation {
+  minGuaranteesForCorrelation: number;
+  ranked: GuarantorCorrelationRow[];
+  belowThreshold?: GuarantorCorrelationRow[];
+  excludedBelowThreshold: number;
+  generatedAt: string;
+  defaultEvidenceDefinition: string;
+}
+
+export type DashboardDrilldownSource = 'transaction' | 'mpesa' | 'loan' | 'guarantor' | 'member' | 'journal';
+
+export interface DashboardDrilldownParams {
+  source: DashboardDrilldownSource;
+  page?: number;
+  limit?: number;
+  type?: string;
+  status?: string;
+  mpesaType?: string;
+  accountType?: 'FOSA' | 'BOSA';
+  loanStatus?: string;
+  loanStaging?: string;
+  guarantorStatus?: string;
+  journalType?: string;
+  journalStatus?: string;
+  creditAccountType?: string;
+  from?: string;
+  to?: string;
+  loanProductId?: string;
+  loanDateField?: 'createdAt' | 'appliedAt' | 'disbursedAt';
+  snapshotDate?: string;
+  search?: string;
+  agingBucket?: string;
+  coverage?: string;
+  membershipSegment?: string;
+}
+
+export interface DashboardDrilldownResponse {
+  source: DashboardDrilldownSource;
+  data: Array<Record<string, unknown>>;
+  meta: ApiMeta;
+}
+
 // Shape emitted by admin/analytics/real-time — same payload whether read via
 // the JSON-snapshot fallback (what this app polls) or the SSE stream.
 export interface RealTimeAnalyticsSnapshot {
@@ -1753,6 +1826,32 @@ export const adminApi = {
 
   getMpesaHeatmap: (days = 7) =>
     apiFetch<MpesaHeatmap>(`/admin/dashboard/mpesa-heatmap?days=${days}`),
+
+  getDelinquencyTrends: (params?: { from?: string; to?: string; loanProductId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.loanProductId) q.set('loanProductId', params.loanProductId);
+    return apiFetch<DelinquencyTrends>(`/admin/dashboard/delinquency-trends${q.size ? `?${q}` : ''}`);
+  },
+
+  getGuarantorCorrelation: (params?: { includeBelowThreshold?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.includeBelowThreshold !== undefined) {
+      q.set('includeBelowThreshold', String(params.includeBelowThreshold));
+    }
+    return apiFetch<GuarantorCorrelation>(`/admin/dashboard/guarantor-correlation${q.size ? `?${q}` : ''}`);
+  },
+
+  getDashboardDrilldown: (params: DashboardDrilldownParams) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        q.set(key, String(value));
+      }
+    });
+    return apiFetch<DashboardDrilldownResponse>(`/admin/dashboard/drilldown?${q}`);
+  },
 
   // Deliberately NOT a browser EventSource — that endpoint requires an
   // Authorization header + X-Tenant-ID header neither EventSource nor cookies

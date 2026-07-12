@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { adminApi, type RealTimeAnalyticsSnapshot } from '@/lib/api-client';
 import { useLastGoodData } from '@/lib/use-last-good-data';
+import type { DashboardDrilldownSelection } from './drilldown-dialog';
 
 const POLL_INTERVAL_MS = 5_000;
 const MAX_POINTS = 60; // 5 min of history at 5s intervals
@@ -13,6 +14,13 @@ const MAX_POINTS = 60; // 5 min of history at 5s intervals
 interface Point {
   t: number; // ms epoch, used as the recharts x value
   totalDepositsToday: number;
+}
+
+function todayRange(): { from: string; to: string } {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  const to = new Date();
+  return { from: from.toISOString(), to: to.toISOString() };
 }
 
 /**
@@ -26,7 +34,7 @@ interface Point {
  * one event. Polling the same computeMetrics() the SSE stream itself is
  * backed by delivers the same fresh-every-5s data with none of that.
  */
-export function RealTimeSparkline() {
+export function RealTimeSparkline({ onDrilldown }: { onDrilldown: (selection: DashboardDrilldownSelection) => void }) {
   const [points, setPoints] = useState<Point[]>([]);
   const [connectionLost, setConnectionLost] = useState(false);
   const lastTimestampRef = useRef<string | null>(null);
@@ -101,7 +109,28 @@ export function RealTimeSparkline() {
           <p className="text-muted-foreground text-sm">Waiting for the first live reading…</p>
         ) : (
           <>
-            <div className="h-[120px] w-full" aria-label="Cumulative M-Pesa deposit volume today, updating every 5 seconds">
+            <div
+              className="h-[120px] w-full cursor-pointer"
+              aria-label="Open M-Pesa deposits for today"
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                onDrilldown({
+                  title: 'M-Pesa deposits today',
+                  description: 'Completed M-Pesa transactions for the current day.',
+                  query: { source: 'mpesa', status: 'COMPLETED', ...todayRange() },
+                })
+              }
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                onDrilldown({
+                  title: 'M-Pesa deposits today',
+                  description: 'Completed M-Pesa transactions for the current day.',
+                  query: { source: 'mpesa', status: 'COMPLETED', ...todayRange() },
+                });
+              }}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={points} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                   <defs>

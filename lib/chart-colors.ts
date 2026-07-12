@@ -95,6 +95,12 @@ export const NEW_MEMBERS_CHART_CONFIG: ChartConfig = {
   newMembers: { label: 'New Members', theme: { light: '#4a3aa7', dark: '#9085e9' } },
 };
 
+export const DELINQUENCY_TRENDS_CHART_CONFIG: ChartConfig = {
+  delinquentLoans: { label: 'In Arrears', theme: { light: '#d97706', dark: '#f59e0b' } },
+  watchlistLoans: { label: 'Watchlist', theme: { light: '#eb6834', dark: '#d95926' } },
+  nplLoans: { label: 'NPL', theme: { light: '#dc2626', dark: '#ef4444' } },
+};
+
 export const GUARANTOR_HEALTH_CHART_CONFIG: ChartConfig = {
   full: { label: 'Full Coverage', theme: { light: '#16a34a', dark: '#22a35e' } },
   partial: { label: 'Partial Coverage', theme: { light: '#eda100', dark: '#c98500' } },

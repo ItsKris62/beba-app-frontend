@@ -738,7 +738,11 @@ export default function MembersPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{total}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Registered in system
             </p>
@@ -752,9 +756,13 @@ export default function MembersPage() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {activeCount}
-            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-green-600">
+                {activeCount}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">Currently active</p>
           </CardContent>
         </Card>
@@ -764,9 +772,13 @@ export default function MembersPage() {
             <XCircle className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-500">
-              {inactiveCount}
-            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-gray-500">
+                {inactiveCount}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">Inactive accounts</p>
           </CardContent>
         </Card>

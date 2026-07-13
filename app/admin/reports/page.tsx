@@ -205,12 +205,21 @@ export default function AdminReportsPage() {
       <div className="p-6">
         <div className="bg-red-50 text-red-700 p-4 rounded">
           {reportsNetworkError ? (
-            <>
-              <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
-              <p className="text-sm mt-1">
-                This usually means it&apos;s still waking up from being idle — wait a moment and try again.
-              </p>
-            </>
+            reportsRetry.exhausted ? (
+              <>
+                <p className="font-medium">We&apos;re having trouble connecting to the server.</p>
+                <p className="text-sm mt-1">
+                  This may be a temporary network issue. If it continues, please contact support.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
+                <p className="text-sm mt-1">
+                  This usually means it&apos;s still waking up from being idle — wait a moment and try again.
+                </p>
+              </>
+            )
           ) : (
             loadError
           )}

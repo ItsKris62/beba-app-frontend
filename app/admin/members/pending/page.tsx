@@ -324,7 +324,11 @@ export default function PendingKycPage() {
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{total}</div>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">Pending member KYC records</p>
           </CardContent>
         </Card>

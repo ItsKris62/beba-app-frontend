@@ -166,7 +166,7 @@ export default function AuditLogPage() {
       <Card>
         <CardHeader>
           <CardTitle>Audit Logs</CardTitle>
-          <CardDescription>{total} entries found</CardDescription>
+          <CardDescription>{isLoading ? <Skeleton className="h-4 w-24" /> : `${total} entries found`}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (

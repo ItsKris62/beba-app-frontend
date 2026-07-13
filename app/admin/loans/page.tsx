@@ -341,7 +341,7 @@ export default function AdminLoansPage() {
       <Card>
         <CardHeader>
           <CardTitle>Loans</CardTitle>
-          <CardDescription>{total} loans found</CardDescription>
+          <CardDescription>{isLoading ? <Skeleton className="h-4 w-24" /> : `${total} loans found`}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (

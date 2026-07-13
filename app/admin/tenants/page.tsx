@@ -83,7 +83,11 @@ export default function TenantsPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tenants.length}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{tenants.length}</div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -92,7 +96,11 @@ export default function TenantsPage() {
             <ShieldCheck className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{activeTenants}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-green-600">{activeTenants}</div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -101,7 +109,11 @@ export default function TenantsPage() {
             <ShieldOff className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{suspendedTenants}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-red-600">{suspendedTenants}</div>
+            )}
           </CardContent>
         </Card>
       </div>

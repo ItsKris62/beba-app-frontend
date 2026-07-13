@@ -74,6 +74,16 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
+        // Thread the caught error + retry handler into a static
+        // `fallback={<SomeFallback />}` element the same way DefaultErrorFallback
+        // gets them below — callers can pass e.g. <DashboardErrorFallback />
+        // without wiring error/onRetry themselves.
+        if (React.isValidElement(this.props.fallback)) {
+          return React.cloneElement(
+            this.props.fallback as React.ReactElement<{ error?: Error | null; onRetry?: () => void }>,
+            { error: this.state.error, onRetry: this.handleRetry },
+          );
+        }
         return this.props.fallback;
       }
       return <DefaultErrorFallback error={this.state.error} onRetry={this.handleRetry} />;
@@ -128,11 +138,10 @@ function DefaultErrorFallback({
  * Dashboard-specific error fallback with stale-data warning.
  */
 export function DashboardErrorFallback({
-  error,
-  onRetry,
+  onRetry = () => {},
 }: {
-  error: Error | null;
-  onRetry: () => void;
+  error?: Error | null;
+  onRetry?: () => void;
 }) {
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-900 dark:bg-amber-950/20">

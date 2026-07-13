@@ -494,7 +494,11 @@ export default function AdminUsers() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{total}</div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -503,9 +507,13 @@ export default function AdminUsers() {
             <Users className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {activeCount}
-            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-green-600">
+                {activeCount}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -516,9 +524,13 @@ export default function AdminUsers() {
             <Users className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {pendingCount}
-            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-amber-600">
+                {pendingCount}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

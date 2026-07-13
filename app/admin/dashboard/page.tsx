@@ -727,12 +727,21 @@ export default function AdminDashboardPage() {
       <div className="p-6">
         <div className="text-red-600 bg-red-50 p-4 rounded">
           {statsNetworkError ? (
-            <>
-              <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
-              <p className="text-sm mt-1">
-                This usually means it&apos;s still waking up from being idle — wait a moment and try again.
-              </p>
-            </>
+            statsRetry.exhausted ? (
+              <>
+                <p className="font-medium">We&apos;re having trouble connecting to the server.</p>
+                <p className="text-sm mt-1">
+                  This may be a temporary network issue. If it continues, please contact support.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">We couldn&apos;t reach the service after several attempts.</p>
+                <p className="text-sm mt-1">
+                  This usually means it&apos;s still waking up from being idle — wait a moment and try again.
+                </p>
+              </>
+            )
           ) : (
             error
           )}
@@ -799,12 +808,25 @@ export default function AdminDashboardPage() {
               subtitle={`${stats.mpesa.deposits7d.count} transactions`}
               colorClass="text-blue-600"
             />
-            <KpiCard
-              title="Open Support Tickets"
-              value={(openTickets ?? 0).toLocaleString()}
-              subtitle="Awaiting support action"
-              colorClass={(openTickets ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'}
-            />
+            {ticketsQuery.isLoading ? (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Open Support Tickets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ) : (
+              <KpiCard
+                title="Open Support Tickets"
+                value={(openTickets ?? 0).toLocaleString()}
+                subtitle="Awaiting support action"
+                colorClass={(openTickets ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'}
+              />
+            )}
           </div>
 
           {/* Charts */}

@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,11 +77,27 @@ function StatusBadge({ status }: { status: string }) {
     PENDING_REVIEW: "bg-amber-100 text-amber-800 border-amber-200",
     APPROVED: "bg-green-100 text-green-800 border-green-200",
     REJECTED: "bg-red-100 text-red-800 border-red-200",
+    PENDING_UPLOAD: "bg-orange-100 text-orange-800 border-orange-200",
   }
 
   return (
     <Badge variant="outline" className={map[status] ?? "bg-gray-100 text-gray-800"}>
       {status.split("_").join(" ")}
+    </Badge>
+  )
+}
+
+function KycProgressBadge({ documentsUploaded, isComplete }: { documentsUploaded: number; isComplete: boolean }) {
+  return (
+    <Badge
+      variant="outline"
+      className={
+        isComplete
+          ? "bg-green-100 text-green-800 border-green-200"
+          : "bg-orange-100 text-orange-800 border-orange-200"
+      }
+    >
+      {documentsUploaded} / {REQUIRED_DOC_TYPES.length}
     </Badge>
   )
 }
@@ -95,6 +112,7 @@ export default function PendingKycPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING_REVIEW" | "INCOMPLETE">("PENDING_REVIEW")
 
   const [viewMember, setViewMember] = useState<PendingMember | null>(null)
   const [approveMember, setApproveMember] = useState<PendingMember | null>(null)
@@ -120,6 +138,7 @@ export default function PendingKycPage() {
         page: p,
         limit: PAGE_SIZE,
         search: q || undefined,
+        statusFilter,
       })
 
       if (!result.success) {
@@ -135,10 +154,10 @@ export default function PendingKycPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [statusFilter])
 
   useEffect(() => {
-    loadMembers(1)
+    loadMembers(1, search)
   }, [loadMembers])
 
   const checklistProgress = useMemo(() => {
@@ -320,7 +339,13 @@ export default function PendingKycPage() {
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Awaiting Review</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {statusFilter === "INCOMPLETE"
+                ? "Incomplete Submissions"
+                : statusFilter === "ALL"
+                  ? "In Queue"
+                  : "Awaiting Review"}
+            </CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -329,7 +354,7 @@ export default function PendingKycPage() {
             ) : (
               <div className="text-2xl font-bold">{total}</div>
             )}
-            <p className="mt-1 text-xs text-muted-foreground">Pending member KYC records</p>
+            <p className="mt-1 text-xs text-muted-foreground">Matching the selected status filter</p>
           </CardContent>
         </Card>
       </div>
@@ -338,9 +363,13 @@ export default function PendingKycPage() {
         <CardHeader>
           <CardTitle>Pending Members</CardTitle>
           <CardDescription>
-            Members with pending review KYC status, ordered oldest first.
+            {statusFilter === "INCOMPLETE"
+              ? "Members still missing required KYC documents, ordered oldest first."
+              : statusFilter === "ALL"
+                ? "Members awaiting review or still missing required documents, ordered oldest first."
+                : "Members with all required documents uploaded, awaiting review, ordered oldest first."}
           </CardDescription>
-          <form onSubmit={handleSearch} className="mt-2 flex gap-2">
+          <form onSubmit={handleSearch} className="mt-2 flex flex-wrap gap-2">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -350,6 +379,19 @@ export default function PendingKycPage() {
                 className="pl-9"
               />
             </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as "ALL" | "PENDING_REVIEW" | "INCOMPLETE")}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING_REVIEW">Awaiting Review</SelectItem>
+                <SelectItem value="INCOMPLETE">Incomplete Submissions</SelectItem>
+                <SelectItem value="ALL">All (Review + Incomplete)</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="submit" variant="outline" size="sm">
               Search
             </Button>
@@ -378,6 +420,7 @@ export default function PendingKycPage() {
                     <TableHead>National ID</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>KYC Progress</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -399,6 +442,12 @@ export default function PendingKycPage() {
                       <TableCell>
                         <StatusBadge status={member.kycStatus} />
                       </TableCell>
+                      <TableCell>
+                        <KycProgressBadge
+                          documentsUploaded={member.documentsUploaded}
+                          isComplete={member.isComplete}
+                        />
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(member.joinedAt)}
                       </TableCell>
@@ -407,26 +456,35 @@ export default function PendingKycPage() {
                           <Button variant="ghost" size="sm" onClick={() => setViewMember(member)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-green-300 text-green-700 hover:bg-green-50"
-                            onClick={() => openApproveDialog(member)}
-                            disabled={isProcessing}
-                          >
-                            <CheckCircle2 className="mr-1 h-4 w-4" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                            onClick={() => openRejectDialog(member)}
-                            disabled={isProcessing}
-                          >
-                            <XCircle className="mr-1 h-4 w-4" />
-                            Reject
-                          </Button>
+                          {member.kycStatus === "PENDING_REVIEW" ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-green-300 text-green-700 hover:bg-green-50"
+                                onClick={() => openApproveDialog(member)}
+                                disabled={isProcessing}
+                              >
+                                <CheckCircle2 className="mr-1 h-4 w-4" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                onClick={() => openRejectDialog(member)}
+                                disabled={isProcessing}
+                              >
+                                <XCircle className="mr-1 h-4 w-4" />
+                                Reject
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              Awaiting documents
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -511,29 +569,38 @@ export default function PendingKycPage() {
           )}
 
           <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => {
-                if (viewMember) openRejectDialog(viewMember)
-                setViewMember(null)
-              }}
-              disabled={isProcessing}
-            >
-              <XCircle className="mr-1 h-4 w-4" />
-              Reject
-            </Button>
-            <Button
-              className="bg-green-600 text-white hover:bg-green-700"
-              onClick={() => {
-                if (viewMember) openApproveDialog(viewMember)
-                setViewMember(null)
-              }}
-              disabled={isProcessing}
-            >
-              <CheckCircle2 className="mr-1 h-4 w-4" />
-              Approve
-            </Button>
+            {viewMember?.kycStatus === "PENDING_REVIEW" ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    if (viewMember) openRejectDialog(viewMember)
+                    setViewMember(null)
+                  }}
+                  disabled={isProcessing}
+                >
+                  <XCircle className="mr-1 h-4 w-4" />
+                  Reject
+                </Button>
+                <Button
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  onClick={() => {
+                    if (viewMember) openApproveDialog(viewMember)
+                    setViewMember(null)
+                  }}
+                  disabled={isProcessing}
+                >
+                  <CheckCircle2 className="mr-1 h-4 w-4" />
+                  Approve
+                </Button>
+              </>
+            ) : (
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Missing {REQUIRED_DOC_TYPES.length - (viewMember?.documentsUploaded ?? 0)} required document(s) — cannot review yet.
+              </p>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

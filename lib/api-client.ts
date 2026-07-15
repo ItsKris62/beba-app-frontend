@@ -618,8 +618,12 @@ export interface PendingMember {
   kycDocumentUrls?: string[] | null;
   kycChecklist?: Record<string, boolean> | null;
   kycReviewNotes?: string | null;
-  kycStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  kycStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "PENDING_UPLOAD";
   joinedAt: string;
+  /** Count of required KYC document types uploaded (PENDING_REVIEW or APPROVED). Out of 4. */
+  documentsUploaded: number;
+  /** true when documentsUploaded >= all required document types. */
+  isComplete: boolean;
   user: {
     id: string;
     firstName: string;
@@ -2218,11 +2222,13 @@ export const adminApi = {
     search?: string;
     page?: number;
     limit?: number;
+    statusFilter?: "ALL" | "PENDING_REVIEW" | "INCOMPLETE";
   }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.statusFilter) q.set("statusFilter", params.statusFilter);
     return apiFetch<{ data: PendingMember[]; meta: ApiMeta }>(
       `/admin/members/pending?${q}`,
     );

@@ -24,6 +24,11 @@ type ApiEnvelope<T> = {
   error?: { message?: string } | null;
 };
 
+type ProblemDetail = {
+  detail?: string;
+  errorCode?: string;
+};
+
 export type SupportServerSession = {
   token: string;
   tenantId: string;
@@ -107,11 +112,19 @@ async function supportFetch<T>(path: string, session: SupportServerSession): Pro
   if (response.status === 401) redirect('/login');
   if (response.status === 404) notFound();
 
-  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | T | null;
+  const body = (await response.json().catch(() => null)) as
+    | ApiEnvelope<T>
+    | ProblemDetail
+    | T
+    | null;
 
   if (!response.ok) {
     const message =
-      body && typeof body === 'object' && 'error' in body ? body.error?.message : undefined;
+      body && typeof body === 'object' && 'error' in body
+        ? body.error?.message
+        : body && typeof body === 'object' && 'detail' in body
+          ? body.detail
+          : undefined;
     throw new Error(message ?? 'Could not load support data');
   }
 
@@ -128,7 +141,7 @@ async function supportFetch<T>(path: string, session: SupportServerSession): Pro
 export async function getMemberTickets(page: number): Promise<PaginatedSupportTickets> {
   const session = await getSupportServerSession();
   const data = await supportFetch<PaginatedSupportTickets | SupportTicket[]>(
-    `/support/tickets?page=${page}&limit=10&sortBy=updatedAt&sortDir=desc`,
+    `/support/tickets?page=${page}&limit=10`,
     session,
   );
 
@@ -166,8 +179,6 @@ export async function getAdminTickets(
   const params = new URLSearchParams({
     page: page.toString(),
     limit: '10',
-    sortBy: 'updatedAt',
-    sortDir: 'desc',
   });
 
   if (search) params.append('search', search);

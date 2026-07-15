@@ -23,8 +23,13 @@ import {
 } from "@/components/ui/select"
 import { memberApi, authApi, type MemberDashboard, type KycDocument } from "@/lib/api-client"
 import { getFormattedStatusLabel, isKycVerified } from "@/lib/kyc-status"
+import { normalizeKenyanPhone } from "@/lib/utils"
 import { useDocumentUpload } from "@/hooks/use-document-upload"
 import { UploadProgress } from "@/components/upload/UploadProgress"
+
+// Accepts 07XXXXXXXX, 01XXXXXXXX, 254XXXXXXXXX or +254XXXXXXXXX — normalized
+// to +254XXXXXXXXX, the format the backend's patchProfile endpoint requires.
+const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/
 
 const DOC_TYPES = [
   { value: "NATIONAL_ID_FRONT", label: "National ID (Front)" },
@@ -142,7 +147,14 @@ export default function ProfilePage() {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload: { phone?: string; email?: string; employer?: string; occupation?: string } = {}
-    if (phone) payload.phone = phone
+    if (phone) {
+      const trimmedPhone = phone.trim()
+      if (!KENYA_PHONE_REGEX.test(trimmedPhone)) {
+        toast.error("Enter a valid Kenyan number (e.g. 0712345678)")
+        return
+      }
+      payload.phone = normalizeKenyanPhone(trimmedPhone)
+    }
     if (email) payload.email = email
     if (employer) payload.employer = employer
     if (occupation) payload.occupation = occupation
@@ -507,10 +519,10 @@ export default function ProfilePage() {
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                             className="pl-9"
-                            placeholder="+254700000000"
+                            placeholder="0712345678"
                           />
                         </div>
-                        <p className="text-xs text-muted-foreground">Format: +254XXXXXXXXX</p>
+                        <p className="text-xs text-muted-foreground">e.g. 0712345678 or +254712345678</p>
                       </div>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">

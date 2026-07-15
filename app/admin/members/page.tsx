@@ -452,7 +452,7 @@ function CreateMemberModal({
                 : "SMS queue failed to send the temporary password."}{" "}
               They will be prompted to change it on first login.
               {!success.smsEnqueued &&
-                " A Tenant Admin can retrieve the temporary password from this member’s row menu."}
+                " A Tenant Admin or Super Admin can retrieve the temporary password from this member’s row menu."}
             </p>
             <Button onClick={handleClose} className="w-full">
               Done

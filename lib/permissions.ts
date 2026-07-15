@@ -74,10 +74,12 @@ export function isSuperAdminRole(role?: string | null): boolean {
 
 /**
  * Mirrors the backend's @Roles(TENANT_ADMIN) guard on
- * GET /users/:id/reveal-temp-password. Deliberately narrower than
- * ADMIN_ROLES/isSuperAdminRole — SUPER_ADMIN is not in the backend's
- * @Roles list for this endpoint, so it is not granted here either.
+ * GET /users/:id/reveal-temp-password — plus SUPER_ADMIN, which RolesGuard
+ * (backend/src/common/guards/roles.guard.ts) always lets through regardless
+ * of the @Roles list ("platform god-mode"). Every other role is blocked,
+ * deliberately narrower than ADMIN_ROLES.
  */
 export function canRevealTempPassword(role?: string | null): boolean {
-  return normalizeRole(role) === 'TENANT_ADMIN';
+  const normalized = normalizeRole(role);
+  return normalized === 'TENANT_ADMIN' || normalized === 'SUPER_ADMIN';
 }

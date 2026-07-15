@@ -47,13 +47,14 @@ describe('portal role families', () => {
 });
 
 describe('canRevealTempPassword', () => {
-  it('allows TENANT_ADMIN only', () => {
+  it('allows TENANT_ADMIN and SUPER_ADMIN', () => {
     expect(canRevealTempPassword('TENANT_ADMIN')).toBe(true);
     expect(canRevealTempPassword('tenant_admin')).toBe(true);
+    expect(canRevealTempPassword('SUPER_ADMIN')).toBe(true);
+    expect(canRevealTempPassword('super_admin')).toBe(true);
   });
 
-  it('blocks SUPER_ADMIN, MANAGER, and every other role — narrower than isAdminRole', () => {
-    expect(canRevealTempPassword('SUPER_ADMIN')).toBe(false);
+  it('blocks MANAGER and every other role — narrower than isAdminRole', () => {
     expect(canRevealTempPassword('MANAGER')).toBe(false);
     expect(canRevealTempPassword('TELLER')).toBe(false);
     expect(canRevealTempPassword('AUDITOR')).toBe(false);

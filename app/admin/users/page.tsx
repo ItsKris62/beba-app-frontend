@@ -205,8 +205,9 @@ function CredentialsDialog({
           <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             <span>
               The user was created, but the temporary password could not be
-              emailed. A Tenant Admin can retrieve it via Reveal Temp Password
-              from this user&apos;s row menu before it expires.
+              emailed. A Tenant Admin or Super Admin can retrieve it via
+              Reveal Temp Password from this user&apos;s row menu before it
+              expires.
             </span>
           </div>
         )}

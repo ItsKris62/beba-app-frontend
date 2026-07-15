@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { adminApi } from '@/lib/api-client';
+import { normalizeKenyanPhone } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,6 +10,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { AdminMember, KycDocument } from '@/lib/api-client';
 import { Loader2, Upload, FileCheck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Accepts 07XXXXXXXX, 01XXXXXXXX, 254XXXXXXXXX or +254XXXXXXXXX — normalized
+// to the bare 254XXXXXXXXX format the backend's updateKyc endpoint requires.
+const KENYA_PHONE_REGEX = /^(?:\+?254|0)(7\d{8}|1\d{8})$/;
 
 interface EditMemberModalProps {
   member: AdminMember | null;
@@ -49,9 +54,26 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!member) return;
+
+    const trimmedPhone = profileForm.phone.trim();
+    if (trimmedPhone && !KENYA_PHONE_REGEX.test(trimmedPhone)) {
+      toast.error('Enter a valid Kenyan number (e.g. 0712345678)');
+      return;
+    }
+
+    // Backend only accepts the bare 254XXXXXXXXX form (no leading 0, no +).
+    // Also drop it entirely rather than send '' — the field is optional
+    // server-side, but its regex validator rejects an empty string.
+    const payload = {
+      ...profileForm,
+      phone: trimmedPhone
+        ? normalizeKenyanPhone(trimmedPhone).replace(/^\+/, '')
+        : undefined,
+    };
+
     setLoading(true);
     try {
-      const res = await adminApi.updateKyc(member.id, profileForm);
+      const res = await adminApi.updateKyc(member.id, payload);
       if (res.success) {
         toast.success('Member profile updated successfully.');
         onSuccess();

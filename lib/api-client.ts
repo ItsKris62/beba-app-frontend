@@ -1123,6 +1123,34 @@ async function rawApiFetch<T>(
     return { success: true, data: json as T, error: null };
   }
 
+  // Some endpoints (e.g. POST /admin/applications/:id/approve) return their
+  // own flat `{ success, ...fields }` body instead of nesting the payload
+  // under `data` — there's no shared response-envelope convention enforced
+  // across controllers. Left unhandled, callers see `result.data === undefined`
+  // even though the response body itself IS the payload, and crash on access
+  // (e.g. `result.member.memberNumber`) despite the request having succeeded.
+  if (
+    json &&
+    typeof json === "object" &&
+    "success" in json &&
+    !("data" in json) &&
+    !("error" in json)
+  ) {
+    const flatSuccess = Boolean((json as { success?: unknown }).success);
+    return {
+      success: flatSuccess,
+      data: json as T,
+      error: flatSuccess
+        ? null
+        : {
+            code: "REQUEST_FAILED",
+            message:
+              (json as { message?: string }).message ??
+              "Request failed. Please try again.",
+          },
+    };
+  }
+
   const maybeEnvelope = json as ApiResponse<unknown>;
   if (
     maybeEnvelope.success &&

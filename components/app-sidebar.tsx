@@ -21,6 +21,7 @@ import {
   Search,
   Activity,
   ClipboardList,
+  UserPlus,
   Menu,
   X,
   Building2,
@@ -78,6 +79,7 @@ const memberNavItems = [
 const ALL_ADMIN_NAV: Array<{ href: string; label: string; icon: LucideIcon; roles: UserRole[] }> = [
   { href: "/admin/dashboard",         label: "Dashboard",      icon: LayoutDashboard, roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","AUDITOR"] },
   { href: "/admin/members",           label: "Members",        icon: Users,           roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
+  { href: "/admin/applications",      label: "Member Applications", icon: UserPlus,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/members/pending",   label: "KYC Queue",      icon: ClipboardList,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
   { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/users",             label: "Staff Users",    icon: User,            roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },

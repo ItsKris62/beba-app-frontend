@@ -2302,18 +2302,6 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
-  reviewMember: (
-    memberId: string,
-    data: { action: "APPROVE" | "REJECT"; reason?: string },
-  ) =>
-    apiFetch<{ success: boolean; action: string }>(
-      `/admin/members/${memberId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      },
-    ),
-
   listKycDocuments: (params?: { status?: string; memberId?: string }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);

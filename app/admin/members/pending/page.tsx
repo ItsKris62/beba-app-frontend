@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
@@ -112,6 +112,10 @@ export default function PendingKycPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [search, setSearch] = useState("")
+  // Mirrors `search` without being a reactive effect dependency — lets the
+  // mount/statusFilter-triggered load below read the current search box value
+  // without re-running on every keystroke (see the effect further down).
+  const searchRef = useRef(search)
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING_REVIEW" | "INCOMPLETE">("PENDING_REVIEW")
 
   const [viewMember, setViewMember] = useState<PendingMember | null>(null)
@@ -126,7 +130,7 @@ export default function PendingKycPage() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
-    if (user && !["TENANT_ADMIN", "MANAGER", "SUPER_ADMIN"].includes(user.role)) {
+    if (user && !["TENANT_ADMIN", "MANAGER", "SUPER_ADMIN", "LOAN_OFFICER"].includes(user.role)) {
       router.replace("/admin/dashboard")
     }
   }, [user, router])
@@ -157,7 +161,12 @@ export default function PendingKycPage() {
   }, [statusFilter])
 
   useEffect(() => {
-    loadMembers(1, search)
+    // loadMembers' own first statement (setIsLoading(true)) runs synchronously here,
+    // which react-compiler's set-state-in-effect rule flags on principle. Restructuring
+    // this into an ignore-flag/AbortController fetch-effect would change more than the
+    // lint warning — not in scope here — so this is acknowledged rather than rewritten.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadMembers(1, searchRef.current)
   }, [loadMembers])
 
   const checklistProgress = useMemo(() => {
@@ -375,7 +384,10 @@ export default function PendingKycPage() {
               <Input
                 placeholder="Search by name, member number, ID, or email"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value)
+                  searchRef.current = event.target.value
+                }}
                 className="pl-9"
               />
             </div>
@@ -639,7 +651,7 @@ export default function PendingKycPage() {
                 </div>
               ) : approveDocuments.length === 0 ? (
                 <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                  No documents uploaded for this member yet. Upload documents from the member's
+                  No documents uploaded for this member yet. Upload documents from the member&rsquo;s
                   edit profile before approving KYC.
                 </p>
               ) : (

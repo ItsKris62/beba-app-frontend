@@ -340,7 +340,7 @@ export default function PendingKycPage() {
             Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push("/admin/applications")}>
-            Member Applications
+            New Application
           </Button>
         </div>
       </div>

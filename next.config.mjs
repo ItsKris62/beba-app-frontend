@@ -50,7 +50,10 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // Profile-picture/document previews load from presigned R2 GET URLs
+  // (member-portal.service.ts's getProfileImageUrl/getDownloadUrl) — same
+  // origin(s) as the upload PUTs, so it needs the same allow-list entries.
+  `img-src 'self' data: blob: ${uploadOrigin} ${uploadOriginWildcard}`,
   "font-src 'self' data:",
   `connect-src 'self' ${apiOrigin} ${wsOrigin} ${uploadOrigin} ${uploadOriginWildcard} https://*.sentry.io`,
   "frame-ancestors 'none'",

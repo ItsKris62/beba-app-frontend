@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { adminApi } from '@/lib/api-client';
 import { normalizeKenyanPhone } from '@/lib/utils';
+import { computeDocumentChecksum } from '@/hooks/use-document-upload';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -99,7 +100,7 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
     { value: 'NATIONAL_ID_BACK', label: 'National ID (Back)' },
     { value: 'KRA_PIN', label: 'KRA PIN Certificate' },
     { value: 'MEMBER_FORM', label: 'Signed Member Form' },
-    { value: 'PASSPORT_PHOTO', label: 'Passport Photo' },
+    { value: 'CRB_CONSENT', label: 'CRB Consent' },
     { value: 'OTHER', label: 'Other Document' },
   ];
 
@@ -139,7 +140,7 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
         throw new Error(reqRes.error?.message || 'Failed to request upload URL');
       }
 
-      const { uploadUrl, documentId } = reqRes.data;
+      const { uploadUrl, documentId, uploadToken } = reqRes.data;
 
       // 2. Upload to S3
       const uploadRes = await fetch(uploadUrl, {
@@ -152,10 +153,14 @@ export function EditMemberModal({ member, open, onClose, onSuccess }: EditMember
         throw new Error('Failed to upload file to storage');
       }
 
-      // 3. Confirm upload
+      // 3. Confirm upload — checksum + uploadToken are required once
+      // FEATURE_SECURE_UPLOAD_V2 is enabled (see documents.service.ts).
+      const checksum = await computeDocumentChecksum(file);
       const confirmRes = await adminApi.confirmUpload({
         documentId,
         memberId: member.id,
+        checksum,
+        uploadToken,
       });
 
       if (!confirmRes.success) {

@@ -221,12 +221,12 @@ export default function MemberDocumentsPage() {
         }
         return { success: true, documentId }
       })
-      toast.success("Document uploaded — refreshing list…")
       if (!result.success) {
         keepUploadPanelOpen = true
         toast.error(result.message)
         return
       }
+      toast.success("Document uploaded — refreshing list…")
       setUploadDocType("")
       await loadDocs()
     } catch (error) {

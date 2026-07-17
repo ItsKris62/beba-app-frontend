@@ -73,6 +73,7 @@ const STATUS_CONFIG: Record<string, { icon: React.ElementType; label: string; cl
   REJECTED: { icon: XCircle, label: "Rejected", className: "bg-red-100 text-red-700" },
   PENDING_REVIEW: { icon: Clock, label: "Under Review", className: "bg-yellow-100 text-yellow-700" },
   PENDING_UPLOAD: { icon: AlertCircle, label: "Pending Upload", className: "bg-gray-100 text-gray-600" },
+  QUARANTINE: { icon: XCircle, label: "Verification Failed", className: "bg-orange-100 text-orange-700" },
   DELETED: { icon: XCircle, label: "Deleted", className: "bg-gray-100 text-gray-400" },
 }
 

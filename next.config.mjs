@@ -22,6 +22,11 @@ const apiOrigin = (() => {
     return 'http://localhost:3001';
   }
 })();
+// The support-chat gateway (SocketProvider) has no separate port config, so
+// it rides on the same NestJS HTTP server as the REST API — just ws(s)://
+// instead of http(s)://. Needed here too or the socket.io handshake gets
+// CSP-blocked even once SocketProvider derives the right host.
+const wsOrigin = apiOrigin.replace(/^http/, 'ws');
 
 // Document/profile-image uploads PUT the file straight from the browser to
 // the presigned R2 (or local MinIO) URL returned by the backend — that
@@ -47,7 +52,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin} ${uploadOrigin} ${uploadOriginWildcard} https://*.sentry.io`,
+  `connect-src 'self' ${apiOrigin} ${wsOrigin} ${uploadOrigin} ${uploadOriginWildcard} https://*.sentry.io`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

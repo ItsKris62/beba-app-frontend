@@ -22,6 +22,25 @@ const SocketContext = createContext<SocketContextValue>({
   connected: false,
 });
 
+// The support-chat gateway has no separate port config — it rides on the
+// same NestJS HTTP server as the REST API, just ws(s):// instead of
+// http(s)://. Falls back to deriving that from NEXT_PUBLIC_API_URL so this
+// doesn't silently try to connect to "wss://undefined" when the
+// WS-specific env var isn't set.
+function resolveWsBaseUrl(): string | null {
+  if (process.env.NEXT_PUBLIC_BACKEND_WS_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_WS_URL;
+  }
+  if (!process.env.NEXT_PUBLIC_API_URL) return null;
+  try {
+    const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL);
+    apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    return apiUrl.origin;
+  } catch {
+    return null;
+  }
+}
+
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -30,8 +49,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = tokenStore.getAccess();
     const tenantId = user?.tenantId;
+    const wsBaseUrl = resolveWsBaseUrl();
 
-    if (!isAuthenticated || !token || !tenantId) {
+    if (!isAuthenticated || !token || !tenantId || !wsBaseUrl) {
       setSocket((current) => {
         current?.disconnect();
         return null;
@@ -40,7 +60,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const nextSocket = io(`${process.env.NEXT_PUBLIC_BACKEND_WS_URL}/support_chat`, {
+    const nextSocket = io(`${wsBaseUrl}/support_chat`, {
       auth: { token },
       extraHeaders: { 'X-Tenant-ID': tenantId },
       reconnection: true,

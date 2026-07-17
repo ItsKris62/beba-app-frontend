@@ -23,13 +23,25 @@ const apiOrigin = (() => {
   }
 })();
 
+// Document/profile-image uploads PUT the file straight from the browser to
+// the presigned R2 (or local MinIO) URL returned by the backend — that
+// origin has to be allow-listed here or the browser blocks the PUT outright,
+// regardless of anything the upload code itself does.
+const uploadOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_UPLOAD_ORIGIN ?? 'https://eec0241091c3de6d2f544af5123acde7.r2.cloudflarestorage.com').origin;
+  } catch {
+    return 'https://eec0241091c3de6d2f544af5123acde7.r2.cloudflarestorage.com';
+  }
+})();
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin} https://*.sentry.io`,
+  `connect-src 'self' ${apiOrigin} ${uploadOrigin} https://*.sentry.io`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

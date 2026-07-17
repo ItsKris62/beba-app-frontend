@@ -27,6 +27,11 @@ const apiOrigin = (() => {
 // the presigned R2 (or local MinIO) URL returned by the backend — that
 // origin has to be allow-listed here or the browser blocks the PUT outright,
 // regardless of anything the upload code itself does.
+//
+// R2's S3 SDK addresses objects virtual-hosted-style in production
+// (bucket prepended as a subdomain, e.g. sacco-docs-prod.<accountId>.r2...)
+// but path-style for the local MinIO override (storage.service.ts only sets
+// forcePathStyle when R2_ENDPOINT is set) — allow-list both shapes.
 const uploadOrigin = (() => {
   try {
     return new URL(process.env.NEXT_PUBLIC_UPLOAD_ORIGIN ?? 'https://eec0241091c3de6d2f544af5123acde7.r2.cloudflarestorage.com').origin;
@@ -34,6 +39,7 @@ const uploadOrigin = (() => {
     return 'https://eec0241091c3de6d2f544af5123acde7.r2.cloudflarestorage.com';
   }
 })();
+const uploadOriginWildcard = uploadOrigin.replace(/^(https?:\/\/)/, '$1*.');
 
 const csp = [
   "default-src 'self'",
@@ -41,7 +47,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin} ${uploadOrigin} https://*.sentry.io`,
+  `connect-src 'self' ${apiOrigin} ${uploadOrigin} ${uploadOriginWildcard} https://*.sentry.io`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

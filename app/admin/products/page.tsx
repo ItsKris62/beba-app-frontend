@@ -419,11 +419,11 @@ export default function AdminProductsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="minGuarantors">Min Guarantors</Label>
-                <Input id="minGuarantors" type="number" min="0" max="3" value={form.minGuarantors} onChange={(event) => updateForm("minGuarantors", event.target.value)} />
+                <Input id="minGuarantors" type="number" min="0" max="10" value={form.minGuarantors} onChange={(event) => updateForm("minGuarantors", event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maxGuarantors">Max Guarantors</Label>
-                <Input id="maxGuarantors" type="number" min="0" max="3" value={form.maxGuarantors} onChange={(event) => updateForm("maxGuarantors", event.target.value)} />
+                <Input id="maxGuarantors" type="number" min="0" max="10" value={form.maxGuarantors} onChange={(event) => updateForm("maxGuarantors", event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="coverage">Coverage Required (%)</Label>

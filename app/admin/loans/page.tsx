@@ -326,8 +326,8 @@ export default function AdminLoansPage() {
           <div className="flex flex-wrap gap-3 items-center">
             <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
               <TabsList>
+                <TabsTrigger value="PENDING_GUARANTORS">Pending Guarantors</TabsTrigger>
                 <TabsTrigger value="PENDING_APPROVAL">Pending Approval</TabsTrigger>
-                <TabsTrigger value="PENDING_REVIEW">Under Review</TabsTrigger>
                 <TabsTrigger value="APPROVED">Approved</TabsTrigger>
                 <TabsTrigger value="ACTIVE">Active</TabsTrigger>
                 <TabsTrigger value="">All</TabsTrigger>

@@ -14,8 +14,8 @@ import { PublicFooter } from "@/components/public-footer"
 import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
 
 const FALLBACK_ADDRESS = "Kolwa Central Ward, Kisumu East Subcounty"
-const FALLBACK_PHONE = "0704 413 592"
-const FALLBACK_EMAIL = "kolwacentralboda@gmail.com"
+const FALLBACK_PHONE = "+254704413592"
+const FALLBACK_EMAIL = "info@kolwa.co.ke"
 
 const socialLinks = [
   { name: "Facebook", icon: Facebook, href: "#" },

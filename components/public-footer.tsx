@@ -4,15 +4,15 @@ import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
 
 const FALLBACK_NAME = "KC Boda Sacco"
 const FALLBACK_ADDRESS = "Kolwa Central Ward, Kisumu East Subcounty"
-const FALLBACK_PHONE = "0704 413 592 / 0796 762 007"
-const FALLBACK_EMAIL = "kolwacentralboda@gmail.com"
+const FALLBACK_PHONE = "+254704413592"
+const FALLBACK_EMAIL = "info@kolwa.co.ke"
 
 export function PublicFooter() {
   const { info } = useTenantPublicInfo()
   const name = info?.name ?? FALLBACK_NAME
   const address = info?.address ?? FALLBACK_ADDRESS
-  const phone = info?.contactPhone ?? FALLBACK_PHONE
-  const email = info?.contactEmail ?? FALLBACK_EMAIL
+  const phone = FALLBACK_PHONE
+  const email = FALLBACK_EMAIL
 
   return (
     <footer className="border-t bg-card">

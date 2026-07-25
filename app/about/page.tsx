@@ -1,7 +1,7 @@
 "use client"
 
 import { Award, Target, Eye, Users } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
 import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
@@ -9,19 +9,18 @@ import { useTenantPublicInfo } from "@/hooks/use-tenant-public-info"
 const FALLBACK_NAME = "KC Boda Sacco"
 
 const boardMembers = [
-  { name: "Dr. James Mwangi", role: "Chairman", image: "/placeholder-user.jpg" },
-  { name: "Sarah Kimani", role: "Vice Chairperson", image: "/placeholder-user.jpg" },
-  { name: "Peter Ochieng", role: "Secretary", image: "/placeholder-user.jpg" },
-  { name: "Grace Wambui", role: "Treasurer", image: "/placeholder-user.jpg" },
-  { name: "David Mutua", role: "Member", image: "/placeholder-user.jpg" },
-  { name: "Lucy Akinyi", role: "Member", image: "/placeholder-user.jpg" },
+  { name: "Daniel Omondi Ocholla", role: "Chairman" },
+  { name: "Kevin Otieno Omollo", role: "Vice Chair" },
+  { name: "Kevince Omondi Nyaranga", role: "Hon. Secretary" },
+  { name: "Wellingtone Onyango Owuor", role: "Treasurer" },
 ]
 
-const managementTeam = [
-  { name: "Jane Mwangi", role: "Chief Executive Officer", image: "/placeholder-user.jpg" },
-  { name: "Michael Otieno", role: "Finance Manager", image: "/placeholder-user.jpg" },
-  { name: "Anne Njeri", role: "Credit Manager", image: "/placeholder-user.jpg" },
-  { name: "Samuel Kipkorir", role: "Operations Manager", image: "/placeholder-user.jpg" },
+const managementCommittee = [
+  { name: "Elijah Onyango Achida", role: "Credit Chair" },
+  { name: "Felix Otieno Odhiambo", role: "Committee Member" },
+  { name: "Bernard Kungu", role: "Committee Member" },
+  { name: "Samson Mandela", role: "Committee Member" },
+  { name: "Veroline Mbola", role: "Committee Member" },
 ]
 
 const milestones = [
@@ -188,17 +187,17 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Management Team */}
+        {/* Management Committee */}
         <section className="py-16">
           <div className="container mx-auto px-4">
             <div className="mx-auto mb-12 max-w-2xl text-center">
-              <h2 className="mb-4 text-3xl font-bold">Management Team</h2>
+              <h2 className="mb-4 text-3xl font-bold">Management Committee</h2>
               <p className="text-muted-foreground">
-                Professional team driving our day-to-day operations
+                Committee members supporting governance and member service
               </p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {managementTeam.map((member) => (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+              {managementCommittee.map((member) => (
                 <Card key={member.name} className="text-center">
                   <CardContent className="pt-6">
                     <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
@@ -213,7 +212,8 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Achievements */}
+        {/*
+        Achievements
         <section className="bg-primary py-16 text-primary-foreground">
           <div className="container mx-auto px-4">
             <div className="mx-auto mb-12 max-w-2xl text-center">
@@ -237,6 +237,7 @@ export default function AboutPage() {
             </div>
           </div>
         </section>
+        */}
       </main>
 
       <PublicFooter />

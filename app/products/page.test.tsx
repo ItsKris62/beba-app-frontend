@@ -3,8 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react"
 import ProductsPage from "./page"
 import { loansApi } from "@/lib/api-client"
 
+const navigationMock = vi.hoisted(() => ({
+  searchParams: new URLSearchParams("tab=loans"),
+}))
+
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams("tab=loans"),
+  useSearchParams: () => navigationMock.searchParams,
   usePathname: () => "/products",
 }))
 
@@ -39,8 +43,8 @@ const mockProduct = {
   description: "Quick access loan for short-term needs",
   minAmount: "1000",
   maxAmount: "500000",
-  interestRate: "0.12",
-  interestType: "FLAT",
+  interestRate: "0.06",
+  interestType: "REDUCING_BALANCE",
   maxTenureMonths: 24,
   processingFeeRate: "0.01",
   minGuarantors: 1,
@@ -54,6 +58,7 @@ const mockProduct = {
 describe("Public products page", () => {
   beforeEach(() => {
     vi.mocked(loansApi.getPublicProducts).mockReset()
+    navigationMock.searchParams = new URLSearchParams("tab=loans")
   })
 
   it("fetches loan products from the real public API (not the deleted localStorage module)", async () => {
@@ -68,6 +73,22 @@ describe("Public products page", () => {
     await waitFor(() => expect(loansApi.getPublicProducts).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getAllByText("Jipange Loan").length).toBeGreaterThan(0))
     expect(screen.getAllByText(/KES 500,000/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/6.0% p.a. reducing/).length).toBeGreaterThan(0)
+  })
+
+  it("links savings account actions to membership", async () => {
+    navigationMock.searchParams = new URLSearchParams("tab=savings")
+    vi.mocked(loansApi.getPublicProducts).mockResolvedValue({
+      success: true,
+      data: [],
+      error: null,
+    })
+
+    render(<ProductsPage />)
+
+    const links = screen.getAllByRole("link", { name: "Open Account" })
+    expect(links).toHaveLength(3)
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/membership"))
   })
 
   it("renders gracefully when the API returns no active products", async () => {

@@ -84,7 +84,7 @@ const ALL_ADMIN_NAV: Array<{ href: string; label: string; icon: LucideIcon; role
   { href: "/admin/stages",            label: "Stages",         icon: MapPin,          roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","TELLER","AUDITOR"] },
   { href: "/admin/users",             label: "Staff Users",    icon: User,            roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
   { href: "/admin/loans",             label: "Loan Management",icon: CreditCard,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
-  { href: "/admin/products",          label: "Loan Products",  icon: Package,         roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER"] },
+  { href: "/admin/products",          label: "Loan Products",  icon: Package,         roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },
   { href: "/admin/accounting",        label: "Accounting",     icon: Calculator,      roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","ACCOUNTANT"] },
   { href: "/admin/transactions",      label: "Transactions",   icon: ArrowLeftRight,  roles: TRANSACTION_ROLES },
   { href: "/admin/support",           label: "Support",        icon: MessageSquare,   roles: ["SUPER_ADMIN","TENANT_ADMIN","MANAGER","LOAN_OFFICER"] },

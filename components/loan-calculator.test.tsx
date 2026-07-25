@@ -33,8 +33,8 @@ const mockProduct = {
   name: "Jipange Loan",
   description: "Quick access loan for short-term needs",
   minAmount: "1000",
-  maxAmount: "500000",
-  interestRate: "0.12",
+  maxAmount: "50000",
+  interestRate: "0.06",
   interestType: "REDUCING_BALANCE",
   maxTenureMonths: 24,
   processingFeeRate: "0.01",
@@ -62,6 +62,21 @@ describe("LoanCalculator", () => {
 
     await waitFor(() => expect(loansApi.getPublicProducts).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getByText(/Quick access loan/i)).toBeInTheDocument())
+  })
+
+  it("uses the corrected Jipange terms for reducing-balance repayment", async () => {
+    vi.mocked(loansApi.getPublicProducts).mockResolvedValue({
+      success: true,
+      data: [mockProduct],
+      error: null,
+    })
+
+    render(<LoanCalculator defaultProductId="p1" />)
+
+    await waitFor(() => expect(screen.getByText(/Quick access loan/i)).toBeInTheDocument())
+    expect(screen.getAllByText(/6.0% p.a. reducing/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/50,000/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/4,303/)).toBeInTheDocument()
   })
 
   it("shows an empty state when no active products are returned", async () => {

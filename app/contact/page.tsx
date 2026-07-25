@@ -32,8 +32,8 @@ export default function ContactPage() {
     {
       name: "Head Office",
       address: info?.address ?? FALLBACK_ADDRESS,
-      phone: info?.contactPhone ?? FALLBACK_PHONE,
-      email: info?.contactEmail ?? FALLBACK_EMAIL,
+      phone: FALLBACK_PHONE,
+      email: FALLBACK_EMAIL,
       hours: "Mon-Fri: 8:00 AM - 5:00 PM, Sat: 9:00 AM - 1:00 PM",
     },
   ]

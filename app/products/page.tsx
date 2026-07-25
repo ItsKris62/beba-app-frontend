@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { PiggyBank, CreditCard, TrendingUp, Calculator, Check, Info, Clock, Users, Percent } from "lucide-react"
 
@@ -161,7 +162,9 @@ function ProductsContent() {
                         </ul>
                       </CardContent>
                       <CardFooter>
-                        <Button className="w-full">Open Account</Button>
+                        <Button asChild className="w-full">
+                          <Link href="/membership">Open Account</Link>
+                        </Button>
                       </CardFooter>
                     </Card>
                   ))}
@@ -461,4 +464,3 @@ export default function ProductsPage() {
     </React.Suspense>
   )
 }
-

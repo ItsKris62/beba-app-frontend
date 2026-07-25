@@ -72,8 +72,8 @@ export default function HomePage() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 md:py-32">
-          <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-          <div className="container mx-auto px-4">
+          <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-5" />
+          <div className="container relative z-10 mx-auto px-4">
             <div className="mx-auto max-w-4xl text-center">
               <div className="mb-6 inline-flex items-center rounded-full border bg-background/80 px-4 py-1.5 text-sm backdrop-blur">
                 <Shield className="mr-2 h-4 w-4 text-primary" />
@@ -88,17 +88,17 @@ export default function HomePage() {
                 Join thousands of members enjoying better dividends, instant loans, and secure savings with Kenya&apos;s most trusted SACCO.
               </p>
               <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Link href="/membership">
-                  <Button size="lg" className="w-full gap-2 sm:w-auto">
+                <Button asChild size="lg" className="w-full gap-2 sm:w-auto">
+                  <Link href="/membership">
                     Join SACCO Now
                     <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/login">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
+                  <Link href="/login">
                     Member Login
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>

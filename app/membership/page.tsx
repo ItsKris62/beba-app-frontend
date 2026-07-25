@@ -1,10 +1,9 @@
 "use client"
 
-import * as React from "react"
 import Link from "next/link"
-import { Check, Download, FileText, HelpCircle, ChevronDown } from "lucide-react"
+import { Check, Download, FileText, HelpCircle } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { PublicNavbar } from "@/components/public-navbar"
@@ -30,8 +29,18 @@ const requiredDocuments = [
 ]
 
 const downloadableForms = [
-  { name: "Membership Application Form", size: "245 KB", type: "PDF" },
-  { name: "Loan Application Form", size: "180 KB", type: "PDF" },
+  {
+    name: "Membership Application Form",
+    fileName: "MEMBERSHIP APPLICATION FORM.pdf",
+    href: "/api/forms/membership-application",
+    type: "PDF",
+  },
+  {
+    name: "Loan Application Form",
+    fileName: "LOAN APPLICATION FORM.pdf",
+    href: "/api/forms/loan-application",
+    type: "PDF",
+  },
 ]
 
 const faqs = [
@@ -207,19 +216,26 @@ export default function MembershipPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 {downloadableForms.map((form) => (
                   <Card key={form.name} className="transition-shadow hover:shadow-md">
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
-                          <FileText className="h-5 w-5 text-destructive" />
+                    <CardContent className="p-0">
+                      <a
+                        href={form.href}
+                        download={form.fileName}
+                        className="flex items-center justify-between gap-4 rounded-lg p-4 outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-label={`Download ${form.name}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+                            <FileText className="h-5 w-5 text-destructive" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{form.name}</p>
+                            <p className="text-sm text-muted-foreground">{form.type} download</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{form.name}</p>
-                          <p className="text-sm text-muted-foreground">{form.type} • {form.size}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <Download className="h-4 w-4" />
-                      </Button>
+                        <span className={buttonVariants({ variant: "ghost", size: "icon" })} aria-hidden="true">
+                          <Download className="h-4 w-4" />
+                        </span>
+                      </a>
                     </CardContent>
                   </Card>
                 ))}
@@ -269,9 +285,11 @@ export default function MembershipPage() {
                   Join BEBA SACCO today and take the first step towards achieving your financial goals.
                 </p>
                 <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                  <Button size="lg" variant="secondary" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Download Application Form
+                  <Button asChild size="lg" variant="secondary" className="gap-2">
+                    <a href="/api/forms/membership-application" download="MEMBERSHIP APPLICATION FORM.pdf">
+                      <Download className="h-4 w-4" />
+                      Download Application Form
+                    </a>
                   </Button>
                   <Link href="/contact">
                     <Button size="lg" variant="outline" className="w-full border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 sm:w-auto">

@@ -66,12 +66,12 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-black text-white">
       <PublicNavbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 md:py-32">
+        <section className="relative overflow-hidden py-20 md:py-32">
           <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-5" />
           <div className="container relative z-10 mx-auto px-4">
             <div className="mx-auto max-w-4xl text-center">
@@ -105,7 +105,7 @@ export default function HomePage() {
         </section>
 
         {/* Stats Section */}
-        <section className="border-y bg-card py-12">
+        <section className="border-y py-12">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-3 gap-8">
               {stats.map((stat) => (
@@ -153,7 +153,7 @@ export default function HomePage() {
         </section>
 
         {/* How It Works */}
-        <section className="bg-muted/50 py-20">
+        <section className="py-20">
           <div className="container mx-auto px-4">
             <div className="mx-auto mb-12 max-w-2xl text-center">
               <h2 className="mb-4 text-3xl font-bold">How to Get Started</h2>
@@ -229,7 +229,7 @@ export default function HomePage() {
         </section>
 
         {/* CTA Section */}
-        <section className="bg-primary py-20 text-primary-foreground">
+        <section className="py-20 text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-4 text-3xl font-bold">Ready to Start Your Financial Journey?</h2>
             <p className="mx-auto mb-8 max-w-2xl opacity-90">

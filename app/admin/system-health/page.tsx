@@ -36,15 +36,20 @@ import {
   Pause,
   Ban,
   Loader2,
+  Wallet,
 } from "lucide-react"
 import {
   systemHealthApi,
+  formatCurrency,
+  type B2cWalletBalance,
   type SystemServiceStatus,
   type SystemErrorLog,
   type SystemBackgroundJob,
   type SystemBlockedIP,
   type SystemFailedLogin,
 } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
+import { isSuperAdminRole } from "@/lib/permissions"
 
 // ─── Icon map ──────────────────────────────────────────────────────────────────
 
@@ -150,10 +155,18 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SystemHealthPage() {
+  const { user } = useAuth()
+  const canViewWalletBalance = isSuperAdminRole(user?.role)
+
   // Services
   const [services, setServices] = useState<SystemServiceStatus[] | null>(null)
   const [servicesLoading, setServicesLoading] = useState(true)
   const [testingId, setTestingId] = useState<string | null>(null)
+
+  // B2C wallet
+  const [walletBalance, setWalletBalance] = useState<B2cWalletBalance | null>(null)
+  const [walletBalanceLoading, setWalletBalanceLoading] = useState(false)
+  const [walletBalanceError, setWalletBalanceError] = useState<string | null>(null)
 
   // Error logs
   const [errorLogs, setErrorLogs] = useState<SystemErrorLog[] | null>(null)
@@ -184,6 +197,19 @@ export default function SystemHealthPage() {
     if (res.success && Array.isArray(res.data)) setServices(res.data)
     setServicesLoading(false)
   }, [])
+
+  const fetchWalletBalance = useCallback(async () => {
+    if (!canViewWalletBalance) return
+    setWalletBalanceLoading(true)
+    setWalletBalanceError(null)
+    const res = await systemHealthApi.getB2cWalletBalance()
+    if (res.success && res.data) {
+      setWalletBalance(res.data)
+    } else {
+      setWalletBalanceError(res.error?.message ?? "Unable to load B2C wallet balance")
+    }
+    setWalletBalanceLoading(false)
+  }, [canViewWalletBalance])
 
   const fetchErrorLogs = useCallback(async (level = severityFilter) => {
     setErrorLogsLoading(true)
@@ -252,6 +278,16 @@ export default function SystemHealthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (!canViewWalletBalance) return
+
+    const walletBalanceLoad = setTimeout(() => {
+      fetchWalletBalance()
+    }, 0)
+
+    return () => clearTimeout(walletBalanceLoad)
+  }, [canViewWalletBalance, fetchWalletBalance])
+
   // Re-fetch logs when severity filter changes
   useEffect(() => {
     fetchErrorLogs(severityFilter)
@@ -268,6 +304,7 @@ export default function SystemHealthPage() {
       fetchJobs(),
       fetchBlockedIPs(),
       fetchFailedLogins(),
+      ...(canViewWalletBalance ? [fetchWalletBalance()] : []),
     ])
     setIsRefreshing(false)
   }
@@ -324,6 +361,84 @@ export default function SystemHealthPage() {
       </div>
 
       {/* ── Service Status ──────────────────────────────────────────────────── */}
+      {canViewWalletBalance && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  B2C Wallet Balance
+                </CardTitle>
+                <CardDescription>Mwaloni provider liquidity</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchWalletBalance}
+                disabled={walletBalanceLoading}
+              >
+                {walletBalanceLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {walletBalanceLoading && !walletBalance ? (
+              <Skeleton className="h-24 w-full" />
+            ) : walletBalanceError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {walletBalanceError}
+              </div>
+            ) : walletBalance ? (
+              <div className="grid gap-4 md:grid-cols-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Balance</p>
+                  <p className="text-2xl font-semibold tabular-nums">
+                    {walletBalance.balance === null
+                      ? "Unavailable"
+                      : walletBalance.currency === "KES"
+                        ? formatCurrency(walletBalance.balance)
+                        : `${walletBalance.currency} ${walletBalance.balance.toLocaleString()}`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Available</p>
+                  <p className="font-medium tabular-nums">
+                    {walletBalance.availableBalance === null
+                      ? "Unavailable"
+                      : walletBalance.currency === "KES"
+                        ? formatCurrency(walletBalance.availableBalance)
+                        : `${walletBalance.currency} ${walletBalance.availableBalance.toLocaleString()}`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Provider</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge variant="secondary">{walletBalance.provider}</Badge>
+                    {walletBalance.providerStatus && (
+                      <Badge variant={walletBalance.providerStatus === "00" ? "secondary" : "outline"}>
+                        {walletBalance.providerStatus}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Checked</p>
+                  <p className="font-mono text-sm">{fmtTs(walletBalance.checkedAt)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">No wallet balance loaded.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div>
         <h2 className="mb-4 text-lg font-semibold">Service Status</h2>
         {servicesLoading && !services ? (

@@ -2435,6 +2435,18 @@ export interface SystemFailedLogin {
   lastAttemptAt: string;
 }
 
+export interface B2cWalletBalance {
+  provider: "MWALONI";
+  currency: string;
+  balance: number | null;
+  availableBalance: number | null;
+  actualBalance: number | null;
+  providerStatus: string | null;
+  message: string | null;
+  checkedAt: string;
+  providerData: unknown;
+}
+
 export const systemHealthApi = {
   getServices: () => apiFetch<SystemServiceStatus[]>("/admin/health/services"),
 
@@ -2474,6 +2486,9 @@ export const systemHealthApi = {
 
   getFailedLogins: () =>
     apiFetch<SystemFailedLogin[]>("/admin/health/failed-logins"),
+
+  getB2cWalletBalance: () =>
+    apiFetch<B2cWalletBalance>("/mpesa/admin/b2c-wallet/balance"),
 };
 
 // ─── Staff user management endpoints ─────────────────────────────────────────

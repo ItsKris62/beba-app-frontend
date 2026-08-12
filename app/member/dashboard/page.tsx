@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CreditCard, TrendingUp, Users, ArrowRight, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock3, CreditCard, TrendingUp, Users, ArrowRight, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import {
   formatDateTime,
   generateIdempotencyKey,
   type MemberDashboard,
+  type WithdrawalStatusResponse,
 } from '@/lib/api-client';
 import { getFormattedStatusLabel, isKycVerified } from '@/lib/kyc-status';
 
@@ -44,6 +46,27 @@ const LOAN_STATUS_COLORS: Record<string, string> = {
 };
 
 const WITHDRAWAL_ATTEMPT_STORAGE_KEY = 'beba.member.withdrawalAttempt.v1';
+const WITHDRAWAL_STATUS_STORAGE_KEY = 'beba.member.activeWithdrawal.v1';
+const WITHDRAWAL_FEE = 0;
+
+type WithdrawalStep = 'form' | 'confirm' | 'status';
+
+function isTerminalWithdrawal(status?: WithdrawalStatusResponse | null) {
+  return Boolean(status?.terminal);
+}
+
+function withdrawalStatusTone(memberStatus?: string | null) {
+  if (memberStatus === 'COMPLETED') return 'text-green-700 bg-green-50 border-green-200';
+  if (memberStatus === 'FAILED_FUNDS_RESTORED') return 'text-red-700 bg-red-50 border-red-200';
+  if (memberStatus === 'CONFIRMATION_DELAYED') return 'text-amber-800 bg-amber-50 border-amber-200';
+  return 'text-blue-700 bg-blue-50 border-blue-200';
+}
+
+function WithdrawalStatusIcon({ memberStatus }: { memberStatus?: string | null }) {
+  if (memberStatus === 'COMPLETED') return <CheckCircle2 className="h-4 w-4 text-green-700" />;
+  if (memberStatus === 'FAILED_FUNDS_RESTORED') return <AlertCircle className="h-4 w-4 text-red-700" />;
+  return <Clock3 className="h-4 w-4 text-blue-700" />;
+}
 
 // ─── Summary card ─────────────────────────────────────────────────────────────
 
@@ -89,9 +112,12 @@ export default function MemberDashboardPage() {
   // Withdraw state
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [withdrawPhone, setWithdrawPhone] = useState('');
+  const [withdrawStep, setWithdrawStep] = useState<WithdrawalStep>('form');
   const [withdrawAttemptKey, setWithdrawAttemptKey] = useState<string | null>(null);
   const [withdrawAttemptFingerprint, setWithdrawAttemptFingerprint] = useState<string | null>(null);
+  const [activeWithdrawalId, setActiveWithdrawalId] = useState<string | null>(null);
+  const [activeWithdrawalReference, setActiveWithdrawalReference] = useState<string | null>(null);
+  const [transportUncertain, setTransportUncertain] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -101,9 +127,6 @@ export default function MemberDashboardPage() {
       const res = await memberApi.getDashboard();
       if (res.success && res.data) {
         setDashboard(res.data);
-        if (res.data.member.phone && !withdrawPhone) {
-          setWithdrawPhone(res.data.member.phone);
-        }
       } else {
         setError(res.error?.message ?? 'Failed to load dashboard');
       }
@@ -113,6 +136,22 @@ export default function MemberDashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  const withdrawalStatusQuery = useQuery({
+    queryKey: ['member-withdrawal-status', activeWithdrawalId],
+    queryFn: async () => {
+      if (!activeWithdrawalId) throw new Error('Missing withdrawal id');
+      const res = await memberApi.getWithdrawalStatus(activeWithdrawalId);
+      if (!res.success || !res.data) {
+        throw new Error(res.error?.message ?? 'Unable to load withdrawal status');
+      }
+      return res.data;
+    },
+    enabled: Boolean(activeWithdrawalId),
+    refetchInterval: (query) => (isTerminalWithdrawal(query.state.data) ? false : 5_000),
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -130,11 +169,35 @@ export default function MemberDashboardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(WITHDRAWAL_STATUS_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { transactionId?: string; reference?: string };
+      if (saved.transactionId) {
+        setActiveWithdrawalId(saved.transactionId);
+        setActiveWithdrawalReference(saved.reference ?? null);
+      }
+    } catch {
+      window.localStorage.removeItem(WITHDRAWAL_STATUS_STORAGE_KEY);
+    }
+  }, []);
+
   const clearWithdrawalAttempt = useCallback(() => {
     setWithdrawAttemptKey(null);
     setWithdrawAttemptFingerprint(null);
     window.localStorage.removeItem(WITHDRAWAL_ATTEMPT_STORAGE_KEY);
   }, []);
+
+  useEffect(() => {
+    const status = withdrawalStatusQuery.data;
+    if (!status) return;
+    setActiveWithdrawalReference(status.reference);
+    if (status.terminal) {
+      clearWithdrawalAttempt();
+      loadDashboard();
+    }
+  }, [withdrawalStatusQuery.data, clearWithdrawalAttempt, loadDashboard]);
 
   const getWithdrawalAttemptKey = useCallback(
     (fingerprint: string) => {
@@ -165,29 +228,26 @@ export default function MemberDashboardPage() {
       return;
     }
     setWithdrawing(true);
+    setTransportUncertain(false);
     const fingerprint = JSON.stringify({ amount: amountNum });
     const attemptKey = getWithdrawalAttemptKey(fingerprint);
     try {
-      const res = await memberApi.withdrawMpesa(
-        { amount: amountNum, ...(withdrawPhone ? { phoneNumber: withdrawPhone } : {}) },
-        attemptKey,
-      );
+      const res = await memberApi.withdrawMpesa({ amount: amountNum }, attemptKey);
       if (res.success) {
-        // There is no status-polling endpoint for FOSA-to-M-Pesa withdrawals
-        // (unlike the deposit STK flow) — don't imply we can track it here.
-        toast.success(
-          'Withdrawal initiated. Your FOSA balance has already been updated — check your M-Pesa messages to confirm the payout, or refresh this page in a few minutes.',
-          { duration: 8000 },
+        setActiveWithdrawalId(res.data.transactionId);
+        setActiveWithdrawalReference(res.data.reference);
+        setWithdrawStep('status');
+        window.localStorage.setItem(
+          WITHDRAWAL_STATUS_STORAGE_KEY,
+          JSON.stringify({ transactionId: res.data.transactionId, reference: res.data.reference }),
         );
-        clearWithdrawalAttempt();
-        setWithdrawOpen(false);
-        setWithdrawAmount('');
         loadDashboard();
       } else {
         toast.error(res.error?.message || 'Withdrawal failed');
       }
     } catch {
-      toast.error('Network error while processing withdrawal');
+      setTransportUncertain(true);
+      toast.error('We are checking whether your withdrawal was received. Please do not start a new withdrawal yet.');
     } finally {
       setWithdrawing(false);
     }
@@ -204,6 +264,31 @@ export default function MemberDashboardPage() {
   const isKycApproved = isKycVerified(kycStatus);
   const currentLoans = dashboard?.activeLoans.filter((loan) => loan.status !== 'FULLY_PAID') ?? [];
   const completedLoans = dashboard?.activeLoans.filter((loan) => loan.status === 'FULLY_PAID') ?? [];
+  const withdrawalDestination = dashboard?.member.withdrawalDestination;
+  const withdrawalAmountValue = Number(withdrawAmount);
+  const totalDebit = Number.isFinite(withdrawalAmountValue) ? withdrawalAmountValue + WITHDRAWAL_FEE : 0;
+  const expectedRemaining = fosaBalance - totalDebit;
+  const canUseWithdrawal =
+    Boolean(withdrawalDestination?.verified) &&
+    withdrawalDestination?.status === 'VERIFIED' &&
+    fosaBalance > 0;
+  const activeWithdrawalStatus = withdrawalStatusQuery.data ?? null;
+  const activeStatusLabel =
+    activeWithdrawalStatus?.memberStatusLabel ??
+    (activeWithdrawalReference ? 'Processing' : null);
+
+  const resetWithdrawalDialog = useCallback(() => {
+    if (!activeWithdrawalStatus || activeWithdrawalStatus.terminal) {
+      if (activeWithdrawalStatus?.terminal) {
+        setActiveWithdrawalId(null);
+        setActiveWithdrawalReference(null);
+        window.localStorage.removeItem(WITHDRAWAL_STATUS_STORAGE_KEY);
+      }
+      setWithdrawStep('form');
+      setWithdrawAmount('');
+      setTransportUncertain(false);
+    }
+  }, [activeWithdrawalStatus]);
 
   if (error) {
     return (
@@ -412,15 +497,41 @@ export default function MemberDashboardPage() {
             <div className="space-y-2">
               {dashboard.recentTransactions.map((tx) => {
                 const isCredit = ['DEPOSIT', 'LOAN_DISBURSEMENT', 'INTEREST_EARNED', 'DIVIDEND_PAYOUT'].includes(tx.type);
+                const isMpesaWithdrawal = tx.type === 'WITHDRAWAL' && Boolean(tx.memberReference);
                 return (
-                  <div key={tx.id} className="flex items-center justify-between rounded border p-3">
+                  <div key={tx.id} className="flex flex-col gap-3 rounded border p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium">{tx.description ?? tx.type}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{tx.description ?? tx.type}</p>
+                        {tx.memberStatusLabel && (
+                          <Badge variant="outline" className={withdrawalStatusTone(tx.memberStatus)}>
+                            {tx.memberStatusLabel}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {tx.account.accountType} · {formatDateTime(tx.createdAt)}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-end justify-between gap-3 sm:block sm:text-right">
+                      {isMpesaWithdrawal && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setActiveWithdrawalId(tx.id);
+                            setActiveWithdrawalReference(tx.memberReference ?? null);
+                            window.localStorage.setItem(
+                              WITHDRAWAL_STATUS_STORAGE_KEY,
+                              JSON.stringify({ transactionId: tx.id, reference: tx.memberReference }),
+                            );
+                            setWithdrawStep('status');
+                            setWithdrawOpen(true);
+                          }}
+                        >
+                          Track
+                        </Button>
+                      )}
                       <p className={`font-semibold text-sm ${isCredit ? 'text-green-600' : 'text-destructive'}`}>
                         {isCredit ? '+' : '-'}{formatCurrency(tx.amount)}
                       </p>
@@ -469,68 +580,167 @@ export default function MemberDashboardPage() {
               </Button>
             )}
 
-            <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+            <Dialog
+              open={withdrawOpen}
+              onOpenChange={(open) => {
+                setWithdrawOpen(open);
+                if (!open) resetWithdrawalDialog();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                   <Smartphone className="mr-2 h-4 w-4" />
                   Withdraw to M-Pesa
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[520px]">
                 <DialogHeader>
                   <DialogTitle>Withdraw to M-Pesa</DialogTitle>
                   <DialogDescription>
-                    Withdraw funds directly from your FOSA account to M-Pesa.
+                    Funds are sent only to your verified member number.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="flex justify-between items-center bg-muted/50 p-3 rounded-md">
-                    <span className="text-sm text-muted-foreground">Available FOSA Balance:</span>
-                    <span className="font-semibold text-lg">{formatCurrency(dashboard?.balances.fosa ?? 0)}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount to Withdraw</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      placeholder="e.g. 5000"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">M-Pesa Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="text"
-                      placeholder="e.g. 254700000000"
-                      value={withdrawPhone}
-                      onChange={(e) => setWithdrawPhone(e.target.value)}
-                      readOnly
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Withdrawals are sent only to your verified member phone.
-                    </p>
-                  </div>
-                  <Alert>
-                    <AlertTitle className="text-sm">Real-time tracking isn&apos;t available</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      Unlike M-Pesa deposits, withdrawals can&apos;t be tracked live here. Once submitted,
-                      please check your M-Pesa messages or refresh your balance manually to confirm the payout.
-                    </AlertDescription>
-                  </Alert>
+                  {activeWithdrawalId || withdrawStep === 'status' ? (
+                    <div className="space-y-4" aria-live="polite">
+                      <div className={`rounded-md border p-3 ${withdrawalStatusTone(activeWithdrawalStatus?.memberStatus)}`}>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <WithdrawalStatusIcon memberStatus={activeWithdrawalStatus?.memberStatus} />
+                          {activeStatusLabel ?? 'Processing'}
+                        </div>
+                        {activeWithdrawalStatus?.memberStatus === 'CONFIRMATION_DELAYED' && (
+                          <p className="mt-2 text-xs">
+                            M-Pesa confirmation is taking longer than usual. Your withdrawal is still being verified.
+                            Do not submit another withdrawal for the same amount while this one is being confirmed.
+                          </p>
+                        )}
+                        {withdrawalStatusQuery.isError && (
+                          <p className="mt-2 text-xs">Status could not be refreshed. Try again in a moment.</p>
+                        )}
+                      </div>
+                      <div className="grid gap-2 rounded-md border p-3 text-sm">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Reference</span>
+                          <span className="font-medium text-right">{activeWithdrawalStatus?.reference ?? activeWithdrawalReference}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Amount</span>
+                          <span className="font-medium">{formatCurrency(Number(activeWithdrawalStatus?.amount ?? withdrawAmount ?? 0))}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Destination</span>
+                          <span className="font-medium">{activeWithdrawalStatus?.destination ?? withdrawalDestination?.maskedPhone ?? 'Verified member number'}</span>
+                        </div>
+                        {activeWithdrawalStatus?.providerReference && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">Provider reference</span>
+                            <span className="font-medium text-right">{activeWithdrawalStatus.providerReference}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : withdrawStep === 'confirm' ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-2 rounded-md border p-3 text-sm">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Amount</span>
+                          <span className="font-medium">{formatCurrency(withdrawalAmountValue)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Destination</span>
+                          <span className="font-medium">{withdrawalDestination?.maskedPhone}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Fee</span>
+                          <span className="font-medium">{formatCurrency(WITHDRAWAL_FEE)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Total debit</span>
+                          <span className="font-medium">{formatCurrency(totalDebit)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Available balance</span>
+                          <span className="font-medium">{formatCurrency(fosaBalance)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">Expected remaining</span>
+                          <span className="font-medium">{formatCurrency(expectedRemaining)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center bg-muted/50 p-3 rounded-md">
+                        <span className="text-sm text-muted-foreground">Available FOSA Balance:</span>
+                        <span className="font-semibold text-lg">{formatCurrency(fosaBalance)}</span>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <p className="text-sm text-muted-foreground">M-Pesa destination</p>
+                        <p className="mt-1 text-lg font-semibold">{withdrawalDestination?.maskedPhone ?? 'No verified number'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {withdrawalDestination?.status === 'VERIFIED'
+                            ? 'Verified member number'
+                            : withdrawalDestination?.status === 'MISSING'
+                              ? 'Add and verify your member phone before withdrawing.'
+                              : 'Verify your member phone before withdrawing.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount to Withdraw</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          inputMode="decimal"
+                          min="1"
+                          placeholder="e.g. 5000"
+                          value={withdrawAmount}
+                          onChange={(e) => setWithdrawAmount(e.target.value)}
+                          disabled={!canUseWithdrawal || withdrawing}
+                        />
+                      </div>
+                      {transportUncertain && (
+                        <Alert className="border-amber-200 bg-amber-50">
+                          <AlertCircle className="h-4 w-4 text-amber-700" />
+                          <AlertTitle className="text-amber-900">Checking previous request</AlertTitle>
+                          <AlertDescription className="text-amber-800">
+                            Reuse this attempt to recover the same withdrawal. Do not start another one yet.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setWithdrawOpen(false)} disabled={withdrawing}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleWithdraw} disabled={withdrawing}>
-                    {withdrawing ? (
-                      <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
-                    ) : (
-                      'Withdraw Funds'
-                    )}
-                  </Button>
+                  {activeWithdrawalId || withdrawStep === 'status' ? (
+                    <>
+                      <Button variant="outline" onClick={() => withdrawalStatusQuery.refetch()} disabled={withdrawalStatusQuery.isFetching}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${withdrawalStatusQuery.isFetching ? 'animate-spin' : ''}`} />
+                        Refresh status
+                      </Button>
+                      <Button onClick={() => setWithdrawOpen(false)}>Close</Button>
+                    </>
+                  ) : withdrawStep === 'confirm' ? (
+                    <>
+                      <Button variant="outline" onClick={() => setWithdrawStep('form')} disabled={withdrawing}>
+                        Back
+                      </Button>
+                      <Button onClick={handleWithdraw} disabled={withdrawing || expectedRemaining < 0}>
+                        {withdrawing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Submitting</> : 'Confirm withdrawal'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => setWithdrawOpen(false)} disabled={withdrawing}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => setWithdrawStep('confirm')}
+                        disabled={!canUseWithdrawal || withdrawing || !withdrawAmount || withdrawalAmountValue <= 0 || expectedRemaining < 0}
+                      >
+                        Continue
+                      </Button>
+                    </>
+                  )}
                 </DialogFooter>
               </DialogContent>
             </Dialog>

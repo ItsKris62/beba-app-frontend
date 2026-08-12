@@ -105,6 +105,12 @@ export interface MemberDashboard {
     name: string;
     email: string;
     phone?: string | null;
+    phoneVerified?: boolean;
+    withdrawalDestination?: {
+      maskedPhone: string | null;
+      verified: boolean;
+      status: "VERIFIED" | "UNVERIFIED" | "MISSING" | "NEEDS_REVIEW";
+    };
     profileImageKey?: string | null;
     updatedAt?: string;
     kycStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | string;
@@ -132,6 +138,12 @@ export interface MemberDashboard {
     balanceAfter: number;
     description: string | null;
     createdAt: string;
+    status?: string;
+    reference?: string;
+    memberReference?: string | null;
+    memberStatus?: string | null;
+    memberStatusLabel?: string | null;
+    maskedDestination?: string | null;
     account: { accountType: string };
   }[];
   pendingGuarantorRequests: {
@@ -192,6 +204,30 @@ export interface BosaStatement {
   transactions: StatementTransaction[];
   meta?: StatementMeta;
   auditHash: string;
+}
+
+export type WithdrawalMemberStatus =
+  | "PROCESSING"
+  | "SENDING_TO_MPESA"
+  | "COMPLETED"
+  | "FAILED_FUNDS_RESTORED"
+  | "CONFIRMATION_DELAYED";
+
+export interface WithdrawalStatusResponse {
+  transactionId: string;
+  reference: string;
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  memberStatus: WithdrawalMemberStatus | string;
+  memberStatusLabel: string;
+  terminal: boolean;
+  amount: string;
+  fee: string;
+  totalDebit: string;
+  destination: string | null;
+  requestedAt: string;
+  lastUpdated?: string;
+  failureReason?: string;
+  providerReference?: string | null;
 }
 
 export interface ConsentRecord {
@@ -1374,13 +1410,18 @@ export const memberApi = {
     data: { phoneNumber?: string; amount: number },
     idempotencyKey: string,
   ) =>
-    apiFetch<{ message: string; transactionId: string }>(
+    apiFetch<{ message: string; transactionId: string; reference: string }>(
       "/members/withdraw/mpesa",
       {
         method: "POST",
         headers: { "X-Idempotency-Key": idempotencyKey },
         body: JSON.stringify(data),
       },
+    ),
+
+  getWithdrawalStatus: (transactionId: string) =>
+    apiFetch<WithdrawalStatusResponse>(
+      `/members/withdraw/mpesa/${encodeURIComponent(transactionId)}/status`,
     ),
 
   getFosaStatement: (params?: {

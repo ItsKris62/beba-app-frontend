@@ -79,6 +79,13 @@ function dashboardBody(overrides: Record<string, unknown> = {}) {
         memberNumber: 'MBR-001',
         name: 'Test Member',
         email: MEMBER_CREDENTIALS.email,
+        phone: '254712345678',
+        phoneVerified: true,
+        withdrawalDestination: {
+          maskedPhone: '+254 7** *** 678',
+          verified: true,
+          status: 'VERIFIED',
+        },
         kycStatus: 'APPROVED',
       },
       balances: { fosa: 15000, bosa: 5000, fosaAccountId: 'acc-fosa-1', bosaAccountId: 'acc-bosa-1' },
@@ -185,5 +192,161 @@ test.describe('Auth & Dashboard', () => {
     // asserting on a specific interval — the point is it eventually resolves.
     await expect(page.getByText(/Deposit Successful/i)).toBeVisible({ timeout: 20_000 });
     expect(pollCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('verified M-Pesa withdrawal shows confirmation, durable reference, and completed status', async ({ page }) => {
+    let postCount = 0;
+    let pollCount = 0;
+    let withdrawalPayload: Record<string, unknown> | null = null;
+
+    await page.route(`${API_BASE}/members/withdraw/mpesa`, async (route) => {
+      postCount += 1;
+      withdrawalPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            message: 'Withdrawal initiated successfully',
+            transactionId: '11111111-1111-4111-8111-111111111111',
+            reference: 'WD-20260812-11111111',
+          },
+          error: null,
+        }),
+      });
+    });
+
+    await page.route(`${API_BASE}/members/withdraw/mpesa/11111111-1111-4111-8111-111111111111/status`, async (route) => {
+      pollCount += 1;
+      const completed = pollCount >= 2;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            transactionId: '11111111-1111-4111-8111-111111111111',
+            reference: 'WD-20260812-11111111',
+            status: completed ? 'SUCCESS' : 'PENDING',
+            memberStatus: completed ? 'COMPLETED' : 'PROCESSING',
+            memberStatusLabel: completed ? 'Completed' : 'Processing',
+            terminal: completed,
+            amount: '5000',
+            fee: '0',
+            totalDebit: '5000',
+            destination: '+254 7** *** 678',
+            requestedAt: '2026-08-12T09:00:00.000Z',
+            lastUpdated: '2026-08-12T09:00:05.000Z',
+            providerReference: completed ? 'MWALONI-REF-001' : null,
+          },
+          error: null,
+        }),
+      });
+    });
+
+    await loginAsMember(page);
+    await page.getByRole('button', { name: /Withdraw to M-Pesa/i }).click();
+    await expect(page.getByText('+254 7** *** 678')).toBeVisible();
+    await page.getByLabel('Amount to Withdraw').fill('5000');
+    await page.getByRole('button', { name: /^Continue$/i }).click();
+    await expect(page.getByText('Total debit')).toBeVisible();
+    await expect(page.getByText('Expected remaining')).toBeVisible();
+    await page.getByRole('button', { name: /Confirm withdrawal/i }).dblclick();
+
+    await expect(page.getByText('WD-20260812-11111111')).toBeVisible();
+    await expect(page.getByText(/Processing|Completed/)).toBeVisible();
+    await expect(page.getByText('Completed')).toBeVisible({ timeout: 12_000 });
+    expect(postCount).toBe(1);
+    expect(withdrawalPayload).toEqual({ amount: 5000 });
+  });
+
+  test('unverified member phone blocks withdrawal before submission', async ({ page }) => {
+    let postCount = 0;
+
+    await page.route(`${API_BASE}/members/dashboard`, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(dashboardBody({
+          member: {
+            id: 'member-uuid-001',
+            memberNumber: 'MBR-001',
+            name: 'Test Member',
+            email: MEMBER_CREDENTIALS.email,
+            phone: '254712345678',
+            phoneVerified: false,
+            withdrawalDestination: {
+              maskedPhone: '+254 7** *** 678',
+              verified: false,
+              status: 'UNVERIFIED',
+            },
+            kycStatus: 'APPROVED',
+          },
+        })),
+      });
+    });
+    await page.route(`${API_BASE}/members/withdraw/mpesa`, (route) => {
+      postCount += 1;
+      route.abort();
+    });
+
+    await loginAsMember(page);
+    await page.getByRole('button', { name: /Withdraw to M-Pesa/i }).click();
+    await expect(page.getByText('Verify your member phone before withdrawing.')).toBeVisible();
+    await expect(page.getByLabel('Amount to Withdraw')).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Continue$/i })).toBeDisabled();
+    expect(postCount).toBe(0);
+  });
+
+  test('delayed withdrawal status uses confirmation-delayed wording without retry CTA', async ({ page }) => {
+    await page.route(`${API_BASE}/members/withdraw/mpesa`, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            message: 'Withdrawal initiated successfully',
+            transactionId: '22222222-2222-4222-8222-222222222222',
+            reference: 'WD-20260812-22222222',
+          },
+          error: null,
+        }),
+      });
+    });
+    await page.route(`${API_BASE}/members/withdraw/mpesa/22222222-2222-4222-8222-222222222222/status`, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            transactionId: '22222222-2222-4222-8222-222222222222',
+            reference: 'WD-20260812-22222222',
+            status: 'PENDING',
+            memberStatus: 'CONFIRMATION_DELAYED',
+            memberStatusLabel: 'Processing - confirmation delayed',
+            terminal: false,
+            amount: '5000',
+            fee: '0',
+            totalDebit: '5000',
+            destination: '+254 7** *** 678',
+            requestedAt: '2026-08-12T09:00:00.000Z',
+          },
+          error: null,
+        }),
+      });
+    });
+
+    await loginAsMember(page);
+    await page.getByRole('button', { name: /Withdraw to M-Pesa/i }).click();
+    await page.getByLabel('Amount to Withdraw').fill('5000');
+    await page.getByRole('button', { name: /^Continue$/i }).click();
+    await page.getByRole('button', { name: /Confirm withdrawal/i }).click();
+
+    await expect(page.getByText('Processing - confirmation delayed')).toBeVisible();
+    await expect(page.getByText(/Do not submit another withdrawal/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Confirm withdrawal/i })).toHaveCount(0);
   });
 });

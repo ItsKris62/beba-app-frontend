@@ -1371,7 +1371,7 @@ export const memberApi = {
   getDashboard: () => apiFetch<MemberDashboard>("/members/dashboard"),
 
   withdrawMpesa: (
-    data: { phoneNumber: string; amount: number },
+    data: { phoneNumber?: string; amount: number },
     idempotencyKey: string,
   ) =>
     apiFetch<{ message: string; transactionId: string }>(

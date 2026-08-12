@@ -43,6 +43,8 @@ const LOAN_STATUS_COLORS: Record<string, string> = {
   DEFAULTED: 'bg-red-100 text-red-700',
 };
 
+const WITHDRAWAL_ATTEMPT_STORAGE_KEY = 'beba.member.withdrawalAttempt.v1';
+
 // ─── Summary card ─────────────────────────────────────────────────────────────
 
 function SummaryCard({
@@ -88,6 +90,8 @@ export default function MemberDashboardPage() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawPhone, setWithdrawPhone] = useState('');
+  const [withdrawAttemptKey, setWithdrawAttemptKey] = useState<string | null>(null);
+  const [withdrawAttemptFingerprint, setWithdrawAttemptFingerprint] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -112,6 +116,43 @@ export default function MemberDashboardPage() {
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(WITHDRAWAL_ATTEMPT_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { key?: string; fingerprint?: string };
+      if (saved.key && saved.fingerprint) {
+        setWithdrawAttemptKey(saved.key);
+        setWithdrawAttemptFingerprint(saved.fingerprint);
+      }
+    } catch {
+      window.localStorage.removeItem(WITHDRAWAL_ATTEMPT_STORAGE_KEY);
+    }
+  }, []);
+
+  const clearWithdrawalAttempt = useCallback(() => {
+    setWithdrawAttemptKey(null);
+    setWithdrawAttemptFingerprint(null);
+    window.localStorage.removeItem(WITHDRAWAL_ATTEMPT_STORAGE_KEY);
+  }, []);
+
+  const getWithdrawalAttemptKey = useCallback(
+    (fingerprint: string) => {
+      if (withdrawAttemptKey && withdrawAttemptFingerprint === fingerprint) {
+        return withdrawAttemptKey;
+      }
+      const key = generateIdempotencyKey();
+      setWithdrawAttemptKey(key);
+      setWithdrawAttemptFingerprint(fingerprint);
+      window.localStorage.setItem(
+        WITHDRAWAL_ATTEMPT_STORAGE_KEY,
+        JSON.stringify({ key, fingerprint }),
+      );
+      return key;
+    },
+    [withdrawAttemptFingerprint, withdrawAttemptKey],
+  );
+
   const handleWithdraw = async () => {
     const amountNum = Number(withdrawAmount);
     if (!withdrawAmount || isNaN(amountNum) || amountNum <= 0) {
@@ -123,16 +164,13 @@ export default function MemberDashboardPage() {
       toast.error('Insufficient FOSA balance for this withdrawal');
       return;
     }
-    if (!withdrawPhone) {
-      toast.error('Phone number is required');
-      return;
-    }
-
     setWithdrawing(true);
+    const fingerprint = JSON.stringify({ amount: amountNum });
+    const attemptKey = getWithdrawalAttemptKey(fingerprint);
     try {
       const res = await memberApi.withdrawMpesa(
-        { amount: amountNum, phoneNumber: withdrawPhone },
-        generateIdempotencyKey(),
+        { amount: amountNum, ...(withdrawPhone ? { phoneNumber: withdrawPhone } : {}) },
+        attemptKey,
       );
       if (res.success) {
         // There is no status-polling endpoint for FOSA-to-M-Pesa withdrawals
@@ -141,6 +179,7 @@ export default function MemberDashboardPage() {
           'Withdrawal initiated. Your FOSA balance has already been updated — check your M-Pesa messages to confirm the payout, or refresh this page in a few minutes.',
           { duration: 8000 },
         );
+        clearWithdrawalAttempt();
         setWithdrawOpen(false);
         setWithdrawAmount('');
         loadDashboard();
@@ -467,8 +506,11 @@ export default function MemberDashboardPage() {
                       placeholder="e.g. 254700000000"
                       value={withdrawPhone}
                       onChange={(e) => setWithdrawPhone(e.target.value)}
+                      readOnly
                     />
-                    <p className="text-xs text-muted-foreground">Start with 254</p>
+                    <p className="text-xs text-muted-foreground">
+                      Withdrawals are sent only to your verified member phone.
+                    </p>
                   </div>
                   <Alert>
                     <AlertTitle className="text-sm">Real-time tracking isn&apos;t available</AlertTitle>

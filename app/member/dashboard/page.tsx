@@ -597,7 +597,7 @@ export default function MemberDashboardPage() {
                 <DialogHeader>
                   <DialogTitle>Withdraw to M-Pesa</DialogTitle>
                   <DialogDescription>
-                    Funds are sent only to your verified member number.
+                    Funds are sent only to the phone number saved on your member profile.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -629,7 +629,7 @@ export default function MemberDashboardPage() {
                         </div>
                         <div className="flex justify-between gap-3">
                           <span className="text-muted-foreground">Destination</span>
-                          <span className="font-medium">{activeWithdrawalStatus?.destination ?? withdrawalDestination?.maskedPhone ?? 'Verified member number'}</span>
+                          <span className="font-medium">{activeWithdrawalStatus?.destination ?? withdrawalDestination?.maskedPhone ?? 'Member profile phone'}</span>
                         </div>
                         {activeWithdrawalStatus?.providerReference && (
                           <div className="flex justify-between gap-3">
@@ -676,13 +676,13 @@ export default function MemberDashboardPage() {
                       </div>
                       <div className="rounded-md border p-3">
                         <p className="text-sm text-muted-foreground">M-Pesa destination</p>
-                        <p className="mt-1 text-lg font-semibold">{withdrawalDestination?.maskedPhone ?? 'No verified number'}</p>
+                        <p className="mt-1 text-lg font-semibold">{withdrawalDestination?.maskedPhone ?? 'No profile phone'}</p>
                         <p className="text-xs text-muted-foreground">
                           {withdrawalDestination?.status === 'VERIFIED'
-                            ? 'Verified member number'
+                            ? 'Member profile phone'
                             : withdrawalDestination?.status === 'MISSING'
-                              ? 'Add and verify your member phone before withdrawing.'
-                              : 'Verify your member phone before withdrawing.'}
+                              ? 'Add your phone number in Profile before withdrawing.'
+                              : 'Update your phone number in Profile before withdrawing.'}
                         </p>
                       </div>
                       <div className="space-y-2">

@@ -194,7 +194,7 @@ test.describe('Auth & Dashboard', () => {
     expect(pollCount).toBeGreaterThanOrEqual(2);
   });
 
-  test('verified M-Pesa withdrawal shows confirmation, durable reference, and completed status', async ({ page }) => {
+  test('profile-phone M-Pesa withdrawal shows confirmation, durable reference, and completed status', async ({ page }) => {
     let postCount = 0;
     let pollCount = 0;
     let withdrawalPayload: Record<string, unknown> | null = null;
@@ -261,7 +261,7 @@ test.describe('Auth & Dashboard', () => {
     expect(withdrawalPayload).toEqual({ amount: 5000 });
   });
 
-  test('unverified member phone blocks withdrawal before submission', async ({ page }) => {
+  test('missing member profile phone blocks withdrawal before submission', async ({ page }) => {
     let postCount = 0;
 
     await page.route(`${API_BASE}/members/dashboard`, (route) => {
@@ -274,12 +274,12 @@ test.describe('Auth & Dashboard', () => {
             memberNumber: 'MBR-001',
             name: 'Test Member',
             email: MEMBER_CREDENTIALS.email,
-            phone: '254712345678',
+            phone: null,
             phoneVerified: false,
             withdrawalDestination: {
-              maskedPhone: '+254 7** *** 678',
+              maskedPhone: null,
               verified: false,
-              status: 'UNVERIFIED',
+              status: 'MISSING',
             },
             kycStatus: 'APPROVED',
           },
@@ -293,7 +293,7 @@ test.describe('Auth & Dashboard', () => {
 
     await loginAsMember(page);
     await page.getByRole('button', { name: /Withdraw to M-Pesa/i }).click();
-    await expect(page.getByText('Verify your member phone before withdrawing.')).toBeVisible();
+    await expect(page.getByText('Add your phone number in Profile before withdrawing.')).toBeVisible();
     await expect(page.getByLabel('Amount to Withdraw')).toBeDisabled();
     await expect(page.getByRole('button', { name: /^Continue$/i })).toBeDisabled();
     expect(postCount).toBe(0);

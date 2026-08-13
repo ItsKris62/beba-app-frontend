@@ -395,42 +395,52 @@ export default function SystemHealthPage() {
                 {walletBalanceError}
               </div>
             ) : walletBalance ? (
-              <div className="grid gap-4 md:grid-cols-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Balance</p>
-                  <p className="text-2xl font-semibold tabular-nums">
-                    {walletBalance.balance === null
-                      ? "Unavailable"
-                      : walletBalance.currency === "KES"
-                        ? formatCurrency(walletBalance.balance)
-                        : `${walletBalance.currency} ${walletBalance.balance.toLocaleString()}`}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Available</p>
-                  <p className="font-medium tabular-nums">
-                    {walletBalance.availableBalance === null
-                      ? "Unavailable"
-                      : walletBalance.currency === "KES"
-                        ? formatCurrency(walletBalance.availableBalance)
-                        : `${walletBalance.currency} ${walletBalance.availableBalance.toLocaleString()}`}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Provider</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Badge variant="secondary">{walletBalance.provider}</Badge>
-                    {walletBalance.providerStatus && (
-                      <Badge variant={walletBalance.providerStatus === "00" ? "secondary" : "outline"}>
-                        {walletBalance.providerStatus}
-                      </Badge>
-                    )}
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Balance</p>
+                    <p className={`text-2xl font-semibold tabular-nums ${walletBalance.balance !== null && walletBalance.balance < 0 ? "text-destructive" : ""}`}>
+                      {walletBalance.balance === null
+                        ? "Unavailable"
+                        : walletBalance.currency === "KES"
+                          ? formatCurrency(walletBalance.balance)
+                          : `${walletBalance.currency} ${walletBalance.balance.toLocaleString()}`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Available</p>
+                    <p className={`font-medium tabular-nums ${walletBalance.availableBalance !== null && walletBalance.availableBalance < 0 ? "text-destructive font-semibold" : ""}`}>
+                      {walletBalance.availableBalance === null
+                        ? "Unavailable"
+                        : walletBalance.currency === "KES"
+                          ? formatCurrency(walletBalance.availableBalance)
+                          : `${walletBalance.currency} ${walletBalance.availableBalance.toLocaleString()}`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Provider</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant="secondary">{walletBalance.provider}</Badge>
+                      {walletBalance.providerStatus && (
+                        <Badge variant={walletBalance.providerStatus === "00" ? "secondary" : "outline"}>
+                          {walletBalance.providerStatus}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Checked</p>
+                    <p className="font-mono text-sm">{fmtTs(walletBalance.checkedAt)}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Checked</p>
-                  <p className="font-mono text-sm">{fmtTs(walletBalance.checkedAt)}</p>
-                </div>
+
+                {((walletBalance.balance !== null && walletBalance.balance < 0) ||
+                  (walletBalance.availableBalance !== null && walletBalance.availableBalance < 0)) && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+                    ⚠️ <strong>Liquidity Warning:</strong> Mwaloni provider wallet balance is negative (
+                    {formatCurrency(walletBalance.balance ?? walletBalance.availableBalance ?? 0)}). Outbound B2C disbursements will fail until the provider account is funded.
+                  </div>
+                )}
               </div>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">No wallet balance loaded.</p>

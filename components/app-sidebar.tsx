@@ -54,6 +54,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { GlobalSearchDialog } from "@/components/global-search-dialog"
 
 interface SidebarProps {
   userType: "member" | "admin"
@@ -118,6 +119,14 @@ export function AppSidebar({
   const { logout } = useAuth()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [isMac, setIsMac] = React.useState(false)
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0)
+    }
+  }, [])
   const navItems = userType === "member" ? memberNavItems : getAdminNavItems(userRole)
   const displayName = userName || "User"
 
@@ -337,14 +346,27 @@ export function AppSidebar({
               <span className="sr-only">Toggle menu</span>
             </Button>
 
-            {/* Search */}
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                className="h-9 w-64 pl-9 bg-muted/50 border-0 focus-visible:bg-background focus-visible:ring-1"
-              />
-            </div>
+            {/* Search Trigger */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="group relative flex h-9 w-56 sm:w-64 md:w-80 items-center justify-between rounded-lg border border-input bg-muted/40 px-3 text-sm text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                <span className="truncate text-xs md:text-sm">Search settings & functions...</span>
+              </div>
+              <kbd className="pointer-events-none hidden select-none items-center gap-0.5 rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 sm:flex">
+                <span className="text-xs">{isMac ? "⌘" : "Ctrl+"}</span>K
+              </kbd>
+            </button>
+
+            <GlobalSearchDialog
+              open={searchOpen}
+              onOpenChange={setSearchOpen}
+              userRole={userRole}
+              userType={userType}
+            />
 
             {/* Spacer to push right actions to far right */}
             <div className="flex-1" />

@@ -698,6 +698,24 @@ export default function MemberDashboardPage() {
                           disabled={!canUseWithdrawal || withdrawing}
                         />
                       </div>
+                      {fosaBalance <= 0 && (
+                        <Alert className="border-amber-200 bg-amber-50">
+                          <AlertCircle className="h-4 w-4 text-amber-700" />
+                          <AlertTitle className="text-amber-900">FOSA Balance Too Low</AlertTitle>
+                          <AlertDescription className="text-amber-800">
+                            Your FOSA balance ({formatCurrency(fosaBalance)}) is too low to perform withdrawals. Please deposit funds or try again later.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {withdrawalAmountValue > 0 && expectedRemaining < 0 && (
+                        <Alert className="border-destructive/30 bg-destructive/5">
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                          <AlertTitle className="text-destructive">Exceeds Available Balance</AlertTitle>
+                          <AlertDescription className="text-destructive">
+                            Requested withdrawal of {formatCurrency(withdrawalAmountValue)} exceeds your available FOSA balance ({formatCurrency(fosaBalance)}). Please try a smaller amount.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       {transportUncertain && (
                         <Alert className="border-amber-200 bg-amber-50">
                           <AlertCircle className="h-4 w-4 text-amber-700" />

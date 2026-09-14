@@ -46,9 +46,11 @@ const uploadOrigin = (() => {
 })();
 const uploadOriginWildcard = uploadOrigin.replace(/^(https?:\/\/)/, '$1*.');
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // Profile-picture/document previews load from presigned R2 GET URLs
   // (member-portal.service.ts's getProfileImageUrl/getDownloadUrl) — same

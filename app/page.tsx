@@ -66,7 +66,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <PublicNavbar />
 
       <main className="flex-1">
@@ -75,7 +75,7 @@ export default function HomePage() {
           <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-5" />
           <div className="container relative z-10 mx-auto px-4">
             <div className="mx-auto max-w-4xl text-center">
-              <div className="mb-6 inline-flex items-center rounded-full border bg-background/80 px-4 py-1.5 text-sm backdrop-blur">
+              <div className="mb-6 inline-flex items-center rounded-full border border-border bg-muted/60 px-4 py-1.5 text-sm font-medium text-foreground backdrop-blur">
                 <Shield className="mr-2 h-4 w-4 text-primary" />
                 Regulated by SASRA | Licensed Deposit Taking SACCO
               </div>
@@ -229,7 +229,7 @@ export default function HomePage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 text-primary-foreground">
+        <section className="bg-primary py-20 text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
             <h2 className="mb-4 text-3xl font-bold">Ready to Start Your Financial Journey?</h2>
             <p className="mx-auto mb-8 max-w-2xl opacity-90">
